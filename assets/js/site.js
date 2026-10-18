@@ -4,7 +4,7 @@ const CONFIG = {
   prices: { monthly: 9.99, annual: 69.99 },
   // Formspree form endpoint, e.g. "https://formspree.io/f/abcdwxyz". Until it's set, the form opens an email instead.
   formspreeEndpoint: "",
-  fallbackEmail: "herringtondavid11@gmail.com",
+  fallbackEmail: "support@daveypersonalfinance.com",
 };
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
