@@ -1,7 +1,7 @@
 // Davey marketing site. Edit CONFIG to change prices and the waitlist endpoint.
 const CONFIG = {
-  // PLACEHOLDER prices (USD). They match the app's StoreKit test products; change before launch.
-  prices: { monthly: 7.99, annual: 59.99 },
+  // Launch prices (USD): App Store Connect products davey.premium.monthly and davey.premium.annual.
+  prices: { monthly: 9.99, annual: 69.99 },
   // Formspree form endpoint, e.g. "https://formspree.io/f/abcdwxyz". Until it's set, the form opens an email instead.
   formspreeEndpoint: "",
   fallbackEmail: "herringtondavid11@gmail.com",

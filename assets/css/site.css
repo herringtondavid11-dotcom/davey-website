@@ -260,3 +260,9 @@ p { margin: 0; }
   * { animation: none !important; }
 }
 .nav-simple { display: flex; }
+
+/* Smaller features under the big ones (Household Sharing, Mac, connection help). */
+.feature-extras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s3); margin-top: var(--s4); }
+.feature-extras h3 { margin-bottom: 8px; }
+.feature-extras p { color: var(--slate-ink); }
+@media (max-width: 900px) { .feature-extras { grid-template-columns: 1fr; } }
