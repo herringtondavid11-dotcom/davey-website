@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["D2Z4ABFHAB.com.davidherrington.Davey"],
+        "components": [
+          { "/": "/join*", "comment": "Household invite links open Davey" },
+          { "/": "/auth/*", "comment": "Email confirmation and password reset links open Davey" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["D2Z4ABFHAB.com.davidherrington.Davey"]
+  }
+}
