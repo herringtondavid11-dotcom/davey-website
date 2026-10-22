@@ -139,3 +139,7 @@ the GitHub Pages run instead.
 - Checked: "Check your email" screen with axe in light and dark — no serious/critical issues.
 - New test: a11y.spec "Check your email" sign-in code screen (light + dark).
 - Counts: Vitest 112/112, Playwright Chromium 107/107.
+
+## Loop 16 — 2026-10-22 16:43 UTC (hourly check)
+- Pages: a497e8a deployed (success). No new commits from other sessions. No issues found.
+- Counts: Vitest 112/112, Playwright Chromium 107/107.
