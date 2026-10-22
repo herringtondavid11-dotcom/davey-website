@@ -8,6 +8,17 @@ import { RecoveryKeyPanel } from './RecoveryKey'
 
 type Enrollment = { id: string; qr: string; secret: string }
 
+// One setup at a time per page, even if this screen mounts twice (a redirect right after sign-in): two parallel
+// enrollments would collide on the factor name.
+let pending: Promise<Enrollment> | null = null
+function startEnrollment(): Promise<Enrollment> {
+  pending ??= (async () => {
+    await cleanupUnverified(await listFactors())
+    return enrollTotp(PRIMARY_FACTOR_NAME)
+  })().finally(() => setTimeout(() => { pending = null }, 0))
+  return pending
+}
+
 export function MfaEnroll() {
   const { finishEnroll, signOut } = useAuth()
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null)
@@ -20,11 +31,7 @@ export function MfaEnroll() {
   useEffect(() => {
     if (started.current) return
     started.current = true
-    ;(async () => {
-      const summary = await listFactors()
-      await cleanupUnverified(summary)
-      setEnrollment(await enrollTotp(PRIMARY_FACTOR_NAME))
-    })().catch((e) => setError(e.message))
+    startEnrollment().then(setEnrollment, (e) => setError((e as Error).message || "Couldn't start 2-step setup. Try again."))
   }, [])
 
   async function submit(e: FormEvent) {
@@ -70,7 +77,15 @@ export function MfaEnroll() {
           <button className="btn btn-primary btn-block" disabled={busy || code.replace(/\D/g, '').length !== 6}>{busy ? 'Verifying…' : 'Turn on'}</button>
         </form>
       )}
-      {!enrollment && error && <p className="error" role="alert">{error}</p>}
+      {!enrollment && error && (
+        <>
+          <p className="error" role="alert">{error}</p>
+          <button type="button" className="btn btn-primary btn-block" onClick={() => {
+            setError('')
+            startEnrollment().then(setEnrollment, (e) => setError((e as Error).message || "Couldn't start 2-step setup. Try again."))
+          }}>Try again</button>
+        </>
+      )}
       <div className="auth-foot">
         <button type="button" className="link-btn" onClick={() => signOut()}>Cancel and sign out</button>
       </div>

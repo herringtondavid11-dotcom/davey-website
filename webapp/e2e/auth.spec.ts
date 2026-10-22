@@ -66,6 +66,22 @@ test('accounts without 2-step verification must enroll and get a recovery key', 
   ])
 })
 
+test('a leftover unfinished 2-step setup never blocks setup (David, 2026-10-22: "friendly name already exists")', async ({ page }) => {
+  const state = await mockBackend(page, { mfa: 'none', hiddenStaleFactor: true })
+  await signIn(page)
+  await expect(page.getByRole('heading', { name: 'Turn on 2-step verification' })).toBeVisible()
+  await expect(page.getByAltText('QR code for your authenticator app')).toBeVisible()
+  await expect(page.getByText(/already exists/)).toHaveCount(0)
+  await page.getByLabel('6-digit code').fill(GOOD_CODE)
+  await page.getByRole('button', { name: 'Turn on' }).click()
+  await expect(page.getByRole('heading', { name: 'Save your recovery key' })).toBeVisible()
+  await page.getByLabel('I saved my recovery key').check()
+  await page.getByRole('button', { name: 'Go to Davey' }).click()
+  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
+  const primary = state.factors.find((f) => f.friendly_name.startsWith('Davey authenticator'))
+  expect(primary?.status).toBe('verified')
+})
+
 test('sign out is local only and returns to sign in', async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true })
   await page.goto('/app/settings')

@@ -115,3 +115,12 @@ the GitHub Pages run instead.
   100 accessibility, 100 best practices. No issues found.
 - New test: a11y.spec "Accounts with a goal editor open" (light + dark).
 - Counts: Vitest 115/115, Playwright Chromium 104/104.
+
+## Loop 13 — 2026-10-22 14:33 UTC (David blocked: "friendly name 'Davey authenticator' already exists")
+- Cause: a leftover unfinished 2-step setup held the name "Davey authenticator"; Supabase refuses a second one, and
+  the cleanup didn't clear it, so "Turn on 2-step verification" stopped with that error and only "Cancel and sign out".
+- Fixed: on a name conflict the web clears unfinished setups and retries, then falls back to a unique name
+  ("Davey authenticator (date time)"); setup runs once per page even if the screen mounts twice; the error state has a
+  Try again button.
+- New tests: auth.spec "leftover unfinished 2-step setup never blocks setup", mfaNames.test.
+- Counts: Vitest 117/117, Playwright Chromium 105/105.

@@ -6,7 +6,17 @@ export const BACKUP_FACTOR_NAME = 'Davey backup'
 export const PRIMARY_FACTOR_NAME = 'Davey authenticator'
 
 export function isBackup(f: Pick<Factor, 'friendly_name'>) {
-  return f.friendly_name === BACKUP_FACTOR_NAME
+  return f.friendly_name === BACKUP_FACTOR_NAME || (f.friendly_name ?? '').startsWith(`${BACKUP_FACTOR_NAME} (`)
+}
+
+/** Supabase refuses a second factor with the same name, including a leftover unfinished setup it may not list. */
+export function isNameConflict(error: { code?: string; message?: string } | null): boolean {
+  return Boolean(error && (error.code === 'mfa_factor_name_conflict' || /friendly name .* already exists/i.test(error.message ?? '')))
+}
+
+/** The name to retry with after a conflict: unique, still readable in an authenticator app's list. */
+export function uniqueFactorName(base: string, now = new Date()): string {
+  return `${base} (${now.toISOString().slice(0, 16).replace('T', ' ')})`
 }
 
 export interface FactorSummary {
@@ -38,12 +48,22 @@ export async function verifyCode(factorId: string, code: string) {
 
 /** Remove abandoned, unverified enrollments so a fresh enroll doesn't hit the friendly-name uniqueness rule. */
 export async function cleanupUnverified(summary: FactorSummary) {
-  for (const f of summary.unverified) await supabase.auth.mfa.unenroll({ factorId: f.id })
+  for (const f of summary.unverified) await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => undefined)
 }
 
+/**
+ * Starts a TOTP setup. If a leftover unfinished setup holds the name (a closed tab, an earlier attempt), it's cleared
+ * and, failing that, the new setup gets a unique name, so 2-step setup can never get stuck.
+ */
 export async function enrollTotp(friendlyName: string) {
-  const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName, issuer: 'Davey' })
-  if (error) throw error
+  const attempt = (name: string) => supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: name, issuer: 'Davey' })
+  let { data, error } = await attempt(friendlyName)
+  if (isNameConflict(error)) {
+    await cleanupUnverified(await listFactors().catch(() => ({ unverified: [] }) as FactorSummary))
+    ;({ data, error } = await attempt(friendlyName))
+    if (isNameConflict(error)) ({ data, error } = await attempt(uniqueFactorName(friendlyName)))
+  }
+  if (error || !data) throw error ?? new Error("Couldn't start 2-step setup. Try again.")
   return { id: data.id, qr: data.totp.qr_code, secret: data.totp.secret, uri: data.totp.uri }
 }
 

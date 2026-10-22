@@ -212,6 +212,8 @@ export interface MockOptions {
   emailRateLimited?: boolean
   /** The account was created on the web: its metadata still holds the access pass from sign-up. */
   passInMetadata?: boolean
+  /** A leftover unfinished "Davey authenticator" setup that Supabase doesn't list but still blocks the name. */
+  hiddenStaleFactor?: boolean
   /** false: no company access pass on this device (the access-code screen shows first). Default true. */
   accessPass?: boolean
   /** access-pin isn't deployed yet (404). */
@@ -319,6 +321,9 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       return json(route, session())
     }
     if (path === '/auth/v1/factors' && method === 'POST') {
+      if (opts.hiddenStaleFactor && body.friendly_name === 'Davey authenticator') {
+        return json(route, { code: 422, error_code: 'mfa_factor_name_conflict', msg: 'A factor with the friendly name "Davey authenticator" for this user already exists' }, 422)
+      }
       const id = `f-${state.factors.length + 1}-${Date.now()}`
       state.factors.push({ id, friendly_name: String(body.friendly_name), factor_type: 'totp', status: 'unverified', created_at: now, updated_at: now })
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#fff"/><rect x="1" y="1" width="3" height="3"/><rect x="6" y="1" width="3" height="3"/><rect x="1" y="6" width="3" height="3"/><rect x="5" y="5" width="2" height="2"/></svg>`
