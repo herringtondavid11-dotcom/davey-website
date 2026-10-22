@@ -100,3 +100,11 @@ test('a deep link survives the access code, sign-in and 2-step code', async ({ p
   await expect(page).toHaveURL(/\/app\/budget$/)
   await expect(page.getByRole('heading', { name: 'Budget', level: 1 })).toBeVisible()
 })
+
+test('after the first sign-in, the access pass is cleared from the account metadata', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true, passInMetadata: true })
+  await page.goto('/app/')
+  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
+  await expect.poll(() => state.metadata.access_pass).toBeUndefined()
+  expect(state.metadata.first_name).toBe('Alex')
+})

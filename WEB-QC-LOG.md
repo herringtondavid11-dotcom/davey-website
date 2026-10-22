@@ -79,3 +79,10 @@ the GitHub Pages run instead.
   code screen before the pass was saved (test timing, not an app bug); a11y.spec had the same race.
 - Fixed: both tests wait for the Sign in screen before navigating. Screenshots + a11y ×3: 36/36.
 - Counts: Vitest 102/102, Playwright Chromium 93/93.
+
+## Loop 9 — 2026-10-22 11:35 UTC
+- Found: an account created on the web keeps the company access pass in its user metadata, which Supabase copies into
+  every access token.
+- Fixed: after the first full sign-in (2-step done) the web clears `access_pass` from the metadata (other fields kept).
+- New test: access.spec "access pass is cleared from the account metadata".
+- Counts: Vitest 102/102, Playwright Chromium 94/94.

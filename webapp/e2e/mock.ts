@@ -209,6 +209,8 @@ export interface MockOptions {
   investmentsConsent?: boolean
   /** Supabase's email limit is hit (no custom SMTP yet). */
   emailRateLimited?: boolean
+  /** The account was created on the web: its metadata still holds the access pass from sign-up. */
+  passInMetadata?: boolean
   /** false: no company access pass on this device (the access-code screen shows first). Default true. */
   accessPass?: boolean
   /** access-pin isn't deployed yet (404). */
@@ -236,6 +238,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     syncBodies: [] as Row[],
     investmentsBodies: [] as Row[],
     pinFailures: 0,
+    metadata: (opts.passInMetadata ? { first_name: 'Alex', access_pass: TEST_PASS } : {}) as Row,
     signUpBody: null as Row | null,
   }
   const now = new Date().toISOString()
@@ -246,7 +249,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
 
   const user = () => ({
     id: 'user-1', aud: 'authenticated', role: 'authenticated', email: EMAIL, email_confirmed_at: now,
-    app_metadata: { provider: 'email' }, user_metadata: {}, created_at: now, updated_at: now,
+    app_metadata: { provider: 'email' }, user_metadata: state.metadata, created_at: now, updated_at: now,
     factors: state.factors,
   })
   const session = () => {
@@ -297,7 +300,13 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       return json(route, session())
     }
     if (path === '/auth/v1/user' && method === 'GET') return json(route, user())
-    if (path === '/auth/v1/user' && method === 'PUT') return json(route, user())
+    if (path === '/auth/v1/user' && method === 'PUT') {
+      if (body.data && typeof body.data === 'object') {
+        state.metadata = { ...state.metadata, ...(body.data as Row) }
+        for (const [k, v] of Object.entries(state.metadata)) if (v === null) delete state.metadata[k]
+      }
+      return json(route, user())
+    }
     if (path === '/auth/v1/logout') return route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*' } })
     if (path === '/auth/v1/recover') {
       if (opts.emailRateLimited) return json(route, { code: 429, error_code: 'over_email_send_rate_limit', msg: 'email rate limit exceeded' }, 429)

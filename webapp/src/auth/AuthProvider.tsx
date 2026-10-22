@@ -107,6 +107,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [apply, signOut])
 
+  // Sign-up sent the company access pass as user metadata (for the Auth hook). Once signed in it has done its job:
+  // clear it so it doesn't ride along in every access token.
+  const scrubbed = useRef(false)
+  useEffect(() => {
+    if (status !== 'ready' || scrubbed.current || !session?.user.user_metadata?.access_pass) return
+    scrubbed.current = true
+    void supabase.auth.updateUser({ data: { access_pass: null } }).catch(() => undefined)
+  }, [status, session])
+
   const stayActive = useCallback(() => {
     lastActive.current = Date.now()
     writeLastActive(storage(), lastActive.current)
