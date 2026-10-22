@@ -20,11 +20,13 @@ See the log at the bottom (updated by the loop). Backup bundle of all unpushed c
 | Navigation | Sidebar groups (Money / Accounts / Business / More) with Connect a Bank button; phone tabs Overview · Activity · Budget · Accounts · More. Tax appears only when an account or transaction is Business. |
 | Accounts | Every account: nickname + Business/Personal toggle (writes `nickname`, `is_business`), grouped by bank, connection status, hidden accounts toggle. |
 | Connection issues + Reconnect | Reads `plaid_items` (if present); "needs attention" card; Reconnect uses Plaid update mode **only** if the server answers `mode:'update'` (otherwise stops safely — no duplicate connections). |
+| Budget | Month picker, All/Personal/Business, income vs spent meter, budgets vs actual (over-budget first, terracotta + "$x over" text), not-budgeted categories, edit/set budget when a `budgets` table exists (otherwise read-only note). Transfers/card payments excluded. |
+| Cash flow | 6/12 months, All/Personal/Business, averages + savings rate, income vs spending bar chart (hover/focus tooltip, legend), month table. |
 | Connection Help + Report to Plaid | Troubleshooting topics; report form sends to `plaid-report-issue` with Link session/request IDs from the last failed Link; falls back to a pre-filled email if the function isn't deployed. |
 
 ## In progress / next
 
-Budget + Cash flow → Recurring + calendar → Credit cards, Loans, Investments → Household + Settings → Exports + Tax → Ask AI → PWA + polish.
+Recurring + calendar → Credit cards, Loans, Investments → Household + Settings → Exports + Tax → Ask AI → PWA + polish.
 
 ## Blocked / needs David
 

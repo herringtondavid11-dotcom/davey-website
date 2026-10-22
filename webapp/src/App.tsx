@@ -6,6 +6,8 @@ import { FullPageSpinner } from './components/Spinner'
 import { DataProvider } from './lib/DataProvider'
 import { supabase } from './lib/supabase'
 import { Accounts } from './screens/Accounts'
+import { Budget } from './screens/Budget'
+import { CashFlow } from './screens/CashFlow'
 import { Connect, OAuthReturn } from './screens/Connect'
 import { ConnectionHelp } from './screens/ConnectionHelp'
 import { More } from './screens/More'
@@ -88,6 +90,8 @@ export function AppRoutes() {
         <Route path="/accounts" element={<Accounts />} />
         <Route path="/help" element={<ConnectionHelp />} />
         <Route path="/more" element={<More />} />
+        <Route path="/budget" element={<Budget />} />
+        <Route path="/cash-flow" element={<CashFlow />} />
         <Route path="/security" element={<Navigate to="/settings" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

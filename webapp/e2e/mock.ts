@@ -51,11 +51,38 @@ export function fixtures() {
     pending: i === 1,
     iso_currency_code: 'USD',
   }))
+  // Six months of history: payroll, rent and subscriptions on fixed days (cash flow, recurring).
+  const history: [string, number, string, string, number, boolean?][] = [
+    ['Payroll – Acme Corp', -4200, 'Income', 'acc-1', 1],
+    ['Greystar Rent', 2400, 'Home', 'acc-1', 3],
+    ['Netflix', 15.49, 'Subscriptions', 'acc-3', 9],
+    ['Spotify', 11.99, 'Subscriptions', 'acc-3', 14],
+    ['Equinox', 49, 'Health', 'acc-3', 20],
+    ['Safeway', 180, 'Groceries', 'acc-1', 12],
+    ['Adobe', 59.99, 'Subscriptions', 'acc-6', 18, true],
+  ]
+  const now = new Date()
+  for (let back = 1; back <= 6; back++) {
+    history.forEach(([m, amount, category, account, day, biz], j) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - back, day)
+      transactions.push({
+        id: `txn-h${back}-${j}`, account_id: account, date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        name: m.toUpperCase(), merchant_name: m, amount: amount + (category === 'Groceries' ? back * 7 : 0), category, notes: null, is_business: !!biz, pending: false, iso_currency_code: 'USD',
+      })
+    })
+  }
+  transactions.push({ id: 'txn-xfer', account_id: 'acc-1', date: iso(3), name: 'TRANSFER TO SAVINGS', merchant_name: null, amount: 500, category: 'Transfer', notes: null, is_business: false, pending: false, iso_currency_code: 'USD' })
   return { accounts, transactions }
 }
 
 export function extraTables(): Record<string, Row[]> {
   return {
+    budgets: [
+      { id: 'b1', category: 'Groceries', amount: 600 },
+      { id: 'b2', category: 'Dining', amount: 150 },
+      { id: 'b3', category: 'Subscriptions', amount: 120 },
+      { id: 'b4', category: 'Travel', amount: 300 },
+    ],
     plaid_items: [
       { id: 'item-row-1', plaid_item_id: 'item-chase', institution_name: 'Chase', status: 'good', error_code: null, last_synced_at: new Date(Date.now() - 3600_000).toISOString() },
       { id: 'item-row-2', plaid_item_id: 'item-wf', institution_name: 'Wells Fargo', status: 'login_required', error_code: 'ITEM_LOGIN_REQUIRED', error_message: 'Sign in to Wells Fargo again', last_synced_at: new Date(Date.now() - 4 * 86400_000).toISOString() },

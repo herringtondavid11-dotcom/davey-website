@@ -86,3 +86,17 @@ export async function updateAccountUsage(a: Account, usage: Usage): Promise<Acco
   if (!row) throw new Error("You don't have permission to change this account.")
   return normalizeAccount(row)
 }
+
+/** Budgets live in the optional budgets table (see tables.ts). */
+export async function saveBudget(table: string, existing: Record<string, unknown> | undefined, category: string, amount: number) {
+  if (existing) {
+    const col = writeColumn(existing, ['amount', 'limit', 'monthly_amount', 'budget'])
+    const { data, error } = await supabase.from(table).update({ [col]: amount }).eq('id', existing.id as string).select('*')
+    if (error) throw error
+    if (!data?.[0]) throw new Error("You don't have permission to change this budget.")
+    return data[0] as Record<string, unknown>
+  }
+  const { data, error } = await supabase.from(table).insert({ category, amount }).select('*')
+  if (error) throw new Error("Couldn't add this budget here. Add it in the Davey app for now.")
+  return data?.[0] as Record<string, unknown>
+}

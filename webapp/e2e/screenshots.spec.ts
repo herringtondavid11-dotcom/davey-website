@@ -49,7 +49,7 @@ for (const vp of VIEWPORTS) {
       await page.getByRole('link', { name: phone ? 'Activity' : 'Transactions' }).first().click()
       await expect(page.getByRole('heading', { name: 'Transactions' })).toBeVisible()
       await shot('04-transactions')
-      await page.getByRole('button', { name: /Adobe/ }).click()
+      await page.getByRole('button', { name: /Adobe/ }).first().click()
       await expect(page.getByRole('dialog')).toBeVisible()
       const box = await page.getByRole('dialog').boundingBox()
       expect(box!.x).toBeGreaterThanOrEqual(0)

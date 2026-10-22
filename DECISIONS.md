@@ -22,3 +22,14 @@ Autonomous run; David unavailable. Defaults chosen and logged here. Marketing-si
 | 16 | **Net worth** = non-hidden assets − |credit + loan balances|. | Standard; matches how Plaid reports liabilities. |
 | 17 | **Playwright runs Chromium only here**; WebKit/Firefox projects are configured and run automatically wherever those browsers are installed. | Only Chromium is preinstalled; installing browsers was off-limits in this environment. |
 | 18 | **Push to `main` attempted** (and the working branch); GitHub returned 403 (no app write access), so the commit is local only. | David asked for it to deploy; GitHub Pages serves from `main`. |
+
+## Overnight Phase 2/3 (2026-10-22)
+
+| # | Decision | Why |
+|---|----------|-----|
+| 19 | **Optional tables** (`plaid_items`, `budgets`, `holdings`/`securities`, `household_members`, `recurring_transactions`, …) are probed by candidate name; a missing table shows an explanation instead of an error (`webapp/src/lib/tables.ts`). | Schema still unverifiable from the container. |
+| 20 | **Reconnect = Plaid update mode, only if the server replies `mode:'update'`.** Otherwise the web app stops and points to the iPhone app. | A plain link token would create a duplicate Item. |
+| 21 | **Report to Plaid** goes to a new `plaid-report-issue` function + table (Davey support files it with Plaid); falls back to a pre-filled email. | Plaid has no public API for end-user reports. |
+| 22 | **Transfers and credit-card payments are excluded** from income/spending (category "Transfer", or names like AUTOPAY / CREDIT CARD PAYMENT). | Otherwise moving money double-counts. |
+| 23 | **Chart colors:** income = brand sage (#4E7A62 light / #6F9A82 dark), spending = gold (#C99A2E light / #E8B84A dark). The dataviz validator flags sage's low chroma and gold's 2.5:1 contrast on white, so every chart has a legend, hover/focus tooltip and a table of the same numbers. | Brand palette is mandated; secondary encoding makes it accessible. |
+| 24 | **Budgets:** monthly; editing writes the `amount` column of the existing row; adding a new budget inserts `{category, amount}` and, if RLS/defaults reject it, asks the user to add it in the app. | Unknown required columns (user/household id). |

@@ -53,3 +53,10 @@ export function shortDateTime(iso: string): string {
 export function percentText(v: number, digits = 0): string {
   return `${v.toFixed(digits)}%`
 }
+
+const whole = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+const wholeSigned = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0, signDisplay: 'exceptZero' })
+/** Whole dollars, for summary tables and chart labels. */
+export function moneyWhole(v: number, opts: { sign?: boolean } = {}): string {
+  return (opts.sign ? wholeSigned : whole).format(Math.round(v))
+}
