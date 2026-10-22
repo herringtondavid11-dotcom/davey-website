@@ -92,7 +92,7 @@ export function Accounts() {
   return (
     <div className="page">
       <div className="page-head">
-        <div><h1>Accounts</h1><p>Your banks' accounts, live from Plaid. Nicknames and Business/Personal you set here are saved in this browser.</p></div>
+        <div><h1>Accounts</h1><p>Nicknames and Business/Personal sync with the Davey app.</p></div>
         <Link className="btn btn-primary" to="/connect"><PlusIcon size={18} />Connect a Bank</Link>
       </div>
       {error && <p className="error" role="alert">{error}</p>}

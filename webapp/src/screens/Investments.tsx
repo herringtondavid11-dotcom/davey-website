@@ -87,7 +87,7 @@ export function Investments() {
                     </table>
                   </div>
                 ) : (
-                  <p className="muted card-notice">{holdingsT.result?.available ? 'No holdings reported for this account yet.' : 'Holdings (shares and prices) show in the Davey app; the web shows this account’s balance for now.'}</p>
+                  <p className="muted card-notice">{holdingsT.result?.available ? 'No holdings reported for this account yet.' : 'Holdings appear here once the app shares them (the holdings table isn’t available yet).'}</p>
                 )}
               </section>
             )

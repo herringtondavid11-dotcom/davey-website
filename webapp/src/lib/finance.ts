@@ -1,4 +1,3 @@
-import { APP_CATEGORIES } from './categories'
 import type { Account, Transaction, Usage } from './schema'
 
 export const LIABILITY_TYPES = new Set(['credit', 'loan'])
@@ -100,7 +99,7 @@ export const DEFAULT_CATEGORIES = [
 ]
 
 export function categoryOptions(list: Transaction[]): string[] {
-  const set = new Set([...APP_CATEGORIES, 'Uncategorized'])
+  const set = new Set(DEFAULT_CATEGORIES)
   for (const t of list) if (t.category) set.add(t.category)
   return [...set].sort((a, b) => a.localeCompare(b))
 }

@@ -37,13 +37,12 @@ test('tax: P&L, estimate, quarters, deduction finder, CPA package', async ({ pag
   await expect(page.getByRole('row', { name: /Q4/ })).toBeVisible()
   await page.getByLabel('Federal bracket').fill('24')
   await expect(page.locator('.est-list')).toContainText('Federal income tax')
-  const canva = page.getByRole('button', { name: /Mark Canva/ })
-  await canva.click()
-  await expect(canva).toHaveCount(0)
-  expect((await page.evaluate(() => JSON.parse(localStorage.getItem('davey.web-edits.user-1') ?? '{}'))).transactions['txn-13'].usage).toBe('business')
-  void state
   const [zip] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /CPA package/ }).click()])
   const z = readFileSync((await zip.path())!).toString('latin1')
   expect(z).toContain('profit-and-loss.pdf')
   expect(z).toContain('business-transactions.csv')
+  // In Davey, Business is set on the account, so a single transaction can't be marked here (yet): it says so.
+  await page.getByRole('button', { name: /Mark Canva/ }).click()
+  await expect(page.getByText(/Business or Personal is set on the account/)).toBeVisible()
+  expect(state.pushes).toEqual([])
 })

@@ -1,50 +1,40 @@
 import { expect, test } from '@playwright/test'
-import { mockBackend, watchConsole, webEdits } from './mock'
+import { mockBackend, watchConsole } from './mock'
 
-test('household: members from household-status, remove partner, invite by link and email', async ({ page }) => {
+test('household: members with roles, change a role, invite link', async ({ page }) => {
   const problems = watchConsole(page)
-  const state = await mockBackend(page, { signedIn: true })
+  const state = await mockBackend(page, { signedIn: true, inviteFunction: true })
   await page.goto('/app/household')
   await expect(page.locator('.member-row').first()).toContainText('AlexYou')
   await expect(page.locator('.member-row').first()).toContainText('Owner')
-  await expect(page.locator('.member-row').nth(1)).toContainText('Jordan')
-  page.once('dialog', (d) => d.accept())
-  await page.getByRole('button', { name: 'Remove' }).click()
-  await expect(page.locator('.member-row')).toHaveCount(1)
+  await page.getByLabel('Role for Jordan').selectOption('viewer')
+  await expect.poll(() => state.calls.find((c) => c.method === 'PATCH' && c.path.startsWith('/rest/v1/household_members'))?.body).toEqual({ role: 'viewer' })
+  await expect(page.getByRole('heading', { name: 'Pending invites' })).toBeVisible()
   await page.getByLabel('First name').fill('Riley')
-  await page.getByLabel('Email (optional)').fill('riley@example.com')
-  await page.getByLabel('Relationship').selectOption('partner')
+  await page.getByRole('radio', { name: /View only/ }).check()
   await page.getByRole('button', { name: 'Create invite link' }).click()
   await expect(page.getByLabel('Invite link')).toHaveValue('https://daveypersonalfinance.com/join?t=tok-new-123')
-  await expect(page.getByText('Emailed too.')).toBeVisible()
-  expect(state.inviteBody).toMatchObject({ action: 'create', first_name: 'Riley', email: 'riley@example.com', relationship: 'partner', role: 'member', send_email: true })
-  await expect(page.getByRole('heading', { name: 'Pending invites' })).toBeVisible()
-  page.once('dialog', (d) => d.accept())
-  await page.getByRole('button', { name: 'Cancel' }).click()
-  await expect(page.getByRole('heading', { name: 'Pending invites' })).toHaveCount(0)
+  expect(state.inviteBody).toMatchObject({ platform: 'web', first_name: 'Riley', role: 'viewer' })
   expect(problems).toEqual([])
 })
 
-test('household explains when it is not web-enabled yet', async ({ page }) => {
-  await mockBackend(page, { signedIn: true, householdDown: true })
+test('household: invite explains when the server function is missing', async ({ page }) => {
+  await mockBackend(page, { signedIn: true })
   await page.goto('/app/household')
-  await expect(page.getByText('Household Sharing on the web needs a server update')).toBeVisible()
+  await page.getByRole('button', { name: 'Create invite link' }).click()
+  await expect(page.getByRole('alert')).toContainText('needs a server update')
 })
 
-test('settings: profile via profile-update, login activity, connections, web edits', async ({ page }) => {
+test('settings: profile name, login activity, connection issues', async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true, activityFunction: true })
   await page.goto('/app/settings')
-  await expect(page.getByLabel('First name')).toHaveValue('Alex')
-  await page.getByLabel('First name').fill('Alexandra')
-  await page.getByRole('button', { name: 'Save profile' }).click()
+  await page.getByLabel('Name').fill('Alex Rivera')
+  await page.getByRole('button', { name: 'Save name' }).click()
   await expect(page.getByText('Saved', { exact: true })).toBeVisible()
-  expect(state.calls.find((c) => c.path === '/functions/v1/profile-update')?.body).toMatchObject({ first_name: 'Alexandra', last_name: 'Rivera' })
+  expect(state.calls.find((c) => c.method === 'PUT' && c.path === '/auth/v1/user')?.body).toMatchObject({ data: { full_name: 'Alex Rivera' } })
   await expect(page.getByText('Davey app on iPhone')).toBeVisible()
+  await expect(page.getByText('Password changed', { exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Connections' }).getByText('Wells Fargo', { exact: true })).toBeVisible()
-  await expect(page.getByText('Edits saved in this browser')).toBeVisible()
-  page.once('dialog', (d) => d.accept())
-  await page.getByRole('button', { name: 'Remove', exact: true }).click()
-  expect(await webEdits(page)).toEqual({})
 })
 
 test('settings: sign out everywhere uses global scope after confirming', async ({ page }) => {

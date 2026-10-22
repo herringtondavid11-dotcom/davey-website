@@ -1,21 +1,29 @@
-// Reads and edits for the screens. Bank data comes from bank.ts (Edge Functions, in memory); edits are saved by
-// annotations.ts. The functions keep the shapes the screens already use.
-import { saveBudgetNote, setAccountNote, setTransactionNote } from './annotations'
-import type { BankData } from './bank'
-import { toAccount, toTransaction } from './bank'
-import type { Account, Transaction, Usage } from './schema'
+import { categoryID, loadDaveyData, pushChange, reloadDaveyData, saveMonthlyBudget } from './serverData'
+import {
+  TRANSACTION_COLUMNS,
+  normalizeAccount,
+  normalizeTransaction,
+  usageToRaw,
+  writeColumn,
+  type Account,
+  type Transaction,
+  type Usage,
+} from './schema'
 
-let current: BankData | null = null
+export const TRANSACTION_PAGE = 500
 
-export function setCurrentData(d: BankData | null) {
-  current = d
+export async function fetchAccounts(): Promise<Account[]> {
+  return (await loadDaveyData()).accounts.map(normalizeAccount)
 }
-export function currentData(): BankData | null {
-  return current
+
+export async function fetchTransactions(page = 0, pageSize = TRANSACTION_PAGE): Promise<Transaction[]> {
+  const from = page * pageSize
+  return (await loadDaveyData()).transactions.slice(from, from + pageSize).map(normalizeTransaction)
 }
 
-function accountUsage(): Map<string, Usage> {
-  return new Map((current?.accounts ?? []).map((a) => [a.id, a.usage]))
+/** After connecting a bank: the app imports it and shares it with the household; reload what's on the server. */
+export async function refreshData(): Promise<void> {
+  await reloadDaveyData()
 }
 
 export interface TransactionEdit {
@@ -24,40 +32,55 @@ export interface TransactionEdit {
   usage?: Usage
 }
 
-/** The stored note for an edit: only fields that were given. */
+/** Builds the PATCH body for an edit, writing to the columns this row actually has. */
 export function transactionPatch(t: Transaction, edit: TransactionEdit): Record<string, unknown> {
   const patch: Record<string, unknown> = {}
-  if (edit.category !== undefined) patch.category = edit.category || undefined
-  if (edit.notes !== undefined) patch.notes = edit.notes.trim() || undefined
-  if (edit.usage !== undefined) patch.usage = edit.usage
-  void t
+  if (edit.category !== undefined) {
+    const col = writeColumn(t.raw, TRANSACTION_COLUMNS.category.filter((c) => c !== 'personal_finance_category'))
+    patch[col] = edit.category || null
+  }
+  if (edit.notes !== undefined) patch[writeColumn(t.raw, TRANSACTION_COLUMNS.notes)] = edit.notes.trim() || null
+  if (edit.usage !== undefined) {
+    const col = writeColumn(t.raw, TRANSACTION_COLUMNS.business)
+    patch[col] = usageToRaw(edit.usage, col, t.raw)
+  }
   return patch
 }
 
 export async function updateTransaction(t: Transaction, edit: TransactionEdit): Promise<Transaction> {
-  setTransactionNote(t.id, transactionPatch(t, edit))
-  return toTransaction(t.raw, accountUsage())
-}
-
-function itemFor(a: Account) {
-  return current?.items.find((i) => i.item_id === a.itemId) ?? { item_id: a.itemId ?? '', needs_sync: false, status: 'ok', institution_name: a.institution ?? null, created_at: a.createdAt ?? null }
+  const data = await loadDaveyData()
+  const changes: Record<string, unknown> = {}
+  if (edit.category !== undefined) {
+    const id = edit.category ? categoryID(data, edit.category) : null
+    if (edit.category && !id) throw new Error(`"${edit.category}" isn't one of your Davey categories. Add it in the app first.`)
+    changes.categoryID = id
+  }
+  if (edit.notes !== undefined) changes.note = edit.notes.trim()
+  if (edit.usage !== undefined && edit.usage !== t.usage) {
+    throw new Error('In Davey, Business or Personal is set on the account. Change it under Accounts.')
+  }
+  if (Object.keys(changes).length) await pushChange('transaction', t.id, changes)
+  return { ...t, category: edit.category ?? t.category, notes: edit.notes !== undefined ? edit.notes.trim() || undefined : t.notes }
 }
 
 export async function updateAccountNickname(a: Account, nickname: string): Promise<Account> {
-  setAccountNote(a.id, { nickname: nickname.trim() || undefined })
-  return toAccount(a.raw, itemFor(a))
+  await pushChange('account', a.id, { nickname: nickname.trim() || null })
+  return { ...a, nickname: nickname.trim() || undefined }
 }
 
 export async function updateAccountUsage(a: Account, usage: Usage): Promise<Account> {
-  setAccountNote(a.id, { usage })
-  return toAccount(a.raw, itemFor(a))
+  await pushChange('account', a.id, { isBusiness: usage === 'business' })
+  return { ...a, usage }
 }
 
-/** Every loaded transaction between two dates (the web holds the full history in memory). */
+/** This month's budget for a category, saved to the household's shared records (the app's Budget tab shows it). */
+export async function saveBudget(_table: string, existing: Record<string, unknown> | undefined, category: string, amount: number): Promise<Record<string, unknown>> {
+  return saveMonthlyBudget(category, amount, existing?.id as string | undefined)
+}
+
+/** Every transaction between two dates (inclusive). Used by exports and tax. */
 export async function fetchTransactionsBetween(from: string, to: string): Promise<Transaction[]> {
-  return (current?.transactions ?? []).filter((t) => t.date >= from && t.date <= to)
-}
-
-export async function saveBudget(_table: string, existing: Record<string, unknown> | undefined, category: string, amount: number) {
-  return saveBudgetNote(category, amount, existing?.id as string | undefined) as unknown as Record<string, unknown>
+  return (await loadDaveyData()).transactions
+    .filter((t) => String(t.date) >= from && String(t.date) <= to)
+    .map(normalizeTransaction)
 }

@@ -1,15 +1,25 @@
-// Optional data sources. The server has no tables the browser may read directly (everything goes through Edge
-// Functions), so each "table" maps to a source: bank Items from plaid-item-status, budgets from this browser's edits,
-// the household from household-status. Sources the server doesn't offer report `available: false`.
-import { annotations } from './annotations'
-import { listItems } from './bank'
-import { currentData } from './data'
-import { householdStatus } from './household'
+// Optional tables: features beyond accounts/transactions read these if the project has them. A missing table
+// (PostgREST PGRST205 / 42P01 / 404) is reported as `available: false` so screens can explain instead of failing.
+// Candidate names are tried in order and the first that exists is remembered. Assumptions: WEB-STATUS.md.
 import { optNum, pick } from './schema'
+import { loadDaveyData, monthKey } from './serverData'
+import { supabase } from './supabase'
 
 type Row = Record<string, unknown>
 
-export type OptionalTable = 'items' | 'budgets' | 'holdings' | 'securities' | 'members' | 'invites' | 'recurring' | 'profiles'
+export const OPTIONAL_TABLES = {
+  items: ['plaid_items', 'items', 'bank_connections'],
+  budgets: ['budgets', 'category_budgets'],
+  holdings: ['holdings', 'investment_holdings'],
+  securities: ['securities'],
+  households: ['households'],
+  members: ['household_members'],
+  invites: ['household_invites'],
+  recurring: ['recurring_transactions', 'subscriptions', 'recurring'],
+  profiles: ['profiles', 'user_profiles'],
+} as const
+
+export type OptionalTable = keyof typeof OPTIONAL_TABLES
 
 export interface TableResult {
   rows: Row[]
@@ -17,52 +27,46 @@ export interface TableResult {
   table?: string
 }
 
+const resolved = new Map<OptionalTable, string | null>()
+
 export function isMissingTable(error: { code?: string; message?: string } | null, status?: number): boolean {
   if (!error) return false
   return error.code === 'PGRST205' || error.code === '42P01' || status === 404 || /does not exist|schema cache/i.test(error.message ?? '')
 }
 
 export async function fetchOptional(name: OptionalTable): Promise<TableResult> {
-  switch (name) {
-    case 'items': {
-      const d = currentData()
-      const items = d?.items ?? (await listItems())
-      const failed = new Map((d?.errors ?? []).map((e) => [e.itemId, e]))
-      return {
-        available: true,
-        rows: items.map((i) => ({
-          id: i.item_id,
-          plaid_item_id: i.item_id,
-          institution_name: i.institution_name,
-          status: i.status,
-          error_code: failed.get(i.item_id)?.code ?? (i.status === 'login_required' ? 'ITEM_LOGIN_REQUIRED' : null),
-          error_message: failed.get(i.item_id)?.message ?? null,
-          last_synced_at: d && !failed.has(i.item_id) ? new Date().toISOString() : null,
-        })),
-      }
-    }
-    case 'budgets':
-      return { available: true, rows: annotations().budgets.map((b) => ({ ...b })) }
-    case 'members': {
-      const h = await householdStatus()
-      return { available: true, rows: h.members.map((m) => ({ id: m.user_id, user_id: m.user_id, display_name: m.display_name, role: m.role, joined_at: m.joined_at, is_you: m.is_you })) }
-    }
-    case 'invites': {
-      const h = await householdStatus()
-      return { available: true, rows: h.invites as unknown as Row[] }
-    }
-    default:
-      return { rows: [], available: false }
+  // Bank connections and budgets come from the household's shared records (see serverData.ts).
+  if (name === 'items' || name === 'budgets') {
+    const data = await loadDaveyData()
+    resolved.set(name, 'household_records')
+    const key = monthKey()
+    const rows = name === 'items' ? data.connections : data.budgets.filter((b) => b.month_key === key)
+    // Without a household there's nothing on the server to read or write.
+    return { rows: rows as Row[], available: data.records.size > 0, table: 'household_records' }
   }
+  const known = resolved.get(name)
+  if (known === null) return { rows: [], available: false }
+  const candidates = known ? [known] : OPTIONAL_TABLES[name]
+  for (const table of candidates) {
+    const { data, error, status } = await supabase.from(table).select('*')
+    if (!error) {
+      resolved.set(name, table)
+      return { rows: (data ?? []) as Row[], available: true, table }
+    }
+    if (!isMissingTable(error, status)) throw error
+  }
+  resolved.set(name, null)
+  return { rows: [], available: false }
 }
 
-/** Kept for callers that wrote to a table; web edits have no server table. */
-export function resolvedTable(_name: OptionalTable): string | undefined {
-  return 'web'
+export function resolvedTable(name: OptionalTable): string | undefined {
+  return resolved.get(name) ?? undefined
 }
 
 /** Test hook. */
-export function resetResolvedTables() {}
+export function resetResolvedTables() {
+  resolved.clear()
+}
 
 const str = (v: unknown) => (v === undefined || v === null || v === '' ? undefined : String(v))
 

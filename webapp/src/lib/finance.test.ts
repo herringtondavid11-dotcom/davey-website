@@ -53,10 +53,10 @@ describe('filterTransactions', () => {
 })
 
 describe('transactionPatch', () => {
-  it('stores only the fields that were edited; blanks clear them', () => {
-    const t = normalizeTransaction({ id: '1', amount: 1 })
-    expect(transactionPatch(t, { category: 'Dining Out', notes: '  ', usage: 'business' })).toEqual({ category: 'Dining Out', notes: undefined, usage: 'business' })
-    expect(transactionPatch(t, { notes: 'hi' })).toEqual({ notes: 'hi' })
+  it('only patches changed fields to existing columns', () => {
+    const t = normalizeTransaction({ id: '1', amount: 1, user_category: null, note: 'x', is_business: false })
+    expect(transactionPatch(t, { category: 'Dining', notes: '  ', usage: 'business' })).toEqual({ user_category: 'Dining', note: null, is_business: true })
+    expect(transactionPatch(t, { notes: 'hi' })).toEqual({ note: 'hi' })
   })
 })
 

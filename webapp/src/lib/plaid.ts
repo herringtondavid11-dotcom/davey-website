@@ -149,22 +149,9 @@ export interface IssueReport {
   issue?: LinkIssue | null
 }
 
-/** link-support (action "report"): identifiers only; Davey support files it with Plaid. Falls back to email. */
+/** Sends to the plaid-report-issue Edge Function; if it isn't deployed, returns a mailto: link instead. */
 export async function reportIssue(report: IssueReport): Promise<{ sent: true } | { sent: false; mailto: string }> {
-  const { data, error } = await supabase.functions.invoke('link-support', {
-    body: {
-      action: 'report',
-      institution_id: report.issue?.institutionId,
-      institution_name: report.institution,
-      error_code: report.issue?.errorCode,
-      link_session_id: report.issue?.linkSessionId,
-      request_id: report.issue?.requestId,
-      issue: `${report.kind}${report.details ? `: ${report.details}` : ''}`.slice(0, 500),
-      app_version: 'web',
-      device: navigator.userAgent.slice(0, 120),
-      occurred_at: report.issue?.at,
-    },
-  })
+  const { data, error } = await supabase.functions.invoke('plaid-report-issue', { body: { platform: 'web', ...report } })
   if (!error && data?.ok !== false) return { sent: true }
   const lines = [
     `Institution: ${report.institution}`,
@@ -187,31 +174,25 @@ export async function reportIssue(report: IssueReport): Promise<{ sent: true } |
   return { sent: false, mailto }
 }
 
-export interface ExchangeResult {
-  itemId?: string
-  institutionName?: string
-  accounts: Record<string, unknown>[]
-}
-
-/** plaid-exchange: stores the Item (encrypted, server side) and returns its accounts in the app's format. */
-export async function exchangePublicToken(publicToken: string, metadata: PlaidLinkMetadata): Promise<ExchangeResult> {
+export async function exchangePublicToken(publicToken: string, metadata: PlaidLinkMetadata): Promise<{ itemId?: string }> {
   const { data, error } = await supabase.functions.invoke('plaid-exchange', {
-    body: { public_token: publicToken, institution_name: metadata.institution?.name ?? '', platform: 'web' },
+    body: {
+      public_token: publicToken,
+      platform: 'web',
+      institution: metadata.institution ?? null,
+      accounts: metadata.accounts ?? [],
+      link_session_id: metadata.link_session_id,
+    },
   })
   if (error) throw new Error(errorMessage(error, "Couldn't finish connecting your bank."))
-  return {
-    itemId: data?.item_id ?? undefined,
-    institutionName: data?.institution_name ?? metadata.institution?.name,
-    accounts: Array.isArray(data?.accounts) ? data.accounts : [],
-  }
+  return { itemId: data?.item_id ?? data?.itemId ?? data?.item?.id }
 }
 
-/** Best effort: pull the Item once so its transactions are ready (the full reload follows). */
+/** Best effort: a slow first sync must not block naming the accounts. */
 export async function syncItem(itemId?: string): Promise<void> {
-  if (!itemId) return
   try {
-    await supabase.functions.invoke('plaid-sync', { body: { item_id: itemId, cursor: null, platform: 'web' } })
+    await supabase.functions.invoke('plaid-sync', { body: itemId ? { item_id: itemId } : {} })
   } catch {
-    /* the reload syncs again */
+    /* the app's scheduled sync catches up */
   }
 }

@@ -15,176 +15,195 @@ function b64url(o: object) {
 const today = new Date()
 const iso = (daysAgo: number) => new Date(today.getTime() - daysAgo * 86400000).toISOString().slice(0, 10)
 
-
-/** Plaid category codes as the app receives them (the web maps them with the app's mapper). */
-const PFC: Record<string, [string, string]> = {
-  groceries: ['FOOD_AND_DRINK', 'FOOD_AND_DRINK_GROCERIES'],
-  coffee: ['FOOD_AND_DRINK', 'FOOD_AND_DRINK_COFFEE'],
-  payroll: ['INCOME', 'INCOME_WAGES'],
-  interest: ['INCOME', 'INCOME_INTEREST_EARNED'],
-  income: ['INCOME', 'INCOME_OTHER_INCOME'],
-  software: ['GENERAL_SERVICES', 'GENERAL_SERVICES_OTHER_GENERAL_SERVICES'],
-  power: ['RENT_AND_UTILITIES', 'RENT_AND_UTILITIES_GAS_AND_ELECTRICITY'],
-  rent: ['RENT_AND_UTILITIES', 'RENT_AND_UTILITIES_RENT'],
-  flights: ['TRAVEL', 'TRAVEL_FLIGHTS'],
-  gas: ['TRANSPORTATION', 'TRANSPORTATION_GAS'],
-  streaming: ['ENTERTAINMENT', 'ENTERTAINMENT_TV_AND_MOVIES'],
-  music: ['ENTERTAINMENT', 'ENTERTAINMENT_MUSIC_AND_AUDIO'],
-  gym: ['PERSONAL_CARE', 'PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS'],
-  hardware: ['HOME_IMPROVEMENT', 'HOME_IMPROVEMENT_HARDWARE'],
-  office: ['GENERAL_MERCHANDISE', 'GENERAL_MERCHANDISE_OFFICE_SUPPLIES'],
-  transfer: ['TRANSFER_OUT', 'TRANSFER_OUT_ACCOUNT_TRANSFER'],
-}
-
-export interface FixtureItem {
-  item_id: string
-  institution_name: string
-  status: string
-  /** plaid-sync fails for this Item (login required). */
-  failing?: boolean
-  accounts: Row[]
-}
-
-/** App-format accounts (cents) per Item, as plaid-sync and plaid-exchange return them. */
-export function fixtureItems(): FixtureItem[] {
-  const acct = (id: string, name: string, mask: string, type: string, subtype: string, cents: number, extra: Row = {}) => ({
-    account_id: id, name, official_name: null, mask, type, subtype, current_balance_cents: cents, available_balance_cents: extra.available ?? null,
-    limit_cents: null, iso_currency_code: 'USD', liabilities_status: null, ...extra,
-  })
-  return [
-    { item_id: 'item-chase', institution_name: 'Chase', status: 'ok', accounts: [
-      acct('p-1', 'Plaid Checking', '0000', 'depository', 'checking', 842017, { available_balance_cents: 812017 }),
-      acct('p-2', 'Plaid Saving', '1111', 'depository', 'savings', 2500000),
-      acct('p-3', 'Sapphire Preferred', '3333', 'credit', 'credit card', 187542, { limit_cents: 1500000, liability_kind: 'credit', apr_basis_points: 2149, next_payment_amount_cents: 4000, next_payment_due_date: iso(-9) }),
-    ] },
-    { item_id: 'item-amex', institution_name: 'American Express', status: 'ok', accounts: [
-      acct('p-7', 'Blue Cash Everyday', '7777', 'credit', 'credit card', 340000, { limit_cents: 600000, liability_kind: 'credit', apr_basis_points: 2724, next_payment_amount_cents: 8500 }),
-    ] },
-    { item_id: 'item-fidelity', institution_name: 'Fidelity', status: 'ok', accounts: [acct('p-4', 'Brokerage', '4444', 'investment', 'brokerage', 51264055)] },
-    { item_id: 'item-rocket', institution_name: 'Rocket Mortgage', status: 'ok', accounts: [
-      acct('p-5', 'Home Mortgage', '5555', 'loan', 'mortgage', 41230000, { liability_kind: 'mortgage', apr_basis_points: 625, origination_principal_cents: 45000000, origination_date: '2021-06-01', loan_term_months: 360, next_payment_amount_cents: 277073 }),
-    ] },
-    { item_id: 'item-capone', institution_name: 'Capital One', status: 'ok', accounts: [
-      acct('p-8', 'Auto Loan', '8888', 'loan', 'auto', 1825000, { apr_basis_points: 590, origination_principal_cents: 3200000, origination_date: '2023-03-01', loan_term_months: 60, next_payment_amount_cents: 61720 }),
-    ] },
-    { item_id: 'item-boa', institution_name: 'Bank of America', status: 'ok', accounts: [acct('p-6', 'Business Advantage Checking', '6666', 'depository', 'checking', 1280000)] },
-    { item_id: 'item-wf', institution_name: 'Wells Fargo', status: 'login_required', failing: true, accounts: [] },
+export function fixtures() {
+  const accounts: Row[] = [
+    { id: 'acc-1', plaid_account_id: 'p-1', name: 'Plaid Checking', nickname: 'Joint checking', mask: '0000', type: 'depository', subtype: 'checking', current_balance: 8420.17, available_balance: 8120.17, iso_currency_code: 'USD', institution_name: 'Chase', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-2', plaid_account_id: 'p-2', name: 'Plaid Saving', nickname: null, mask: '1111', type: 'depository', subtype: 'savings', current_balance: 25000, available_balance: 25000, iso_currency_code: 'USD', institution_name: 'Chase', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-3', plaid_account_id: 'p-3', name: 'Sapphire Preferred', nickname: 'Travel card', mask: '3333', type: 'credit', subtype: 'credit card', current_balance: 1875.42, credit_limit: 15000, apr: 21.49, minimum_payment: 40, next_payment_due_date: iso(-9), iso_currency_code: 'USD', institution_name: 'Chase', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-4', plaid_account_id: 'p-4', name: 'Brokerage', nickname: null, mask: '4444', type: 'investment', subtype: 'brokerage', current_balance: 512640.55, iso_currency_code: 'USD', institution_name: 'Fidelity', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-5', plaid_account_id: 'p-5', name: 'Home Mortgage', nickname: null, mask: '5555', type: 'loan', subtype: 'mortgage', current_balance: 412300, interest_rate: 6.25, original_principal: 450000, origination_date: '2021-06-01', term_months: 360, minimum_payment: 2770.73, property_value: 690000, iso_currency_code: 'USD', institution_name: 'Rocket Mortgage', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-7', plaid_account_id: 'p-7', name: 'Blue Cash Everyday', nickname: null, mask: '7777', type: 'credit', subtype: 'credit card', current_balance: 3400, credit_limit: 6000, apr: 27.24, minimum_payment: 85, iso_currency_code: 'USD', institution_name: 'American Express', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-8', plaid_account_id: 'p-8', name: 'Auto Loan', nickname: 'Car', mask: '8888', type: 'loan', subtype: 'auto', current_balance: 18250, interest_rate: 5.9, original_principal: 32000, origination_date: '2023-03-01', term_months: 60, minimum_payment: 617.2, iso_currency_code: 'USD', institution_name: 'Capital One', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-6', plaid_account_id: 'p-6', name: 'Everyday Business Checking', nickname: 'Studio', mask: '6666', type: 'depository', subtype: 'checking', current_balance: 12800, iso_currency_code: 'USD', institution_name: 'Wells Fargo', created_at: '2026-01-02T00:00:00Z', is_business: true },
+  ].map((a) => ({ is_business: false, ...a }))
+  const merchants: [string, number, string, string, boolean?][] = [
+    ['Whole Foods Market', 84.2, 'Groceries', 'acc-1'],
+    ['Adobe', 59.99, 'Subscriptions', 'acc-3', true],
+    ['Payroll – Acme Corp', -4200, 'Income', 'acc-1'],
+    ['Blue Bottle Coffee', 6.5, 'Dining', 'acc-3'],
+    ['PG&E', 142.88, 'Bills & Utilities', 'acc-1'],
+    ['Delta Air Lines', 412.3, 'Travel', 'acc-3', true],
+    ['Shell', 58.12, 'Gas & Transport', 'acc-3'],
+    ['Trader Joe’s', 63.45, 'Groceries', 'acc-1'],
+    ['Netflix', 15.49, 'Subscriptions', 'acc-3'],
+    ['Interest', -21.7, 'Income', 'acc-2'],
+    ['Home Depot', 231.04, 'Home', 'acc-3'],
+    ['Staples', 48.9, 'Business Expenses', 'acc-3', true],
+    ['Canva', 12.99, 'Subscriptions', 'acc-3'],
   ]
-}
-
-/** App-format transactions: amount_cents negative = money out. */
-export function fixtureTransactions(): Row[] {
-  const rows: Row[] = []
-  const add = (id: string, account: string, date: string, name: string, dollarsOut: number, pfc: keyof typeof PFC, pending = false) =>
-    rows.push({ transaction_id: id, account_id: account, amount_cents: -Math.round(dollarsOut * 100), iso_currency_code: 'USD', date, name, pending,
-      pending_transaction_id: null, category_primary: PFC[pfc][0], category_detailed: PFC[pfc][1] })
-  const recent: [string, number, keyof typeof PFC, string][] = [
-    ['Whole Foods Market', 84.2, 'groceries', 'p-1'],
-    ['Adobe', 59.99, 'software', 'p-3'],
-    ['Payroll – Acme Corp', -4200, 'payroll', 'p-1'],
-    ['Blue Bottle Coffee', 6.5, 'coffee', 'p-3'],
-    ['PG&E', 142.88, 'power', 'p-1'],
-    ['Delta Air Lines', 412.3, 'flights', 'p-3'],
-    ['Shell', 58.12, 'gas', 'p-3'],
-    ['Trader Joe’s', 63.45, 'groceries', 'p-1'],
-    ['Netflix', 15.49, 'streaming', 'p-3'],
-    ['Interest', -21.7, 'interest', 'p-2'],
-    ['Home Depot', 231.04, 'hardware', 'p-7'],
-    ['Staples', 48.9, 'office', 'p-6'],
-    ['Canva', 12.99, 'software', 'p-7'],
-  ]
-  recent.forEach(([m, amt, pfc, acct], i) => add(`txn-${i + 1}`, acct, iso(Math.floor(i / 2)), m, amt, pfc, i === 1))
-  const history: [string, number, keyof typeof PFC, string, number][] = [
-    ['Payroll – Acme Corp', -4200, 'payroll', 'p-1', 1],
-    ['Greystar Rent', 2400, 'rent', 'p-1', 3],
-    ['Netflix', 15.49, 'streaming', 'p-3', 9],
-    ['Spotify', 11.99, 'music', 'p-3', 14],
-    ['Equinox', 49, 'gym', 'p-3', 20],
-    ['Safeway', 180, 'groceries', 'p-1', 12],
-    ['Adobe', 59.99, 'software', 'p-6', 18],
-    ['Stripe Payout', -3500, 'income', 'p-6', 25],
+  const transactions: Row[] = merchants.map(([m, amount, category, account, biz], i) => ({
+    id: `txn-${i + 1}`,
+    account_id: account,
+    date: iso(Math.floor(i / 2)),
+    name: m.toUpperCase(),
+    merchant_name: m,
+    amount,
+    category,
+    notes: i === 0 ? 'Weekly shop' : null,
+    is_business: !!biz,
+    pending: i === 1,
+    iso_currency_code: 'USD',
+  }))
+  // Six months of history: payroll, rent and subscriptions on fixed days (cash flow, recurring).
+  const history: [string, number, string, string, number, boolean?][] = [
+    ['Payroll – Acme Corp', -4200, 'Income', 'acc-1', 1],
+    ['Greystar Rent', 2400, 'Home', 'acc-1', 3],
+    ['Netflix', 15.49, 'Subscriptions', 'acc-3', 9],
+    ['Spotify', 11.99, 'Subscriptions', 'acc-3', 14],
+    ['Equinox', 49, 'Health', 'acc-3', 20],
+    ['Safeway', 180, 'Groceries', 'acc-1', 12],
+    ['Adobe', 59.99, 'Subscriptions', 'acc-6', 18, true],
+    ['Stripe Payout', -3500, 'Income', 'acc-6', 25, true],
   ]
   const now = new Date()
   for (let back = 1; back <= 6; back++) {
-    history.forEach(([m, amt, pfc, acct, day], j) => {
+    history.forEach(([m, amount, category, account, day, biz], j) => {
       const d = new Date(now.getFullYear(), now.getMonth() - back, day)
-      const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      add(`txn-h${back}-${j}`, acct, date, m, amt + (pfc === 'groceries' ? back * 7 : 0), pfc)
+      transactions.push({
+        id: `txn-h${back}-${j}`, account_id: account, date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        name: m.toUpperCase(), merchant_name: m, amount: amount + (category === 'Groceries' ? back * 7 : 0), category, notes: null, is_business: !!biz, pending: false, iso_currency_code: 'USD',
+      })
     })
   }
-  add('txn-xfer', 'p-1', iso(3), 'TRANSFER TO SAVINGS', 500, 'transfer')
-  return rows
+  transactions.push({ id: 'txn-xfer', account_id: 'acc-1', date: iso(3), name: 'TRANSFER TO SAVINGS', merchant_name: null, amount: 500, category: 'Transfer', notes: null, is_business: false, pending: false, iso_currency_code: 'USD' })
+  return { accounts, transactions }
 }
 
-/** This browser's edits, as a user would have made them (nicknames, a Business account, categories, budgets). */
-export function seededEdits() {
+export function extraTables(): Record<string, Row[]> {
   return {
-    accounts: { 'p-1': { nickname: 'Joint checking' }, 'p-3': { nickname: 'Travel card' }, 'p-8': { nickname: 'Car' }, 'p-6': { nickname: 'Studio', usage: 'business' } },
-    transactions: {
-      'txn-2': { category: 'Subscriptions', usage: 'business' },
-      'txn-6': { category: 'Travel', usage: 'business' },
-      'txn-1': { notes: 'Weekly shop' },
-      'txn-13': { category: 'Subscriptions' },
-    },
     budgets: [
       { id: 'b1', category: 'Groceries', amount: 600 },
-      { id: 'b2', category: 'Dining Out', amount: 150 },
+      { id: 'b2', category: 'Dining', amount: 150 },
       { id: 'b3', category: 'Subscriptions', amount: 120 },
       { id: 'b4', category: 'Travel', amount: 300 },
     ],
+    household_members: [
+      { id: 'm1', user_id: 'user-1', display_name: 'Alex', email: 'alex@example.com', role: 'owner', joined_at: '2026-01-02T00:00:00Z' },
+      { id: 'm2', user_id: 'user-2', display_name: 'Jordan', email: 'jordan@example.com', role: 'member', joined_at: '2026-03-14T00:00:00Z' },
+    ],
+    household_invites: [{ id: 'i1', invitee_first_name: 'Sam', status: 'pending', expires_at: new Date(Date.now() + 5 * 86400_000).toISOString(), token: 'tok-sam' }],
+    holdings: [
+      { id: 'h1', account_id: 'acc-4', security_id: 's1', quantity: 820, institution_price: 287.4, institution_value: 235668, cost_basis: 180000 },
+      { id: 'h2', account_id: 'acc-4', security_id: 's2', quantity: 410, institution_price: 451.2, institution_value: 184992, cost_basis: 150000 },
+      { id: 'h3', account_id: 'acc-4', security_id: 's3', quantity: 900, institution_price: 72.1, institution_value: 64890, cost_basis: 70000 },
+      { id: 'h4', account_id: 'acc-4', security_id: 's4', quantity: 27090.55, institution_price: 1, institution_value: 27090.55, cost_basis: 27090.55 },
+    ],
+    securities: [
+      { security_id: 's1', name: 'Vanguard Total Stock Market ETF', ticker_symbol: 'VTI', type: 'etf' },
+      { security_id: 's2', name: 'Apple Inc.', ticker_symbol: 'AAPL', type: 'equity' },
+      { security_id: 's3', name: 'Vanguard Total Bond Market ETF', ticker_symbol: 'BND', type: 'fixed income' },
+      { security_id: 's4', name: 'Cash sweep', ticker_symbol: 'CASH', type: 'cash' },
+    ],
+    plaid_items: [
+      { id: 'item-row-1', plaid_item_id: 'item-chase', institution_name: 'Chase', status: 'good', error_code: null, last_synced_at: new Date(Date.now() - 3600_000).toISOString() },
+      { id: 'item-row-2', plaid_item_id: 'item-wf', institution_name: 'Wells Fargo', status: 'login_required', error_code: 'ITEM_LOGIN_REQUIRED', error_message: 'Sign in to Wells Fargo again', last_synced_at: new Date(Date.now() - 4 * 86400_000).toISOString() },
+    ],
   }
 }
 
-function household() {
-  return {
-    household_id: 'hh-1', role: 'owner', can_invite: true, email_enabled: true,
-    members: [
-      { user_id: 'user-1', role: 'owner', display_name: 'Alex', hide_ai_history: false, joined_at: '2026-01-02T00:00:00Z', is_you: true },
-      { user_id: 'user-2', role: 'member', display_name: 'Jordan', hide_ai_history: false, joined_at: '2026-03-14T00:00:00Z', is_you: false },
-    ],
-    invite: null,
-    invites: [] as Row[],
-    member_access: { state: 'premium', until: null },
-    profile: { first_name: 'Alex', last_name: 'Rivera', display_name: 'Alex', phone: '', email: EMAIL, needs_name: false },
+// ---- Davey's real server shape: household_records (see src/lib/serverData.ts) ----
+const HOUSEHOLD = 'house-1'
+const daveyType = (a: Row) =>
+  a.type === 'credit' ? 'creditCard' : a.type === 'loan' ? 'loan' : a.type === 'investment' ? 'investment'
+    : a.subtype === 'savings' ? 'savings' : 'checking'
+const cents = (n: unknown) => Math.round(Number(n ?? 0) * 100)
+const categoryId = (name: string) => `cat-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+const localMidnight = (day: string) => { const [y, m, d] = day.split('-').map(Number); return new Date(y, m - 1, d).toISOString() }
+
+/** The fixtures (web-shaped rows) as the app's household records: what production actually serves. */
+export function householdRecords(state: { accounts: Row[]; transactions: Row[]; extra: Record<string, Row[]> }) {
+  const records: { household_id: string; entity: string; id: string; payload: Row; updated_at: string }[] = []
+  const add = (entity: string, id: string, payload: Row) => records.push({ household_id: HOUSEHOLD, entity, id, payload, updated_at: '2026-10-01T00:00:00Z' })
+  const banks = new Map<string, string>()
+  for (const item of state.extra.plaid_items ?? []) {
+    const id = `bank-${String(item.institution_name).toLowerCase().replace(/\W+/g, '-')}`
+    banks.set(String(item.institution_name), id)
+    add('bankConnection', id, { itemID: item.plaid_item_id, institutionName: item.institution_name, status: item.status === 'login_required' ? 'needsReauth' : 'ok', lastSyncedAt: item.last_synced_at })
   }
+  const categories = new Set<string>()
+  for (const t of state.transactions) if (t.category) categories.add(String(t.category))
+  for (const b of state.extra.budgets ?? []) categories.add(String(b.category))
+  for (const name of categories) add('category', categoryId(name), { name, kind: name === 'Income' ? 'income' : name === 'Transfer' ? 'transfer' : 'expense' })
+  const sums = new Map<string, number>()
+  for (const t of state.transactions) sums.set(String(t.account_id), (sums.get(String(t.account_id)) ?? 0) - cents(t.amount))
+  for (const a of state.accounts) {
+    const type = daveyType(a)
+    const balance = (type === 'creditCard' || type === 'loan' ? -1 : 1) * cents(a.current_balance)
+    add('account', String(a.id), {
+      name: a.name, nickname: a.nickname ?? null, mask: a.mask, type, externalID: a.plaid_account_id ?? null, source: 'plaid',
+      startingBalance: balance - (sums.get(String(a.id)) ?? 0), availableBalance: a.available_balance === undefined ? null : cents(a.available_balance),
+      bankConnectionID: banks.get(String(a.institution_name)) ?? null, isBusiness: a.is_business === true, isArchived: a.is_hidden === true,
+      createdAt: a.created_at,
+      creditLimit: a.credit_limit === undefined ? null : cents(a.credit_limit),
+      aprBasisPoints: a.apr ?? a.interest_rate ? Math.round(Number(a.apr ?? a.interest_rate) * 100) : null,
+      originalPrincipal: a.original_principal === undefined ? null : cents(a.original_principal),
+      loanStartDate: a.origination_date ? localMidnight(String(a.origination_date)) : null,
+      loanTermMonths: a.term_months ?? null,
+      monthlyPayment: type === 'loan' && a.minimum_payment !== undefined ? cents(a.minimum_payment) : null,
+      nextPaymentAmount: type === 'creditCard' && a.minimum_payment !== undefined ? cents(a.minimum_payment) : null,
+      nextPaymentDueDate: a.next_payment_due_date ? localMidnight(String(a.next_payment_due_date)) : null,
+      linkedPropertyID: a.property_value !== undefined ? `${a.id}-home` : null,
+    })
+    // Davey keeps a mortgage's home as its own (real estate) account.
+    if (a.property_value !== undefined) {
+      add('account', `${a.id}-home`, { name: 'Home', type: 'property', source: 'manual', startingBalance: cents(a.property_value), isArchived: false })
+    }
+  }
+  for (const t of state.transactions) {
+    add('transaction', String(t.id), {
+      accountID: t.account_id, amount: -cents(t.amount), date: localMidnight(String(t.date)), payee: t.merchant_name ?? t.name,
+      note: t.notes ?? '', categoryID: t.category ? categoryId(String(t.category)) : null, isPending: t.pending === true, source: 'plaid',
+    })
+  }
+  const month = new Date().getFullYear() * 100 + new Date().getMonth() + 1
+  for (const b of state.extra.budgets ?? []) add('budget', String(b.id), { categoryID: categoryId(String(b.category)), limit: cents(b.amount), monthKey: month })
+  return records
 }
 
 export interface MockOptions {
+  /** plaid-link-token answers mode:'update' for reconnects (the server change is deployed). */
+  updateMode?: boolean
+  /** household-invite Edge Function is deployed. */
+  inviteFunction?: boolean
+  /** ask-ai answers (true), returns the monthly limit (limit), or isn't web-enabled (undefined). */
+  aiFunction?: boolean | 'limit'
+  /** login-activity Edge Function is deployed. */
+  activityFunction?: boolean
+  /** plaid-report-issue Edge Function is deployed. */
+  reportFunction?: boolean
   /** 'verified' = user already has an authenticator; 'none' = must enroll. */
   mfa?: 'verified' | 'none'
   backup?: boolean
   signedIn?: boolean
-  /** Seed this browser's edits (default true). */
-  edits?: boolean
-  /** Household functions are not web-enabled (no CORS → unreachable). */
-  householdDown?: boolean
-  /** Report to Plaid (link-support) is not web-enabled. */
-  reportDown?: boolean
-  /** ask-ai: 'answer' (default), 'limit', or 'down' (not web-enabled). */
-  ai?: 'answer' | 'limit' | 'down'
-  /** login-activity Edge Function is deployed. */
-  activityFunction?: boolean
-  /** plaid-link-token without update mode (older server): no mode in the reply. */
-  noUpdateMode?: boolean
+  /** The user doesn't share a household (Davey on the web has nothing to show or connect into). */
+  noHousehold?: boolean
 }
 
-
 export async function mockBackend(page: Page, opts: MockOptions = {}) {
-  const items = fixtureItems()
-  const transactions = fixtureTransactions()
   const state = {
-    items,
-    transactions,
+    ...fixtures(),
     factors: [] as Factor[],
     aal: 'aal1' as 'aal1' | 'aal2',
     calls: [] as { path: string; method: string; body: unknown }[],
     linkTokenBody: null as unknown,
+    extra: extraTables() as Record<string, Row[]>,
     reportBody: null as unknown,
     inviteBody: null as unknown,
-    aiBodies: [] as Record<string, unknown>[],
+    aiBody: null as Record<string, unknown> | null,
     exchangeBody: null as unknown,
+    pushes: [] as Row[],
+    pushed: [] as { household_id: string; entity: string; id: string; payload: Row; updated_at: string }[],
     syncBodies: [] as Row[],
-    household: household(),
   }
   const now = new Date().toISOString()
   if ((opts.mfa ?? 'verified') === 'verified') {
@@ -261,92 +280,122 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       }
     }
 
-    // ---- Edge Functions (the app's real contracts) ----
-    const fail = (status: number, error: string, message: string) => json(route, { error, message }, status)
-    if (path === '/functions/v1/plaid-item-status') {
-      return json(route, { items: items.map((i) => ({ item_id: i.item_id, needs_sync: false, status: i.status, institution_name: i.institution_name, created_at: '2026-01-02T00:00:00Z' })) })
+    // ---- household_records (the app's shared copy; the only accounts/transactions on the server) ----
+    if (path === '/rest/v1/household_records' && method === 'GET') {
+      if (opts.noHousehold) return json(route, [])
+      const entity = url.searchParams.get('entity')?.replace(/^eq\./, '')
+      const all = [...householdRecords(state), ...state.pushed.filter((r) => !householdRecords(state).some((x) => x.entity === r.entity && x.id === r.id))]
+      const rows = all.filter((r) => r.entity === entity)
+      const offset = Number(url.searchParams.get('offset') ?? 0)
+      const limit = Number(url.searchParams.get('limit') ?? rows.length)
+      return json(route, rows.slice(offset, offset + limit))
     }
-    if (path === '/functions/v1/plaid-sync') {
-      state.syncBodies.push(body)
-      const item = items.find((i) => i.item_id === body.item_id)
-      if (!item) return fail(404, 'item_not_found', 'That bank connection was not found.')
-      if (item.failing) return fail(400, 'ITEM_LOGIN_REQUIRED', `Sign in to ${item.institution_name} again`)
-      const ids = new Set(item.accounts.map((a) => a.account_id))
-      const txns = transactions.filter((t) => ids.has(t.account_id))
-      // Two pages, like Plaid's has_more.
-      const half = Math.ceil(txns.length / 2)
-      const first = body.cursor == null
-      return json(route, { added: first ? txns.slice(0, half) : txns.slice(half), modified: [], removed: [], accounts: item.accounts, next_cursor: first ? `c-${item.item_id}` : `end-${item.item_id}`, has_more: first && txns.length > 1 })
+    if (path === '/rest/v1/household_members' && method === 'GET' && opts.noHousehold) return json(route, [])
+    if (path === '/rest/v1/rpc/push_household_records') {
+      state.pushes.push(body)
+      const list = (body.p_records as { entity: string; id: string; payload: Row }[]) ?? []
+      for (const r of list) {
+        // Edits land on the web-shaped fixture rows; new records (an imported bank) are kept as pushed.
+        const account = r.entity === 'account' ? state.accounts.find((a) => a.id === r.id) : undefined
+        const tx = r.entity === 'transaction' ? state.transactions.find((t) => t.id === r.id) : undefined
+        const budget = r.entity === 'budget' ? (state.extra.budgets ?? []).find((b) => b.id === r.id) : undefined
+        if (budget) Object.assign(budget, { amount: Number(r.payload.limit) / 100 })
+        else if (account) Object.assign(account, { nickname: r.payload.nickname ?? null, is_business: r.payload.isBusiness === true })
+        else if (tx) {
+          const category = householdRecords(state).find((c) => c.entity === 'category' && c.id === r.payload.categoryID)
+          Object.assign(tx, { notes: r.payload.note || null, category: category ? category.payload.name : null })
+        } else {
+          state.pushed = state.pushed.filter((x) => !(x.entity === r.entity && x.id === r.id))
+          state.pushed.push({ household_id: HOUSEHOLD, entity: r.entity, id: r.id, payload: r.payload, updated_at: now })
+        }
+      }
+      return json(route, list.length)
     }
+
+    // ---- REST ----
+    const rest = path.match(/^\/rest\/v1\/(\w+)$/)
+    if (rest) {
+      const name = rest[1]
+      const rows = name === 'accounts' || name === 'transactions' ? (state[name] as Row[]) : state.extra[name]
+      if (!rows) return json(route, { code: 'PGRST205', message: `Could not find the table 'public.${name}' in the schema cache` }, 404)
+      if (method === 'POST') {
+        const added = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: `${name}-${rows.length + i + 1}`, ...r }))
+        rows.push(...added)
+        return json(route, added, 201)
+      }
+      if (method === 'DELETE') {
+        const id = url.searchParams.get('id')?.replace(/^eq\./, '')
+        const i = rows.findIndex((r) => String(r.id) === id)
+        const removed = i >= 0 ? rows.splice(i, 1) : []
+        return json(route, removed)
+      }
+      if (method === 'GET') {
+        let list = rows
+        for (const v of url.searchParams.getAll('date')) {
+          const [op, val] = [v.slice(0, 3), v.slice(4)]
+          list = list.filter((r) => (op === 'gte' ? String(r.date) >= val : op === 'lte' ? String(r.date) <= val : true))
+        }
+        if (list !== rows) {
+          const offset = Number(url.searchParams.get('offset') ?? 0)
+          const limit = Number(url.searchParams.get('limit') ?? list.length)
+          return json(route, list.slice(offset, offset + limit))
+        }
+        const offset = Number(url.searchParams.get('offset') ?? 0)
+        const limit = Number(url.searchParams.get('limit') ?? rows.length)
+        return json(route, rows.slice(offset, offset + limit))
+      }
+      if (method === 'PATCH') {
+        const id = url.searchParams.get('id')?.replace(/^eq\./, '')
+        const row = rows.find((r) => String(r.id) === id)
+        if (!row) return json(route, [])
+        Object.assign(row, body)
+        return json(route, [row])
+      }
+    }
+
+    // ---- Edge Functions ----
     if (path === '/functions/v1/plaid-link-token') {
       state.linkTokenBody = body
-      return json(route, { link_token: 'link-production-web-123', expiration: now, hosted_link_url: null, preselected: false, ...(body.item_id && !opts.noUpdateMode ? { mode: 'update' } : {}) })
+      if (body.mode === 'update' && !opts.updateMode) return json(route, { link_token: 'link-production-web-123', expiration: now })
+      return json(route, { link_token: 'link-production-web-123', expiration: now, ...(body.mode === 'update' ? { mode: 'update' } : {}) })
+    }
+    if (path === '/functions/v1/plaid-report-issue') {
+      if (!opts.reportFunction) return json(route, { message: 'Function not found' }, 404)
+      state.reportBody = body
+      return json(route, { ok: true })
     }
     if (path === '/functions/v1/plaid-exchange') {
       state.exchangeBody = body
-      const accounts = [{ account_id: 'p-new-1', name: 'Platypus Checking', official_name: null, mask: '4321', type: 'depository', subtype: 'checking', current_balance_cents: 150000, available_balance_cents: 150000, limit_cents: null, iso_currency_code: 'USD', liabilities_status: null }]
-      items.push({ item_id: 'item-new', institution_name: 'First Platypus Bank', status: 'ok', accounts })
-      return json(route, { item_id: 'item-new', institution_name: 'First Platypus Bank', institution_id: 'ins_109508', institution_logo: null, institution_color: null, accounts })
+      return json(route, { item_id: 'item-new', institution_name: 'First Platypus Bank', accounts: [] })
     }
-    if (path === '/functions/v1/link-support') {
-      if (opts.reportDown) return route.abort('failed')
-      state.reportBody = body
-      return json(route, { reported: true, id: 'rep-1' })
+    if (path === '/functions/v1/plaid-sync') {
+      state.syncBodies.push(body)
+      // The function's wire format (toAppAccount / toAppTransaction): cents, app sign.
+      return json(route, {
+        added: [{ transaction_id: 'ptx-1', account_id: 'p-new-1', amount_cents: -1250, date: iso(1), name: 'Platypus Coffee', pending: false, category_primary: 'FOOD_AND_DRINK', category_detailed: null }],
+        modified: [], removed: [],
+        accounts: [{ account_id: 'p-new-1', name: 'Platypus Checking', official_name: null, mask: '4321', type: 'depository', subtype: 'checking', current_balance_cents: 150000, available_balance_cents: 150000, limit_cents: null }],
+        next_cursor: 'cursor-new', has_more: false,
+      })
     }
-    if (path.startsWith('/functions/v1/household-') || path === '/functions/v1/profile-update') {
-      if (opts.householdDown) return route.abort('failed')
-      const h = state.household
-      if (path.endsWith('household-status')) return json(route, h)
-      if (path.endsWith('household-invite')) {
-        state.inviteBody = body
-        if (body.action === 'create') {
-          h.invites.push({ id: 'inv-1', status: 'pending', first_name: String(body.first_name), last_name: String(body.last_name ?? ''), email: (body.email as string) ?? null, relationship: String(body.relationship), expires_at: new Date(Date.now() + 7 * 86400_000).toISOString() })
-          return json(route, { invite: h.invites.at(-1), link: 'https://daveypersonalfinance.com/join?t=tok-new-123', sms_body: '', email: body.send_email ? 'sent' : 'skipped', email_enabled: true })
-        }
-        if (body.action === 'cancel') { h.invites = h.invites.filter((i) => i.id !== body.invite_id); return json(route, { cancelled: true }) }
-        return json(route, { link: 'https://daveypersonalfinance.com/join?t=tok-again-456' })
-      }
-      if (path.endsWith('household-remove-member')) { h.members = h.members.filter((m) => m.is_you); return json(route, { removed: true }) }
-      if (path.endsWith('household-leave')) return json(route, { left: true })
-      if (path.endsWith('profile-update')) {
-        state.inviteBody = body
-        Object.assign(h.profile, { first_name: body.first_name, last_name: body.last_name, phone: body.phone ?? '' })
-        return json(route, { profile: h.profile })
-      }
+    if (path === '/functions/v1/household-invite') {
+      if (!opts.inviteFunction) return json(route, { message: 'Function not found' }, 404)
+      state.inviteBody = body
+      return json(route, { token: 'tok-new-123' })
     }
     if (path === '/functions/v1/ask-ai') {
-      if (opts.ai === 'down') return route.abort('failed')
-      state.aiBodies.push(body)
-      if (opts.ai === 'limit') return fail(429, 'plan_limit', "You've used this month's 5 free Davey AI questions. Davey Premium includes 100 a month.")
-      const sse = (events: Row[]) => route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream', 'Access-Control-Allow-Origin': '*' }, body: events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('') })
-      if (body.round === 0) {
-        return sse([
-          { type: 'meta', model: 'claude-sonnet-5-5', round: 0 },
-          { type: 'progress', tool: 'recurring_charges', label: 'Finding repeating charges' },
-          { type: 'tool_calls', content: [{ type: 'tool_use', id: 'tu_1', name: 'recurring_charges', input: {} }, { type: 'tool_use', id: 'tu_2', name: 'spending_by_category', input: { start: iso(30), end: iso(0), group_by: 'none' } }] },
-          { type: 'done', usage: { input_tokens: 10, output_tokens: 5 } },
-        ])
-      }
-      return sse([
-        { type: 'meta', model: 'claude-sonnet-5-5', round: 1 },
-        { type: 'delta', text: 'You could cancel ' },
-        { type: 'answer', envelope: { blocks: [
-          { type: 'text', text: 'You could cancel **Spotify** and **Equinox**:\n- Spotify ($11.99)\n- Equinox ($49.00)\n\nThat saves about $61 a month.' },
-          { type: 'metric_cards', cards: [{ label: 'Subscriptions / month', value: '$136.47' }, { label: 'Possible savings', value: '$60.99', tone: 'positive' }] },
-          { type: 'table', table: { columns: ['Charge', 'Monthly'], rows: [['Spotify', '$11.99'], ['Equinox', '$49.00']] } },
-          { type: 'actions', actions: [{ label: 'Open Recurring', deeplink: 'davey://recurring' }] },
-        ], follow_ups: ['What else could I cut?', 'Show my biggest bills'] } },
-        { type: 'done', usage: { input_tokens: 10, output_tokens: 5 } },
-      ])
+      if (!opts.aiFunction) return json(route, { message: 'Function not found' }, 404)
+      state.aiBody = body
+      if (opts.aiFunction === 'limit') return json(route, { error: 'limit' }, 429)
+      return json(route, { answer: 'You could cancel:\n- Spotify ($11.99)\n- Equinox ($49)\n\nThat saves about **$61** a month.' })
     }
     if (path === '/functions/v1/login-activity') {
-      if (!opts.activityFunction) return route.abort('failed')
+      if (!opts.activityFunction) return json(route, { message: 'Function not found' }, 404)
       return json(route, { events: [
         { created_at: new Date(Date.now() - 3600_000).toISOString(), action: 'login', ip_address: '73.15.2.10', user_agent: 'Davey/1.0 CFNetwork Darwin iPhone' },
         { created_at: new Date(Date.now() - 86400_000).toISOString(), action: 'user_updated_password', ip_address: '73.15.2.10' },
       ] })
     }
-    if (path.startsWith('/rest/v1/')) return json(route, { code: 'PGRST205', message: 'The web app must not read tables directly' }, 404)
 
     return json(route, { message: `unmocked ${method} ${path}` }, 404)
   })
@@ -370,14 +419,6 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     }),
   )
 
-  if (opts.edits ?? true) {
-    await page.addInitScript((e) => {
-      if (!localStorage.getItem('davey.web-edits.seeded')) {
-        localStorage.setItem('davey.web-edits.user-1', JSON.stringify(e))
-        localStorage.setItem('davey.web-edits.seeded', '1')
-      }
-    }, seededEdits())
-  }
   if (opts.signedIn) {
     state.aal = 'aal2'
     await page.addInitScript((s) => {
@@ -385,6 +426,12 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     }, session())
   }
   return state
+}
+
+/** Every payload pushed for one record (push_household_records), oldest first. */
+export function pushedPayloads(state: { pushes: Record<string, unknown>[] }, entity: string, match: (id: string, payload: Record<string, unknown>) => boolean) {
+  return state.pushes.flatMap((p) => (p.p_records as { entity: string; id: string; payload: Record<string, unknown> }[]))
+    .filter((r) => r.entity === entity && match(r.id, r.payload)).map((r) => r.payload)
 }
 
 /** Collect CSP violations and page errors so tests can assert none happened. */
@@ -395,9 +442,4 @@ export function watchConsole(page: Page) {
   })
   page.on('pageerror', (e) => problems.push(e.message))
   return problems
-}
-
-/** This browser's saved web edits for the signed-in mock user. */
-export async function webEdits(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('davey.web-edits.user-1') ?? '{}'))
 }

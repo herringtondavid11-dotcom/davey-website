@@ -46,17 +46,30 @@ Autonomous run; David unavailable. Defaults chosen and logged here. Marketing-si
 | 35 | **Screens are code-split** (React.lazy); a failed chunk load after a deploy reloads the page once. | Main bundle 530 → 320 kB. |
 | 36 | **Screenshots are committed** (`webapp/screenshots`, ~19 MB of PNGs, mock data only). | Requested; easy to review on GitHub. |
 
-## Phase 4 — wired to the real backend (davey-ios `release-candidate`, 2026-10-22)
-
-| # | Decision | Why |
-|---|----------|-----|
-| 37 | **The web reads bank data exactly like the app:** `plaid-item-status` lists the household's Items, then `plaid-sync` (cursor from the start, `platform: 'web'`) returns accounts + full history in the app's format (cents, app sign, Plaid categories mapped with the app's `PlaidCategoryMapper`). Held in memory only for the session. | The server has no accounts/transactions tables: the app keeps its data on-device (SwiftData + iCloud). Phase 1–3's direct table reads (decision 2) would have 404'd in production. |
-| 38 | **Web edits (nicknames, Business/Personal, categories, notes, budgets) are saved in this browser per user** (`localStorage`, key `davey.web-edits.<user id>`), clearly labeled, removable in Settings. | No server store exists and the app's edits live in iCloud. **Question for David:** add a server table so web and app edits sync (see `supabase-changes/README.md` › "Edits sync")? |
-| 39 | **Accounts follow the app's model:** an account's Business/Personal sets its transactions' default; a transaction can override. | Matches the app's Personal/Business accounts. |
-| 40 | **Household = the app's model:** one partner, roles owner/member (no "view only"), invites by link (+ email) via `household-invite`, remove/leave via the app's functions; profile via `profile-update`. | Real functions on `release-candidate`. |
-| 41 | **Davey AI on the web uses the app's v2 protocol:** `ask-ai?stream=1` rounds; the browser runs all 23 data tools on its in-memory data (same as the app does on-device) and renders the app's answer blocks (text, metric cards, chart, table, transactions, actions → web routes, follow-ups). `goal_progress` reports that goals live in the app. | The server is built to never see raw data; the client must run tools. |
-| 42 | **Report to Plaid uses the app's `link-support` (`action: "report"`)**; the earlier `plaid-report-issue` proposal is superseded. | Already exists server-side. |
-| 43 | **"Sign in with Apple" added to the web sign-in** (Supabase OAuth). Until the Apple provider has a web Services ID, it shows a friendly "coming soon". | Most app users sign up with Apple and have no password. **David:** enable it (steps in WEB-STATUS.md). |
-| 44 | **Server changes delivered as a patch, not commits to davey-ios:** `supabase-changes/davey-ios/web-api.patch` (verified with `git apply --check` on `release-candidate`). Editing the davey-ios backend from this session was blocked as a shared-resource change. | Keeps production code changes in David's hands. |
-| 45 | **Web syncs don't consume the app's `needs_sync` flag** (in the patch): otherwise a web visit could make the iPhone skip a webhook-flagged sync. Until the patch is deployed, a web visit can clear that flag (the app still syncs on its normal schedule). | Avoids a cross-device side effect. |
-| 46 | **Investment holdings aren't on the web yet** (no function returns them); Investments shows balances and says holdings are in the app. | No server source. |
+## 2026-10-22 — from the Mac session (reconciled against production)
+- **Real schema:** there are no `accounts` / `transactions` / `budgets` tables. The iPhone/Mac app keeps money data on the
+  device and in iCloud; the only server copy is `household_records` (Household Sharing): `entity` + `id` + `payload`
+  jsonb, RLS for household members, writes only through `rpc/push_household_records` (last-write-wins on `updated_at`,
+  whole payloads). Payload format = `HouseholdSyncCodec.swift` (minor units; negative = money out; ISO dates).
+  `webapp/src/lib/serverData.ts` maps it to the rows `schema.ts` reads; `data.ts`/`tables.ts` go through it. Business
+  vs Personal is per account in Davey (transactions inherit it). Budgets are read-only on the web for now.
+- **Connect a Bank on the web** imports the new bank into the household records the way the app does
+  (`importBank.ts`, mirrors PlaidImporter + PlaidCategoryMapper), so the iPhone/Mac receive it; without a household it
+  explains instead of creating a connection no device would show.
+- **Server deployed (release-candidate be86f94):** `plaid-link-token` platform=web (redirect
+  https://daveypersonalfinance.com/app/oauth, retried without it if Plaid rejects; client redirect ignored; update mode
+  answers `mode:"update"`), CORS for Davey's origins only on plaid-link-token / plaid-exchange / plaid-sync (+ sandbox).
+  `/supabase-changes/functions/plaid-link-token` was NOT deployed as written: it would have dropped modes, plan limits,
+  OAuth fallbacks and the Mac path; its behaviour is merged into the existing function. `plaid-report-issue` not
+  deployed: the existing `link-support` (action "report") stores the same thing.
+- Anon key: the publishable key in config.ts is the project's real one (checked).
+- (Mac session) Business vs Personal on the web follows the account, as in the app (transactions have no business flag
+  in Davey's records). The Tax deduction finder's "Mark Business" explains that instead of writing. QUESTION for David:
+  should single transactions be markable Business (Davey has TaxLineOverride records for tax lines)? Until then, move
+  the transaction's account to Business.
+- (Mac session) Liabilities come out of the adapter as amounts owed (positive), and a mortgage's home counts in net
+  worth as its own Real Estate account, as in the app.
+- (Mac session) `ask-ai` deployed with a web mode (release-candidate 3e08d1f): body `platform:"web"` → one answer-only
+  round grounded in the `context` numbers (validated as data: view, month, net_worth, month_income, month_spending,
+  account_count, top 8 categories), JSON `{answer, follow_ups}`, CORS for Davey's origins, same plan limits (HTTP 402
+  `plan_limit` when the month's questions are used up; the web shows the limit message for 402 and 429).

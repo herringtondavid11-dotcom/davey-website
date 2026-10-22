@@ -12,12 +12,14 @@ describe('Ask AI', () => {
     expect(container.querySelector('img')).toBeNull()
     expect(container.textContent).toContain('<img src=x onerror=alert(1)> done')
   })
-  it('builds the app’s view context (screen, mode, scope, account ids only)', () => {
+  it('builds a view context without identifiers', () => {
     const month = new Date().toISOString().slice(0, 7)
-    void month
-    void normalizeTransaction
-    const ctx = viewContext('/credit-cards', { accounts: [normalizeAccount({ id: 'a', name: 'Checking', mask: '1234', type: 'depository', current_balance: 1000 })] })
-    expect(ctx).toMatchObject({ screen: 'card_detail', mode: 'personal', scope: 'this_view', account_ids: ['a'] })
-    expect(JSON.stringify(ctx)).not.toMatch(/1234|Checking/)
+    const ctx = viewContext(
+      '/credit-cards',
+      [normalizeAccount({ id: 'a', name: 'Checking', mask: '1234', type: 'depository', current_balance: 1000 })],
+      [normalizeTransaction({ id: 't', date: `${month}-02`, amount: 50, category: 'Dining', merchant_name: 'Cafe' })],
+    )
+    expect(ctx).toMatchObject({ platform: 'web', view: 'credit_cards', net_worth: 1000, month_spending: 50, top_categories: [{ category: 'Dining', amount: 50 }] })
+    expect(JSON.stringify(ctx)).not.toMatch(/1234|Cafe|Checking/)
   })
 })

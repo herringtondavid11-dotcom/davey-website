@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { SearchIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
 import { TransactionRow } from '../components/TransactionRow'
@@ -13,9 +12,7 @@ const VISIBLE_STEP = 100
 
 export function Transactions() {
   const { accounts, transactions, error, hasMore, loadMore, replaceTransaction } = useData()
-  const [params, setParams] = useSearchParams()
-  const [filter, setFilter] = useState<TransactionFilter>(() => ({ ...EMPTY_FILTER, search: params.get('q') ?? '', category: params.get('category') ?? '' }))
-  const onlyIds = useMemo(() => (params.get('ids') ? new Set(params.get('ids')!.split(',')) : null), [params])
+  const [filter, setFilter] = useState<TransactionFilter>(EMPTY_FILTER)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [visible, setVisible] = useState(VISIBLE_STEP)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -30,10 +27,7 @@ export function Transactions() {
   }, [accounts])
   const names = useMemo(() => new Map([...accountMap].map(([k, a]) => [k, displayName(a)])), [accountMap])
   const categories = useMemo(() => categoryOptions(transactions ?? []), [transactions])
-  const filtered = useMemo(
-    () => filterTransactions((transactions ?? []).filter((t) => !onlyIds || onlyIds.has(t.id)), filter, names),
-    [transactions, filter, names, onlyIds],
-  )
+  const filtered = useMemo(() => filterTransactions(transactions ?? [], filter, names), [transactions, filter, names])
   useEffect(() => setVisible(VISIBLE_STEP), [filter])
 
   if (!accounts || !transactions) return <Spinner label="Loading transactions" />
@@ -113,11 +107,7 @@ export function Transactions() {
             <span className="muted" role="status">
               {filtered.length} {filtered.length === 1 ? 'transaction' : 'transactions'} · net <span className="num">{money(total, 'USD', { sign: true })}</span>
             </span>
-            {(active || filter.search || onlyIds) && (
-              <button type="button" className="link-btn" onClick={() => { setFilter(EMPTY_FILTER); if (params.toString()) setParams({}, { replace: true }) }}>
-                {onlyIds ? `Showing ${onlyIds.size} from Davey AI · Clear` : 'Clear filters'}
-              </button>
-            )}
+            {(active || filter.search) && <button type="button" className="link-btn" onClick={() => setFilter(EMPTY_FILTER)}>Clear filters</button>}
           </div>
         </div>
         {days.length === 0 ? (

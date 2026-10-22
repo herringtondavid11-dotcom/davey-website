@@ -14,7 +14,7 @@ test('credit cards: utilization per card and overall, avalanche plan', async ({ 
   await page.getByLabel('Monthly amount for cards').fill('1000')
   await expect(page.locator('.plan-stats')).toContainText('Blue Cash Everyday')
   await page.getByLabel('Monthly amount for cards').fill('50')
-  await expect(page.getByRole('alert').filter({ hasText: 'less than the minimums' })).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('less than the minimums')
   expect(problems).toEqual([])
 })
 
@@ -24,7 +24,6 @@ test('loans: payoff with extra payments, refinance, equity and LTV', async ({ pa
   const mortgage = page.getByRole('region', { name: 'Home Mortgage' })
   await expect(mortgage.getByLabel('Interest rate')).toHaveValue('6.25')
   await mortgage.getByLabel('Extra each month').fill('500')
-  await mortgage.getByLabel('Home value').fill('690000')
   await expect(mortgage.getByText('Extra saves')).toBeVisible()
   await expect(mortgage.getByText('Loan-to-value')).toBeVisible()
   await expect(mortgage).toContainText('59.8%')
@@ -37,9 +36,10 @@ test('loans: payoff with extra payments, refinance, equity and LTV', async ({ pa
   await expect(page.getByRole('region', { name: 'Car' }).getByText('Home value')).toHaveCount(0)
 })
 
-test('investments: account balances; holdings explained as app-only for now', async ({ page }) => {
+test('investments: holdings, gain/loss and allocation', async ({ page }) => {
   await mockBackend(page, { signedIn: true })
   await page.goto('/app/investments')
-  await expect(page.locator('.stats')).toContainText('$512,640.55')
-  await expect(page.getByText('Holdings (shares and prices) show in the Davey app').first()).toBeVisible()
+  await expect(page.getByRole('row', { name: /VTI/ })).toContainText('+$55,668')
+  await expect(page.locator('.alloc-legend')).toContainText('ETFs')
+  await expect(page.locator('.alloc-legend')).toContainText('Bonds')
 })
