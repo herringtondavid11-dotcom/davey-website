@@ -31,5 +31,7 @@ set ACCESS_PIN (ask me for the code with a hidden prompt; never write it to a fi
 20261025000000_access_pin.sql with `supabase db query --linked -f` inside begin/commit and then
 `supabase migration repair --status applied 20261025000000` (never db push), apply 20261025010000_login_activity.sql the same way, deploy access-pin and login-activity with --use-api,
 enable the Before User Created hook (public.access_gate_before_user_created), then run the wrong-code curl check and
-confirm https://daveypersonalfinance.com/app shows the code screen and accepts my code.
+confirm https://daveypersonalfinance.com/app shows the code screen and accepts my code. Also deploy
+plaid-link-token and plaid-link-token-sandbox (bank limit 30, BANK-LIMIT-30.md) and reinstall Davey on iPhone and Mac from
+release-candidate.
 ```
