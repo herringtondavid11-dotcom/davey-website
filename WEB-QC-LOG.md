@@ -186,3 +186,10 @@ the GitHub Pages run instead.
 ## Loop 22 — 2026-10-22 21:00 UTC (hourly check)
 - Pages: 378b0ac deployed (success). No new commits from other sessions. No issues found.
 - Counts: Vitest 112/112, Playwright Chromium 119/119.
+
+## Loop 23 — 2026-10-22 22:06 UTC (hourly check)
+- Pages: 106ffb6 deployed (success). No new commits from other sessions.
+- Found: ai.spec failed once (passed 18/18 on repeat): the test read the Ask AI request body before the browser had
+  sent it (test timing, not an app bug).
+- Fixed: the test waits for the request (expect.poll). ai.spec ×10: 30/30.
+- Counts: Vitest 112/112, Playwright Chromium 119/119.
