@@ -133,3 +133,9 @@ the GitHub Pages run instead.
 - Tests: auth.spec rewritten (email code sign-in, no QR, one send, resend wait, rate limit, Settings wording, reset
   links); access.spec/screenshots use the email code; emailCode.test.
 - Counts: Vitest 112/112, Playwright Chromium 105/105.
+
+## Loop 15 — 2026-10-22 15:39 UTC (hourly check)
+- Pages: a4f93d0 (email-code sign-in) deployed successfully at 15:06 UTC. No new commits from other sessions.
+- Checked: "Check your email" screen with axe in light and dark — no serious/critical issues.
+- New test: a11y.spec "Check your email" sign-in code screen (light + dark).
+- Counts: Vitest 112/112, Playwright Chromium 107/107.
