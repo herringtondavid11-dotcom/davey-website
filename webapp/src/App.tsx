@@ -5,6 +5,7 @@ import { Layout } from './components/Layout'
 import { FullPageSpinner } from './components/Spinner'
 import { DataProvider } from './lib/DataProvider'
 import { hashSession, supabase } from './lib/supabase'
+import { AccessCode, AccessGate } from './screens/AccessCode'
 import { Connect, OAuthReturn } from './screens/Connect'
 import { ForgotPassword } from './screens/ForgotPassword'
 import { Login } from './screens/Login'
@@ -13,6 +14,7 @@ import { MfaEnroll } from './screens/MfaEnroll'
 import { Overview } from './screens/Overview'
 import { ResetLinkExpired, ResetPassword } from './screens/ResetPassword'
 import { RotateBackup } from './screens/RotateBackup'
+import { SignUp } from './screens/SignUp'
 import { Transactions } from './screens/Transactions'
 
 // Less-used screens load on demand; Overview, Transactions and Connect stay in the main bundle.
@@ -97,6 +99,14 @@ function ResetRoute() {
   )
 }
 
+/** Signed-out screens sit behind the company access code; a signed-in visitor goes straight on (Login redirects). */
+function SignedOutOnly({ children }: { children: ReactNode }) {
+  const { status } = useAuth()
+  if (status === 'loading') return <FullPageSpinner />
+  if (status !== 'signedOut') return <>{children}</>
+  return <AccessGate>{children}</AccessGate>
+}
+
 function Protected() {
   return (
     <Gate>
@@ -110,8 +120,10 @@ function Protected() {
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/forgot" element={<ForgotPassword />} />
+      <Route path="/access" element={<AccessCode />} />
+      <Route path="/login" element={<SignedOutOnly><Login /></SignedOutOnly>} />
+      <Route path="/signup" element={<SignedOutOnly><SignUp /></SignedOutOnly>} />
+      <Route path="/forgot" element={<SignedOutOnly><ForgotPassword /></SignedOutOnly>} />
       <Route path="/reset" element={<ResetRoute />} />
       <Route element={<Protected />}>
         <Route index element={<Overview />} />

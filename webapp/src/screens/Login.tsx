@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { AuthCard } from '../components/AuthCard'
+import { authErrorMessage } from '../lib/authErrors'
 import { supabase } from '../lib/supabase'
 
 export function Login() {
@@ -31,7 +32,9 @@ export function Login() {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
     setBusy(false)
     if (error) {
-      setError(error.message === 'Invalid login credentials' ? "That email and password don't match." : error.message)
+      setError(error.message === 'Invalid login credentials' ? "That email and password don't match."
+        : error.code === 'email_not_confirmed' ? 'Confirm your email first: open the link we sent you, then sign in.'
+        : authErrorMessage(error))
       return
     }
     await refresh()
@@ -62,7 +65,7 @@ export function Login() {
       </form>
       <div className="auth-foot">
         <Link to="/forgot">Forgot password?</Link>
-        <a href="/#waitlist">New to Davey? Get started</a>
+        <Link to="/signup">New to Davey? Create an account</Link>
       </div>
     </AuthCard>
   )

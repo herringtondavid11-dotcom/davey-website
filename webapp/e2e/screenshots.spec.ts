@@ -1,11 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
-import { EMAIL, PASSWORD, mockBackend } from './mock'
+import { EMAIL, PASSWORD, TEST_PIN, mockBackend } from './mock'
 import { PAGES } from './pages'
 
 const VIEWPORTS = [
-  { width: 390, height: 844 },
-  { width: 1024, height: 768 },
-  { width: 1440, height: 900 },
+  { width: 360, height: 780 },
+  { width: 768, height: 1024 },
+  { width: 1280, height: 800 },
+  { width: 1920, height: 1080 },
 ]
 const THEMES = ['light', 'dark'] as const
 
@@ -26,8 +27,16 @@ for (const vp of VIEWPORTS) {
       }
       const phone = vp.width < 900
 
-      // Sign in + 2-step
-      await mockBackend(page)
+      // Company access code, sign-up, then sign in + 2-step
+      await mockBackend(page, { accessPass: false })
+      await page.goto('/app/login')
+      await expect(page.getByRole('heading', { name: 'Company access code' })).toBeVisible()
+      await shot('00-access-code')
+      await page.getByLabel('Access code').fill(TEST_PIN)
+      await page.getByRole('button', { name: 'Continue' }).click()
+      await page.goto('/app/signup')
+      await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible()
+      await shot('00-sign-up')
       await page.goto('/app/login')
       await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
       await shot('01-login')

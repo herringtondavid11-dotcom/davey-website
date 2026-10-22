@@ -15,6 +15,10 @@ function b64url(o: object) {
 const today = new Date()
 const iso = (daysAgo: number) => new Date(today.getTime() - daysAgo * 86400000).toISOString().slice(0, 10)
 
+/** Test-only access code and pass (the real PIN is the ACCESS_PIN Supabase secret, never in this repo). */
+export const TEST_PIN = '246810'
+export const TEST_PASS = 'dap_' + 'T'.repeat(43)
+
 export function fixtures() {
   const accounts: Row[] = [
     { id: 'acc-1', plaid_account_id: 'p-1', name: 'Plaid Checking', nickname: 'Joint checking', mask: '0000', type: 'depository', subtype: 'checking', current_balance: 8420.17, available_balance: 8120.17, iso_currency_code: 'USD', institution_name: 'Chase', created_at: '2026-01-02T00:00:00Z' },
@@ -202,6 +206,10 @@ export interface MockOptions {
   investmentsConsent?: boolean
   /** Supabase's email limit is hit (no custom SMTP yet). */
   emailRateLimited?: boolean
+  /** false: no company access pass on this device (the access-code screen shows first). Default true. */
+  accessPass?: boolean
+  /** access-pin isn't deployed yet (404). */
+  accessPinDown?: boolean
   /** The user doesn't share a household (Davey on the web has nothing to show or connect into). */
   noHousehold?: boolean
 }
@@ -224,6 +232,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     pushed: [] as { household_id: string; entity: string; id: string; payload: Row; updated_at: string }[],
     syncBodies: [] as Row[],
     investmentsBodies: [] as Row[],
+    pinFailures: 0,
+    signUpBody: null as Row | null,
   }
   const now = new Date().toISOString()
   if ((opts.mfa ?? 'verified') === 'verified') {
@@ -255,6 +265,24 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     let body: Row = {}
     try { body = req.postDataJSON() ?? {} } catch { /* none */ }
     state.calls.push({ path: path + url.search, method, body })
+
+    // ---- Company access code (test PIN only; the real one is a Supabase secret) ----
+    if (path === '/functions/v1/access-pin') {
+      if (opts.accessPinDown) return json(route, { message: 'Function not found' }, 404)
+      if (body.action === 'check') return json(route, { valid: body.pass === TEST_PASS, expires_at: new Date(Date.now() + 30 * 86_400_000).toISOString() })
+      if (state.pinFailures >= 5) return json(route, { error: 'locked', retry_at: new Date(Date.now() + 15 * 60_000).toISOString() }, 429)
+      if (body.pin === TEST_PIN) return json(route, { pass: TEST_PASS, expires_at: new Date(Date.now() + 30 * 86_400_000).toISOString() })
+      state.pinFailures += 1
+      if (state.pinFailures >= 5) return json(route, { error: 'locked', retry_at: new Date(Date.now() + 15 * 60_000).toISOString() }, 429)
+      return json(route, { error: 'wrong_pin', attempts_left: 5 - state.pinFailures }, 401)
+    }
+    if (path === '/auth/v1/signup') {
+      state.signUpBody = body
+      if (opts.emailRateLimited) return json(route, { code: 'over_email_send_rate_limit', msg: 'email rate limit exceeded', error_code: 'over_email_send_rate_limit' }, 429)
+      const meta = (body.data ?? {}) as Row
+      if (meta.access_pass !== TEST_PASS) return json(route, { code: 403, error_code: 'unexpected_failure', msg: 'Davey is invite-only right now. Enter the company access code at daveypersonalfinance.com/app first.' }, 403)
+      return json(route, { id: 'user-new', aud: 'authenticated', role: 'authenticated', email: body.email, user_metadata: meta, app_metadata: { provider: 'email' }, identities: [{ id: 'i1' }], created_at: now, updated_at: now })
+    }
 
     // ---- Auth ----
     if (path === '/auth/v1/token') {
@@ -481,6 +509,11 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     }),
   )
 
+  if (opts.accessPass ?? true) {
+    await page.addInitScript((pass) => {
+      localStorage.setItem('davey.accessPass', JSON.stringify({ pass, expiresAt: new Date(Date.now() + 30 * 86_400_000).toISOString() }))
+    }, TEST_PASS)
+  }
   if (opts.signedIn) {
     state.aal = 'aal2'
     await page.addInitScript((s) => {

@@ -94,3 +94,19 @@ Autonomous run; David unavailable. Defaults chosen and logged here. Marketing-si
   it). WebKit: 48/49 (the PWA offline test hits Playwright/WebKit's "internal error" on goto with a service worker while
   offline). Firefox can't launch inside this Mac session's command sandbox (plugin-container "Operation not
   permitted"); run `npm run e2e` in a normal Terminal for Firefox.
+
+## 2026-10-22 — company access code (WEB-PIN.md)
+
+- The pass is a random 32-byte token stored hashed server-side (not an HMAC-signed blob): the Postgres sign-up hook can
+  check it without holding a secret, and changing the code can revoke every pass (`access_passes.revoked`).
+- Lockout is per hashed IP (5 wrong in 15 min → 15 min), plus 200 wrong/hour across everyone so a botnet can't walk the
+  1,000,000 codes. Existing passes keep working during a global pause.
+- Gated: /access → /login, /signup, /forgot. Not gated: /reset (the emailed link already proves the address) and
+  signed-in pages (the session already passed). A signed-in visitor to /login goes straight in.
+- The hook lets Sign in with Apple and invited-email sign-ups through (the iPhone has no code screen); plain iPhone email
+  sign-ups without an invite are blocked while the hook is on. Switches in `public.access_gate`.
+- Password reset: the link's token is verified at most once (Mac session's `claimToken` + session check); kept as is.
+- Rate-limit wording: email limits → "Too many emails, try again in a few minutes." / "Wait N seconds"; other 429s →
+  "Too many attempts. Wait a few minutes, then try again."
+- Only Chromium is installed in the cloud container (no WebKit/Firefox; `playwright install` isn't allowed here).
+- Tables at 600–899px use tighter cell padding (Investments holdings scrolled 20px sideways at 768px).
