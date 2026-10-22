@@ -219,6 +219,8 @@ export interface MockOptions {
   passInMetadata?: boolean
   /** A leftover unfinished "Davey authenticator" setup that Supabase doesn't list but still blocks the name. */
   hiddenStaleFactor?: boolean
+  /** Plaid Link stays open (no success/exit) until the test calls window.__plaidClose(). */
+  plaidHold?: boolean
   /** false: no company access pass on this device (the access-code screen shows first). Default true. */
   accessPass?: boolean
   /** access-pin isn't deployed yet (404). */
@@ -551,8 +553,16 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       body: `window.__plaidCreates = [];
       window.Plaid = { create: function (opts) {
         window.__plaidCreates.push({ token: opts.token, receivedRedirectUri: opts.receivedRedirectUri || null });
+        // Like Plaid: an iframe added to <body> at create time, sized with an inline style attribute (which Davey's
+        // CSP blocks, exactly as in production).
+        var frame = document.createElement('iframe');
+        frame.id = 'plaid-link-iframe-' + window.__plaidCreates.length;
+        frame.title = 'Plaid Link';
+        frame.setAttribute('style', 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;border:0;display:block');
+        document.body.appendChild(frame);
+        window.__plaidClose = function () { opts.onExit(null, { status: 'requires_credentials', link_session_id: 'ls-held' }); };
         return {
-          open: function () { setTimeout(function () {
+          open: function () { if (${opts.plaidHold ? 'true' : 'false'}) return; setTimeout(function () {
             if (opts.token === 'link-api-error') return opts.onExit(
               { error_type: 'API_ERROR', error_code: 'INTERNAL_SERVER_ERROR', error_message: 'an unexpected error occurred', display_message: null },
               { status: null, link_session_id: 'ls-shellpoint', request_id: 'req-shellpoint', institution: { institution_id: 'ins_119891', name: 'Shellpoint Mortgage Servicing' } });
@@ -560,7 +570,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
             institution: { institution_id: 'ins_109508', name: 'First Platypus Bank' },
             accounts: [{ id: 'p-new-1', name: 'Plaid Checking', mask: '4321', type: 'depository', subtype: 'checking' }],
             link_session_id: 'ls-1' }); }, 50); },
-          exit: function () {}, destroy: function () {}
+          exit: function () {}, destroy: function () { frame.remove(); }
         };
       } };`,
     }),
@@ -590,6 +600,8 @@ export function pushedPayloads(state: { pushes: Record<string, unknown>[] }, ent
 export function watchConsole(page: Page) {
   const problems: string[] = []
   page.on('console', (m) => {
+    // Plaid's script sets inline styles on its iframe; the CSP refuses them and app.css sizes the frame instead.
+    if (m.type() === 'error' && /Refused to apply inline style/.test(m.text())) return
     if (m.type() === 'error' && /Content Security Policy|Refused to/i.test(m.text())) problems.push(m.text())
   })
   page.on('pageerror', (e) => problems.push(e.message))

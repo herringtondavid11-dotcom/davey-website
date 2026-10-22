@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useData } from '../lib/DataProvider'
 import { fetchAccounts } from '../lib/data'
 import { loadDaveyData, reloadDaveyData } from '../lib/serverData'
@@ -191,6 +191,13 @@ export function usePlaidFlow() {
     },
     [open],
   )
+
+  // While Link is open its iframe covers the whole screen and the app's bars step aside (styles in app.css).
+  const linkOpen = state.step === 'linking'
+  useEffect(() => {
+    document.body.classList.toggle('plaid-open', linkOpen)
+    return () => document.body.classList.remove('plaid-open')
+  }, [linkOpen])
 
   return { state, setState, start, resume }
 }

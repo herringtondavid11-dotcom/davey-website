@@ -221,3 +221,17 @@ the GitHub Pages run instead.
   Settings section/window › Accounts › + (same menu).
 - New tests: accounts.spec (no buttons, sort directly under the total at 360/1280; remaining paths + manual add).
 - Counts: Vitest 112/112; Playwright Chromium 110 passed, 17 skipped (email-code), 0 failed.
+
+## Loop 27 — 2026-10-22 23:42 UTC (PRIORITY: Plaid Link a small box at the bottom on iPhone Safari)
+- Cause: our CSP (style-src 'self') refuses the inline styles Plaid's script puts on its iframe, so the iframe stayed
+  an unstyled in-page box at the end of <body> (reproduced: y=725 instead of 0 on the old CSS). Not a z-index, transform,
+  overflow or 100vh problem.
+- Fixed (CSP unchanged, still strict): app.css sizes iframe[id^="plaid-link-iframe"] itself: position fixed, inset 0,
+  100vw × 100dvh, z-index max, only while body.plaid-open (set by usePlaidFlow while Link is open); hidden otherwise,
+  so a closed Link never covers the app. The tab bar, mobile header and Ask AI button hide while Link is open.
+- New tests: e2e/plaid-overlay.spec.ts with iPhone 14 and iPad emulation (Chromium engine; WebKit isn't installed in
+  this container) + desktop: the frame's box equals the viewport, it's the topmost element at the center, top-left
+  and bottom edge (where the tab bar is), the bars are hidden, and closing Link hides it. Fails on the old CSS.
+  The Plaid test fake now adds its iframe like Plaid (inline style, refused by the CSP); that one console warning is
+  expected and allowed.
+- Counts: Vitest 112/112; Playwright Chromium 113 passed, 17 skipped (email-code), 0 failed.
