@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { AuthCard } from '../components/AuthCard'
+import { authErrorMessage } from '../lib/authErrors'
 import { supabase } from '../lib/supabase'
 
 /** Reached from the reset email (PKCE ?code=, or ?token_hash=&type=recovery). The Gate runs 2-step first. */
@@ -28,7 +29,7 @@ export function ResetPassword() {
     setError('')
     const { error } = await supabase.auth.updateUser({ password })
     setBusy(false)
-    if (error) return setError(error.message)
+    if (error) return setError(authErrorMessage(error, error.message))
     clearRecovery()
     setDone(true)
   }
@@ -41,14 +42,14 @@ export function ResetPassword() {
         <form className="form" onSubmit={submit} noValidate>
           <label className="field">
             <span>New password</span>
-            <input className="input" type="password" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input className="input" type="password" autoComplete="new-password" minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
           <label className="field">
             <span>Confirm new password</span>
             <input className="input" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
           </label>
           {error && <p className="error" role="alert">{error}</p>}
-          <button className="btn btn-primary btn-block" disabled={busy || password.length < 8}>{busy ? 'Saving…' : 'Save password'}</button>
+          <button className="btn btn-primary btn-block" disabled={busy || password.length < 10}>{busy ? 'Saving…' : 'Save password'}</button>
         </form>
       )}
     </AuthCard>
@@ -57,7 +58,7 @@ export function ResetPassword() {
 
 export function ResetLinkExpired() {
   return (
-    <AuthCard title="This link expired" lead="Reset links work once and expire after an hour.">
+    <AuthCard title="This link was already used or has expired" lead="Reset links work once and expire after an hour. Some email apps open links to check them, which uses them up. Request a new one and open it right away.">
       <Link className="btn btn-primary btn-block" to="/forgot">Send a new link</Link>
     </AuthCard>
   )

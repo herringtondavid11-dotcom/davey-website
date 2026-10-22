@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { Layout } from './components/Layout'
 import { FullPageSpinner } from './components/Spinner'
 import { DataProvider } from './lib/DataProvider'
-import { supabase } from './lib/supabase'
+import { hashSession, supabase } from './lib/supabase'
 import { Connect, OAuthReturn } from './screens/Connect'
 import { ForgotPassword } from './screens/ForgotPassword'
 import { Login } from './screens/Login'
@@ -46,7 +46,25 @@ function Gate({ children, signedOut }: { children: ReactNode; signedOut?: ReactN
   return <>{children}</>
 }
 
-/** Accepts ?token_hash=…&type=recovery links (the PKCE ?code= form is handled by supabase-js on load). */
+/** Reset links are single use: each token is verified at most once per browser tab (StrictMode runs effects twice). */
+const verifiedTokens = new Set<string>()
+function claimToken(tokenHash: string): boolean {
+  const key = `davey.verified.${tokenHash}`
+  try {
+    if (verifiedTokens.has(tokenHash) || sessionStorage.getItem(key)) return false
+    sessionStorage.setItem(key, '1')
+  } catch {
+    if (verifiedTokens.has(tokenHash)) return false
+  }
+  verifiedTokens.add(tokenHash)
+  return true
+}
+
+/**
+ * The reset link's landing page. Supabase's verify page has usually used the link already and sent a session (PKCE
+ * ?code=, exchanged by supabase-js on load, or #access_token): then it goes straight to "Choose a new password".
+ * A ?token_hash= link is verified only when there's no session yet, and only once. "Expired" only without a session.
+ */
 function ResetRoute() {
   const { refresh } = useAuth()
   const [checking, setChecking] = useState(true)
@@ -56,15 +74,19 @@ function ResetRoute() {
     ran.current = true
     const params = new URLSearchParams(window.location.search)
     const tokenHash = params.get('token_hash')
-    const done = () => {
-      window.history.replaceState(null, '', window.location.pathname)
-      setChecking(false)
-    }
-    if (tokenHash) {
-      supabase.auth.verifyOtp({ type: 'recovery', token_hash: tokenHash }).then(() => refresh()).finally(done)
-    } else {
-      supabase.auth.getSession().finally(done)
-    }
+    void (async () => {
+      try {
+        await hashSession
+        const { data } = await supabase.auth.getSession()
+        if (!data.session && tokenHash && claimToken(tokenHash)) {
+          await supabase.auth.verifyOtp({ type: 'recovery', token_hash: tokenHash })
+        }
+        await refresh()
+      } finally {
+        window.history.replaceState(null, '', window.location.pathname)
+        setChecking(false)
+      }
+    })()
   }, [refresh])
   if (checking) return <FullPageSpinner />
   return (

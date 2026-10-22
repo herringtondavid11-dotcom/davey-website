@@ -104,9 +104,38 @@
   }
 
   // ---- /auth/callback and /auth/reset ----
+  // Every email link is single use, so this page never verifies or opens anything on its own: the link is used only
+  // by what the person picks (Davey on this device, or Davey on the web), exactly once.
+  //  - Supabase's own verify page already used the link and hands over a session in the fragment
+  //    (#access_token=…&type=recovery): go straight to Davey on the web with it (no second verify).
+  //  - #error_code=otp_expired: the link was used already (often by an email app scanning links) or expired.
+  //  - ?token_hash=…: not used yet; the button the person taps uses it.
   function auth(isReset) {
+    var fragment = new URLSearchParams(location.hash.replace(/^#/, ""));
     var tokenHash = params.get("token_hash") || "";
-    var type = params.get("type") || (isReset ? "recovery" : "signup");
+    var type = params.get("type") || fragment.get("type") || (isReset ? "recovery" : "signup");
+    var webPath = isReset || type === "recovery" ? "/app/reset" : "/app/";
+
+    if (fragment.get("access_token") && fragment.get("refresh_token")) {
+      setText("title", isReset ? "Choose a new password" : "Email confirmed");
+      setText("lead", "Opening Davey on the web…");
+      show("actions", false);
+      location.replace(webPath + location.hash);
+      return;
+    }
+    if (fragment.get("error") || fragment.get("error_code") || params.get("error_code")) {
+      setText("title", "This link was already used or has expired");
+      setText("lead", "Some email apps open links to check them, which uses them up. Request a new one: it only takes a moment.");
+      var again = $("reset-web") || $("open-app");
+      if (again) { again.href = isReset ? "/app/forgot" : "/app/login"; again.textContent = isReset ? "Send a new reset link" : "Sign in"; }
+      if (isReset) show("open-app", false);
+      show("confirm-web", false);
+      return;
+    }
+    if (params.get("code")) {
+      location.replace(webPath + location.search);
+      return;
+    }
     if (!tokenHash) {
       setText("title", "This link is incomplete");
       setText("lead", "Open the whole link from the email, or request a new one in Davey.");
@@ -114,7 +143,7 @@
       return;
     }
     var path = isReset ? "auth/reset" : "auth/callback";
-    openApp("davey://" + path + "?token_hash=" + encodeURIComponent(tokenHash) + "&type=" + encodeURIComponent(type), true);
+    openApp("davey://" + path + "?token_hash=" + encodeURIComponent(tokenHash) + "&type=" + encodeURIComponent(type), false);
     if (isReset) {
       var web = $("reset-web");
       if (web) web.href = "/app/reset?token_hash=" + encodeURIComponent(tokenHash) + "&type=recovery";
@@ -124,8 +153,11 @@
     var confirmable = ["signup", "email_change", "email", "invite"];
     if (confirmable.indexOf(type) === -1) return;
     show("confirm-web", true);
+    var used = false;
     $("confirm-web").addEventListener("click", function () {
       var button = $("confirm-web");
+      if (used) return;
+      used = true;
       button.disabled = true;
       fetch(config.supabaseURL + "/auth/v1/verify", {
         method: "POST",
@@ -134,11 +166,12 @@
       }).then(function (response) {
         if (!response.ok) throw new Error("verify");
         setText("title", "Email confirmed");
-        setText("lead", "Open Davey and sign in.");
+        setText("lead", "You can sign in to Davey on the web or in the app.");
         show("confirm-web", false);
+        var link = $("open-app");
+        if (link) { link.href = "/app/login"; link.textContent = "Sign in on the web"; }
       }).catch(function () {
-        setText("status", "This link expired or was already used. Request a new one in Davey.");
-        button.disabled = false;
+        setText("status", "This link was already used or has expired. Sign in, or request a new one in Davey.");
       });
     });
   }

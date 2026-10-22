@@ -189,6 +189,8 @@ export interface MockOptions {
   mfa?: 'verified' | 'none'
   backup?: boolean
   signedIn?: boolean
+  /** Supabase's email limit is hit (no custom SMTP yet). */
+  emailRateLimited?: boolean
   /** The user doesn't share a household (Davey on the web has nothing to show or connect into). */
   noHousehold?: boolean
 }
@@ -252,7 +254,10 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     if (path === '/auth/v1/user' && method === 'GET') return json(route, user())
     if (path === '/auth/v1/user' && method === 'PUT') return json(route, user())
     if (path === '/auth/v1/logout') return route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*' } })
-    if (path === '/auth/v1/recover') return json(route, {})
+    if (path === '/auth/v1/recover') {
+      if (opts.emailRateLimited) return json(route, { code: 429, error_code: 'over_email_send_rate_limit', msg: 'email rate limit exceeded' }, 429)
+      return json(route, {})
+    }
     if (path === '/auth/v1/verify') {
       if (body.token_hash !== 'good-hash') return json(route, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' }, 403)
       state.aal = 'aal1'

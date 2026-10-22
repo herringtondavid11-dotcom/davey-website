@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AuthCard } from '../components/AuthCard'
 import { APP_BASE, SITE_ORIGIN } from '../config'
+import { authErrorMessage } from '../lib/authErrors'
 import { supabase } from '../lib/supabase'
 
 export function ForgotPassword() {
@@ -17,7 +18,7 @@ export function ForgotPassword() {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${SITE_ORIGIN}${APP_BASE}/reset` })
     setBusy(false)
     // Same message whether or not the account exists.
-    if (error && error.status !== 400 && error.status !== 404) setError(error.message)
+    if (error && error.status !== 400 && error.status !== 404) setError(authErrorMessage(error, error.message))
     else setSent(true)
   }
 

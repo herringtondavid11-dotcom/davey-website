@@ -90,6 +90,8 @@ test('forgot password sends a reset link to /app/reset', async ({ page }) => {
   const state = await mockBackend(page)
   await page.goto('/app/login')
   await page.getByRole('link', { name: 'Forgot password?' }).click()
+  // The reset screen is code-split: wait for it, or the email goes into the sign-in form being replaced.
+  await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByRole('button', { name: 'Send reset link' }).click()
   await expect(page.getByRole('status')).toContainText('reset link is on its way')
@@ -114,5 +116,46 @@ test('reset link with token_hash asks for 2-step, then sets a new password', asy
 test('an expired reset link says so', async ({ page }) => {
   await mockBackend(page)
   await page.goto('/app/reset?token_hash=old&type=recovery')
-  await expect(page.getByRole('heading', { name: 'This link expired' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'This link was already used or has expired' })).toBeVisible()
+})
+
+const fakeJwt = (sub: string) => {
+  const b = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url')
+  return `${b({ alg: 'HS256', typ: 'JWT' })}.${b({ sub, email: EMAIL, role: 'authenticated', aal: 'aal1', exp: Math.floor(Date.now() / 1000) + 3600, session_id: 'sess-r' })}.sig`
+}
+
+test('a reset link Supabase already verified (#access_token) goes straight to a new password, never verifying again', async ({ page }) => {
+  const state = await mockBackend(page)
+  // The marketing page receives Supabase's redirect and hands the session to Davey on the web.
+  await page.goto(`/auth/reset#access_token=${fakeJwt('user-1')}&refresh_token=refresh-1&expires_in=3600&token_type=bearer&type=recovery`)
+  await expect(page.getByRole('heading', { name: '2-step verification' })).toBeVisible()
+  await expect(page).toHaveURL(/\/app\/reset$/)
+  await page.getByLabel('Code').fill(GOOD_CODE)
+  await page.getByRole('button', { name: 'Verify' }).click()
+  await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible()
+  expect(state.calls.filter((c) => c.path.startsWith('/auth/v1/verify'))).toEqual([])
+})
+
+test('a used reset link explains why and offers a new one (no verify, no app hand-off)', async ({ page }) => {
+  const state = await mockBackend(page)
+  await page.goto('/auth/reset#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired')
+  await expect(page.getByRole('heading', { name: 'This link was already used or has expired' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Send a new reset link' })).toHaveAttribute('href', '/app/forgot')
+  expect(state.calls.filter((c) => c.path.startsWith('/auth/v1/verify'))).toEqual([])
+})
+
+test('a token_hash reset link is not verified again when a session already exists', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true })
+  await page.goto('/app/reset?token_hash=good-hash&type=recovery')
+  await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible()
+  expect(state.calls.filter((c) => c.path.startsWith('/auth/v1/verify'))).toEqual([])
+})
+
+test('forgot password explains the email limit', async ({ page }) => {
+  await mockBackend(page, { emailRateLimited: true })
+  await page.goto('/app/forgot')
+  await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
+  await page.getByLabel('Email').fill(EMAIL)
+  await page.getByRole('button', { name: 'Send reset link' }).click()
+  await expect(page.getByRole('alert')).toHaveText('Too many emails, try again in a few minutes.')
 })
