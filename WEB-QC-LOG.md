@@ -207,3 +207,17 @@ the GitHub Pages run instead.
   enforced on /app, /login, /signup, /forgot; wrong password; refresh; old link email; Settings wording).
 - Counts: Vitest 112/112; Playwright Chromium 108 passed, 17 skipped (email-code tests), 0 failed.
 - Turn back on: set EMAIL_2FA_ENABLED = true after scripts/auth-email-fix.sh has run (6-digit code emails).
+
+## Loop 26 — 2026-10-22 23:35 UTC (UPDATE all platforms: remove the Accounts tab buttons card)
+- Web: the Connect a Bank / Add Account buttons are gone from the Accounts tab; search + the % Funded / Balance / Name
+  sort now sit directly under the Total Balance card. No replacement button on the tab.
+- iPhone + Mac (davey-ios release-candidate b971420): same removal in AccountsTabView; the sort picker is the first
+  thing under the header card. UI tests updated (buttons absent, sort under the total, Settings › Accounts still has
+  Connect a Bank + Add Manual Account). Not built here (no Xcode): in MAC-REBUILD-NEXT.md.
+- Paths that remain: web: sidebar "Connect a Bank" (desktop), More › Connect a Bank (phone), Overview header, and
+  "Add a manual account instead" on the Connect a Bank page (manual add existed only in the removed card on the web,
+  so it moved there, mirroring the app's Settings › Accounts). iPhone: Settings › Accounts › + (Connect a Bank,
+  Connect a Mortgage or Loan, Connect an Investment Account, Add Manual Account); Overview's empty state. Mac: the
+  Settings section/window › Accounts › + (same menu).
+- New tests: accounts.spec (no buttons, sort directly under the total at 360/1280; remaining paths + manual add).
+- Counts: Vitest 112/112; Playwright Chromium 110 passed, 17 skipped (email-code), 0 failed.

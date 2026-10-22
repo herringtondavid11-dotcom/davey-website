@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CheckIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
 import { claimOAuthResume } from '../lib/plaid'
+import { AddAccount } from './Accounts'
 import { NameAccounts } from './NameAccounts'
 import { usePlaidFlow, type FlowState } from './usePlaidFlow'
 
@@ -51,6 +52,7 @@ export function Connect() {
   const navigate = useNavigate()
   const flow = usePlaidFlow()
   const location = useLocation()
+  const [manual, setManual] = useState(false)
   const query = new URLSearchParams(location.search)
   const reconnectId = query.get('reconnect') ?? undefined
   // ?reconnect=<item>&consent=investments: "Finish setting up" a brokerage (adds Investments, same connection).
@@ -71,6 +73,9 @@ export function Connect() {
         onLoans={reconnectId ? undefined : () => flow.start(undefined, 'loans')}
         onDone={() => navigate(consentInvestments ? '/investments' : reconnectId ? '/accounts' : '/', { replace: true })}
       />
+      {!reconnectId && flow.state.step === 'idle' && (manual
+        ? <AddAccount onClose={() => setManual(false)} />
+        : <p><button type="button" className="link-btn" onClick={() => setManual(true)}>Add a manual account instead</button></p>)}
     </div>
   )
 }

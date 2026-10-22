@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ConnectionRow } from '../components/ConnectionStatus'
 import { GoalBar } from '../components/GoalBar'
-import { ChevronIcon, PlusIcon } from '../components/Icons'
+import { ChevronIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
 import { GROUPS, fraction, goalRow, groupOf, signedCents, sortAccounts, summary, type GoalSort } from '../lib/accountGoals'
 import { useData } from '../lib/DataProvider'
@@ -169,7 +169,8 @@ const MANUAL_TYPES = [
   ['otherAsset', 'Other asset'], ['otherLiability', 'Other liability'],
 ] as const
 
-function AddAccount({ onClose }: { onClose: () => void }) {
+/** Manual account form (used on Connect a Bank: "Add a manual account instead"). */
+export function AddAccount({ onClose }: { onClose: () => void }) {
   const { reload } = useData()
   const [name, setName] = useState('')
   const [type, setType] = useState<string>('checking')
@@ -227,7 +228,6 @@ export function Accounts() {
   const [showHidden, setShowHidden] = useState(false)
   const [sort, setSort] = useState<GoalSort>('funded')
   const [query, setQuery] = useState('')
-  const [adding, setAdding] = useState(false)
 
   if (!accounts) return <Spinner label="Loading accounts" />
   const shown = accounts.filter((a) => showHidden || !a.hidden)
@@ -242,10 +242,6 @@ export function Accounts() {
     <div className="page">
       <div className="page-head">
         <div><h1>Accounts</h1><p>Balances and goals for every account. Goals sync with the Davey app.</p></div>
-        <div className="row-actions">
-          <Link className="btn btn-primary" to="/connect"><PlusIcon size={18} />Connect a Bank</Link>
-          <button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}>Add Account</button>
-        </div>
       </div>
       {error && <p className="error" role="alert">{error}</p>}
 
@@ -270,15 +266,7 @@ export function Accounts() {
         )}
       </section>
 
-      {adding && <AddAccount onClose={() => setAdding(false)} />}
-
-      {issues.length > 0 && (
-        <section className="card alert-card" aria-labelledby="issues-title">
-          <div className="card-head"><h2 id="issues-title">{issues.length === 1 ? '1 connection needs attention' : `${issues.length} connections need attention`}</h2></div>
-          {issues.map((c) => <ConnectionRow key={c.id} c={c} />)}
-        </section>
-      )}
-
+      {/* Sort (and search) directly under the total, like the app. Connecting and adding live elsewhere. */}
       {accounts.length > 0 && (
         <div className="goals-tools">
           <input className="input" type="search" placeholder="Search accounts" aria-label="Search accounts" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -287,6 +275,14 @@ export function Accounts() {
           </div>
         </div>
       )}
+
+      {issues.length > 0 && (
+        <section className="card alert-card" aria-labelledby="issues-title">
+          <div className="card-head"><h2 id="issues-title">{issues.length === 1 ? '1 connection needs attention' : `${issues.length} connections need attention`}</h2></div>
+          {issues.map((c) => <ConnectionRow key={c.id} c={c} />)}
+        </section>
+      )}
+
 
       {GROUPS.map((g) => {
         const list = sortAccounts(filtered.filter((a) => groupOf(a) === g.key), sort, displayName)
