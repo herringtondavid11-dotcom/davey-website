@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { useData } from '../lib/DataProvider'
 import { fetchAccounts } from '../lib/data'
+import { loadDaveyData, reloadDaveyData } from '../lib/serverData'
+import { householdID, importNewBank } from '../lib/importBank'
 import { newAccountsFromLink } from '../lib/linkFlow'
 import {
   clearPendingLink,
@@ -25,6 +27,10 @@ export type FlowState =
   | { step: 'reconnected'; institution?: string }
   | { step: 'error'; message: string }
 
+/** Davey keeps money data on the iPhone/Mac and in iCloud; the web sees what the household shares. */
+export const NO_HOUSEHOLD =
+  "Davey on the web shows what your household shares. Turn on Household Sharing in the Davey app (Settings › Household), then connect banks here or in the app."
+
 export function usePlaidFlow() {
   const { reload } = useData()
   const [state, setState] = useState<FlowState>({ step: 'idle' })
@@ -37,7 +43,12 @@ export function usePlaidFlow() {
       setState({ step: 'saving', institution: metadata.institution?.name })
       try {
         const { itemId } = await exchangePublicToken(publicToken, metadata)
-        await syncItem(itemId)
+        const data = await loadDaveyData()
+        const household = await householdID(data)
+        if (!itemId || !household) throw new Error(NO_HOUSEHOLD)
+        // Shared with the household, so the iPhone and Mac get the bank too (they import from these records).
+        await importNewBank({ itemId, institutionName: metadata.institution?.name ?? 'Bank', institutionId: metadata.institution?.institution_id ?? undefined, data, household })
+        await reloadDaveyData()
         const accounts = await fetchAccounts()
         await reload()
         setState({ step: 'naming', accounts: newAccountsFromLink(accounts, metadata, startedAt), institution: metadata.institution?.name })
@@ -93,6 +104,8 @@ export function usePlaidFlow() {
   const start = useCallback(async (updateItemId?: string) => {
     setState({ step: 'starting' })
     try {
+      // A bank connected here is shared through the household; without one it would reach no device.
+      if (!updateItemId && !(await householdID(await loadDaveyData()))) throw new Error(NO_HOUSEHOLD)
       const [token] = await Promise.all([createLinkToken({ itemId: updateItemId }), loadPlaid()])
       savePendingLink({ linkToken: token, startedAt: new Date().toISOString(), updateItemId })
       await open({ token, updateItemId })

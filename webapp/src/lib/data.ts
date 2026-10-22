@@ -1,7 +1,5 @@
-import { supabase } from './supabase'
+import { categoryID, loadDaveyData, pushChange, reloadDaveyData, saveMonthlyBudget } from './serverData'
 import {
-  ACCOUNT_COLUMNS,
-  TABLES,
   TRANSACTION_COLUMNS,
   normalizeAccount,
   normalizeTransaction,
@@ -15,20 +13,17 @@ import {
 export const TRANSACTION_PAGE = 500
 
 export async function fetchAccounts(): Promise<Account[]> {
-  const { data, error } = await supabase.from(TABLES.accounts).select('*')
-  if (error) throw error
-  return (data ?? []).map(normalizeAccount)
+  return (await loadDaveyData()).accounts.map(normalizeAccount)
 }
 
 export async function fetchTransactions(page = 0, pageSize = TRANSACTION_PAGE): Promise<Transaction[]> {
   const from = page * pageSize
-  const { data, error } = await supabase
-    .from(TABLES.transactions)
-    .select('*')
-    .order(TRANSACTION_COLUMNS.date[0], { ascending: false })
-    .range(from, from + pageSize - 1)
-  if (error) throw error
-  return (data ?? []).map(normalizeTransaction)
+  return (await loadDaveyData()).transactions.slice(from, from + pageSize).map(normalizeTransaction)
+}
+
+/** After connecting a bank: the app imports it and shares it with the household; reload what's on the server. */
+export async function refreshData(): Promise<void> {
+  await reloadDaveyData()
 }
 
 export interface TransactionEdit {
@@ -53,70 +48,39 @@ export function transactionPatch(t: Transaction, edit: TransactionEdit): Record<
 }
 
 export async function updateTransaction(t: Transaction, edit: TransactionEdit): Promise<Transaction> {
-  const patch = transactionPatch(t, edit)
-  const { data, error } = await supabase.from(TABLES.transactions).update(patch).eq('id', t.raw.id as string).select('*')
-  if (error) throw error
-  const row = data?.[0]
-  if (!row) throw new Error("You don't have permission to edit this transaction.")
-  return normalizeTransaction(row)
+  const data = await loadDaveyData()
+  const changes: Record<string, unknown> = {}
+  if (edit.category !== undefined) {
+    const id = edit.category ? categoryID(data, edit.category) : null
+    if (edit.category && !id) throw new Error(`"${edit.category}" isn't one of your Davey categories. Add it in the app first.`)
+    changes.categoryID = id
+  }
+  if (edit.notes !== undefined) changes.note = edit.notes.trim()
+  if (edit.usage !== undefined && edit.usage !== t.usage) {
+    throw new Error('In Davey, Business or Personal is set on the account. Change it under Accounts.')
+  }
+  if (Object.keys(changes).length) await pushChange('transaction', t.id, changes)
+  return { ...t, category: edit.category ?? t.category, notes: edit.notes !== undefined ? edit.notes.trim() || undefined : t.notes }
 }
 
 export async function updateAccountNickname(a: Account, nickname: string): Promise<Account> {
-  const col = writeColumn(a.raw, ACCOUNT_COLUMNS.nickname)
-  const { data, error } = await supabase
-    .from(TABLES.accounts)
-    .update({ [col]: nickname.trim() || null })
-    .eq('id', a.raw.id as string)
-    .select('*')
-  if (error) throw error
-  const row = data?.[0]
-  if (!row) throw new Error("You don't have permission to rename this account.")
-  return normalizeAccount(row)
+  await pushChange('account', a.id, { nickname: nickname.trim() || null })
+  return { ...a, nickname: nickname.trim() || undefined }
 }
 
 export async function updateAccountUsage(a: Account, usage: Usage): Promise<Account> {
-  const col = writeColumn(a.raw, ACCOUNT_COLUMNS.business)
-  const { data, error } = await supabase
-    .from(TABLES.accounts)
-    .update({ [col]: usageToRaw(usage, col, a.raw) })
-    .eq('id', a.raw.id as string)
-    .select('*')
-  if (error) throw error
-  const row = data?.[0]
-  if (!row) throw new Error("You don't have permission to change this account.")
-  return normalizeAccount(row)
+  await pushChange('account', a.id, { isBusiness: usage === 'business' })
+  return { ...a, usage }
 }
 
-/** Budgets live in the optional budgets table (see tables.ts). */
-export async function saveBudget(table: string, existing: Record<string, unknown> | undefined, category: string, amount: number) {
-  if (existing) {
-    const col = writeColumn(existing, ['amount', 'limit', 'monthly_amount', 'budget'])
-    const { data, error } = await supabase.from(table).update({ [col]: amount }).eq('id', existing.id as string).select('*')
-    if (error) throw error
-    if (!data?.[0]) throw new Error("You don't have permission to change this budget.")
-    return data[0] as Record<string, unknown>
-  }
-  const { data, error } = await supabase.from(table).insert({ category, amount }).select('*')
-  if (error) throw new Error("Couldn't add this budget here. Add it in the Davey app for now.")
-  return data?.[0] as Record<string, unknown>
+/** This month's budget for a category, saved to the household's shared records (the app's Budget tab shows it). */
+export async function saveBudget(_table: string, existing: Record<string, unknown> | undefined, category: string, amount: number): Promise<Record<string, unknown>> {
+  return saveMonthlyBudget(category, amount, existing?.id as string | undefined)
 }
 
-/** Every transaction between two dates (inclusive), paging through the API. Used by exports and tax. */
-export async function fetchTransactionsBetween(from: string, to: string, pageSize = 1000): Promise<Transaction[]> {
-  const col = TRANSACTION_COLUMNS.date[0]
-  const out: Transaction[] = []
-  for (let page = 0; page < 50; page++) {
-    const start = page * pageSize
-    const { data, error } = await supabase
-      .from(TABLES.transactions)
-      .select('*')
-      .gte(col, from)
-      .lte(col, to)
-      .order(col, { ascending: false })
-      .range(start, start + pageSize - 1)
-    if (error) throw error
-    out.push(...(data ?? []).map(normalizeTransaction))
-    if (!data || data.length < pageSize) break
-  }
-  return out
+/** Every transaction between two dates (inclusive). Used by exports and tax. */
+export async function fetchTransactionsBetween(from: string, to: string): Promise<Transaction[]> {
+  return (await loadDaveyData()).transactions
+    .filter((t) => String(t.date) >= from && String(t.date) <= to)
+    .map(normalizeTransaction)
 }

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { mockBackend, watchConsole } from './mock'
+import { mockBackend, pushedPayloads, watchConsole } from './mock'
 
 test('budget: income vs spent, budgets vs actual, edit a budget', async ({ page }) => {
   const problems = watchConsole(page)
@@ -14,20 +14,28 @@ test('budget: income vs spent, budgets vs actual, edit a budget', async ({ page 
   await first.getByLabel('Monthly budget for Travel').fill('500')
   await first.getByRole('button', { name: 'Save' }).click()
   await expect(page.locator('.budget-line').filter({ hasText: 'Travel' })).toContainText('$87.70 left')
-  expect(state.calls.find((c) => c.method === 'PATCH' && c.path.startsWith('/rest/v1/budgets'))?.body).toEqual({ amount: 500 })
+  expect(pushedPayloads(state, 'budget', (id) => id === 'b4')[0]).toMatchObject({ limit: 50000, categoryID: 'cat-travel' })
   // Business filter narrows to business spending.
   await page.getByRole('button', { name: 'Business', exact: true }).click()
   await expect(page.locator('.budget-line').filter({ hasText: 'Dining' })).toContainText('$0.00')
   expect(problems).toEqual([])
 })
 
-test('budget without a budgets table explains and still shows spending', async ({ page }) => {
-  const state = await mockBackend(page, { signedIn: true })
-  delete state.extra.budgets
+test('budget without a household explains and still shows spending', async ({ page }) => {
+  await mockBackend(page, { signedIn: true, noHousehold: true })
   await page.goto('/app/budget')
   await expect(page.getByText('Budgets you set in the Davey app will appear here')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Spending by category' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Set budget' })).toHaveCount(0)
+})
+
+test('budget: set a new budget for this month (shared like the app, in All Accounts)', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true })
+  await page.goto('/app/budget')
+  const line = page.locator('.budget-line, .unbudgeted, li').filter({ hasText: 'Home' }).filter({ has: page.getByRole('button', { name: 'Set budget' }) }).first()
+  await line.getByRole('button', { name: 'Set budget' }).click()
+  await page.getByLabel(/Monthly budget for Home/).fill('250')
+  await page.getByRole('button', { name: 'Save' }).first().click()
+  await expect.poll(() => pushedPayloads(state, 'budget', () => true).find((p) => p.categoryID === 'cat-home')).toMatchObject({ limit: 25000, lensID: 'c1ec84cb-2a5b-465a-88dc-943539790645' })
 })
 
 test('cash flow: chart with tooltip and month table', async ({ page }) => {

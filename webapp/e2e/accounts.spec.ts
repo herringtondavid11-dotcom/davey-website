@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { mockBackend, watchConsole } from './mock'
+import { mockBackend, pushedPayloads, watchConsole } from './mock'
 
 test('accounts: nickname and Business toggle on every account, connection issues shown', async ({ page }) => {
   const problems = watchConsole(page)
@@ -14,8 +14,10 @@ test('accounts: nickname and Business toggle on every account, connection issues
   await expect(saving.getByRole('status')).toHaveText('Saved')
   await saving.getByRole('button', { name: 'Business' }).click()
   await expect(saving.getByRole('button', { name: 'Business' })).toHaveAttribute('aria-pressed', 'true')
-  const patches = state.calls.filter((c) => c.method === 'PATCH' && c.path.includes('acc-2')).map((c) => c.body)
-  expect(patches).toEqual([{ nickname: 'Rainy day' }, { is_business: true }])
+  // Written the way the app shares edits: the whole record through push_household_records.
+  const pushes = pushedPayloads(state, 'account', (id) => id === 'acc-2')
+  expect(pushes.map((p) => [p.nickname, p.isBusiness])).toEqual([['Rainy day', false], ['Rainy day', true]])
+  expect(pushes[1]).toMatchObject({ name: 'Plaid Saving', mask: '1111', type: 'savings' })
   expect(problems).toEqual([])
 })
 

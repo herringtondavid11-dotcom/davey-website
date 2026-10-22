@@ -45,3 +45,27 @@ Autonomous run; David unavailable. Defaults chosen and logged here. Marketing-si
 | 34 | **PWA service worker** caches only same-origin `/app/` shell and hashed assets; network-first for pages so deploys show immediately; never caches Supabase/Plaid responses. Playwright blocks service workers except in the PWA test. | No financial data at rest in the browser cache. |
 | 35 | **Screens are code-split** (React.lazy); a failed chunk load after a deploy reloads the page once. | Main bundle 530 → 320 kB. |
 | 36 | **Screenshots are committed** (`webapp/screenshots`, ~19 MB of PNGs, mock data only). | Requested; easy to review on GitHub. |
+
+## 2026-10-22 — from the Mac session (reconciled against production)
+- **Real schema:** there are no `accounts` / `transactions` / `budgets` tables. The iPhone/Mac app keeps money data on the
+  device and in iCloud; the only server copy is `household_records` (Household Sharing): `entity` + `id` + `payload`
+  jsonb, RLS for household members, writes only through `rpc/push_household_records` (last-write-wins on `updated_at`,
+  whole payloads). Payload format = `HouseholdSyncCodec.swift` (minor units; negative = money out; ISO dates).
+  `webapp/src/lib/serverData.ts` maps it to the rows `schema.ts` reads; `data.ts`/`tables.ts` go through it. Business
+  vs Personal is per account in Davey (transactions inherit it). Budgets are read-only on the web for now.
+- **Connect a Bank on the web** imports the new bank into the household records the way the app does
+  (`importBank.ts`, mirrors PlaidImporter + PlaidCategoryMapper), so the iPhone/Mac receive it; without a household it
+  explains instead of creating a connection no device would show.
+- **Server deployed (release-candidate be86f94):** `plaid-link-token` platform=web (redirect
+  https://daveypersonalfinance.com/app/oauth, retried without it if Plaid rejects; client redirect ignored; update mode
+  answers `mode:"update"`), CORS for Davey's origins only on plaid-link-token / plaid-exchange / plaid-sync (+ sandbox).
+  `/supabase-changes/functions/plaid-link-token` was NOT deployed as written: it would have dropped modes, plan limits,
+  OAuth fallbacks and the Mac path; its behaviour is merged into the existing function. `plaid-report-issue` not
+  deployed: the existing `link-support` (action "report") stores the same thing.
+- Anon key: the publishable key in config.ts is the project's real one (checked).
+- (Mac session) Business vs Personal on the web follows the account, as in the app (transactions have no business flag
+  in Davey's records). The Tax deduction finder's "Mark Business" explains that instead of writing. QUESTION for David:
+  should single transactions be markable Business (Davey has TaxLineOverride records for tax lines)? Until then, move
+  the transaction's account to Business.
+- (Mac session) Liabilities come out of the adapter as amounts owed (positive), and a mortgage's home counts in net
+  worth as its own Real Estate account, as in the app.

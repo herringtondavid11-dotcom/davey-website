@@ -111,6 +111,65 @@ export function extraTables(): Record<string, Row[]> {
   }
 }
 
+// ---- Davey's real server shape: household_records (see src/lib/serverData.ts) ----
+const HOUSEHOLD = 'house-1'
+const daveyType = (a: Row) =>
+  a.type === 'credit' ? 'creditCard' : a.type === 'loan' ? 'loan' : a.type === 'investment' ? 'investment'
+    : a.subtype === 'savings' ? 'savings' : 'checking'
+const cents = (n: unknown) => Math.round(Number(n ?? 0) * 100)
+const categoryId = (name: string) => `cat-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+const localMidnight = (day: string) => { const [y, m, d] = day.split('-').map(Number); return new Date(y, m - 1, d).toISOString() }
+
+/** The fixtures (web-shaped rows) as the app's household records: what production actually serves. */
+export function householdRecords(state: { accounts: Row[]; transactions: Row[]; extra: Record<string, Row[]> }) {
+  const records: { household_id: string; entity: string; id: string; payload: Row; updated_at: string }[] = []
+  const add = (entity: string, id: string, payload: Row) => records.push({ household_id: HOUSEHOLD, entity, id, payload, updated_at: '2026-10-01T00:00:00Z' })
+  const banks = new Map<string, string>()
+  for (const item of state.extra.plaid_items ?? []) {
+    const id = `bank-${String(item.institution_name).toLowerCase().replace(/\W+/g, '-')}`
+    banks.set(String(item.institution_name), id)
+    add('bankConnection', id, { itemID: item.plaid_item_id, institutionName: item.institution_name, status: item.status === 'login_required' ? 'needsReauth' : 'ok', lastSyncedAt: item.last_synced_at })
+  }
+  const categories = new Set<string>()
+  for (const t of state.transactions) if (t.category) categories.add(String(t.category))
+  for (const b of state.extra.budgets ?? []) categories.add(String(b.category))
+  for (const name of categories) add('category', categoryId(name), { name, kind: name === 'Income' ? 'income' : name === 'Transfer' ? 'transfer' : 'expense' })
+  const sums = new Map<string, number>()
+  for (const t of state.transactions) sums.set(String(t.account_id), (sums.get(String(t.account_id)) ?? 0) - cents(t.amount))
+  for (const a of state.accounts) {
+    const type = daveyType(a)
+    const balance = (type === 'creditCard' || type === 'loan' ? -1 : 1) * cents(a.current_balance)
+    add('account', String(a.id), {
+      name: a.name, nickname: a.nickname ?? null, mask: a.mask, type, externalID: a.plaid_account_id ?? null, source: 'plaid',
+      startingBalance: balance - (sums.get(String(a.id)) ?? 0), availableBalance: a.available_balance === undefined ? null : cents(a.available_balance),
+      bankConnectionID: banks.get(String(a.institution_name)) ?? null, isBusiness: a.is_business === true, isArchived: a.is_hidden === true,
+      createdAt: a.created_at,
+      creditLimit: a.credit_limit === undefined ? null : cents(a.credit_limit),
+      aprBasisPoints: a.apr ?? a.interest_rate ? Math.round(Number(a.apr ?? a.interest_rate) * 100) : null,
+      originalPrincipal: a.original_principal === undefined ? null : cents(a.original_principal),
+      loanStartDate: a.origination_date ? localMidnight(String(a.origination_date)) : null,
+      loanTermMonths: a.term_months ?? null,
+      monthlyPayment: type === 'loan' && a.minimum_payment !== undefined ? cents(a.minimum_payment) : null,
+      nextPaymentAmount: type === 'creditCard' && a.minimum_payment !== undefined ? cents(a.minimum_payment) : null,
+      nextPaymentDueDate: a.next_payment_due_date ? localMidnight(String(a.next_payment_due_date)) : null,
+      linkedPropertyID: a.property_value !== undefined ? `${a.id}-home` : null,
+    })
+    // Davey keeps a mortgage's home as its own (real estate) account.
+    if (a.property_value !== undefined) {
+      add('account', `${a.id}-home`, { name: 'Home', type: 'property', source: 'manual', startingBalance: cents(a.property_value), isArchived: false })
+    }
+  }
+  for (const t of state.transactions) {
+    add('transaction', String(t.id), {
+      accountID: t.account_id, amount: -cents(t.amount), date: localMidnight(String(t.date)), payee: t.merchant_name ?? t.name,
+      note: t.notes ?? '', categoryID: t.category ? categoryId(String(t.category)) : null, isPending: t.pending === true, source: 'plaid',
+    })
+  }
+  const month = new Date().getFullYear() * 100 + new Date().getMonth() + 1
+  for (const b of state.extra.budgets ?? []) add('budget', String(b.id), { categoryID: categoryId(String(b.category)), limit: cents(b.amount), monthKey: month })
+  return records
+}
+
 export interface MockOptions {
   /** plaid-link-token answers mode:'update' for reconnects (the server change is deployed). */
   updateMode?: boolean
@@ -126,6 +185,8 @@ export interface MockOptions {
   mfa?: 'verified' | 'none'
   backup?: boolean
   signedIn?: boolean
+  /** The user doesn't share a household (Davey on the web has nothing to show or connect into). */
+  noHousehold?: boolean
 }
 
 export async function mockBackend(page: Page, opts: MockOptions = {}) {
@@ -140,6 +201,9 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     inviteBody: null as unknown,
     aiBody: null as Record<string, unknown> | null,
     exchangeBody: null as unknown,
+    pushes: [] as Row[],
+    pushed: [] as { household_id: string; entity: string; id: string; payload: Row; updated_at: string }[],
+    syncBodies: [] as Row[],
   }
   const now = new Date().toISOString()
   if ((opts.mfa ?? 'verified') === 'verified') {
@@ -216,6 +280,38 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       }
     }
 
+    // ---- household_records (the app's shared copy; the only accounts/transactions on the server) ----
+    if (path === '/rest/v1/household_records' && method === 'GET') {
+      if (opts.noHousehold) return json(route, [])
+      const entity = url.searchParams.get('entity')?.replace(/^eq\./, '')
+      const all = [...householdRecords(state), ...state.pushed.filter((r) => !householdRecords(state).some((x) => x.entity === r.entity && x.id === r.id))]
+      const rows = all.filter((r) => r.entity === entity)
+      const offset = Number(url.searchParams.get('offset') ?? 0)
+      const limit = Number(url.searchParams.get('limit') ?? rows.length)
+      return json(route, rows.slice(offset, offset + limit))
+    }
+    if (path === '/rest/v1/household_members' && method === 'GET' && opts.noHousehold) return json(route, [])
+    if (path === '/rest/v1/rpc/push_household_records') {
+      state.pushes.push(body)
+      const list = (body.p_records as { entity: string; id: string; payload: Row }[]) ?? []
+      for (const r of list) {
+        // Edits land on the web-shaped fixture rows; new records (an imported bank) are kept as pushed.
+        const account = r.entity === 'account' ? state.accounts.find((a) => a.id === r.id) : undefined
+        const tx = r.entity === 'transaction' ? state.transactions.find((t) => t.id === r.id) : undefined
+        const budget = r.entity === 'budget' ? (state.extra.budgets ?? []).find((b) => b.id === r.id) : undefined
+        if (budget) Object.assign(budget, { amount: Number(r.payload.limit) / 100 })
+        else if (account) Object.assign(account, { nickname: r.payload.nickname ?? null, is_business: r.payload.isBusiness === true })
+        else if (tx) {
+          const category = householdRecords(state).find((c) => c.entity === 'category' && c.id === r.payload.categoryID)
+          Object.assign(tx, { notes: r.payload.note || null, category: category ? category.payload.name : null })
+        } else {
+          state.pushed = state.pushed.filter((x) => !(x.entity === r.entity && x.id === r.id))
+          state.pushed.push({ household_id: HOUSEHOLD, entity: r.entity, id: r.id, payload: r.payload, updated_at: now })
+        }
+      }
+      return json(route, list.length)
+    }
+
     // ---- REST ----
     const rest = path.match(/^\/rest\/v1\/(\w+)$/)
     if (rest) {
@@ -270,10 +366,18 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     }
     if (path === '/functions/v1/plaid-exchange') {
       state.exchangeBody = body
-      state.accounts.push({ id: 'acc-new', plaid_account_id: 'p-new-1', name: 'Platypus Checking', nickname: null, mask: '4321', type: 'depository', subtype: 'checking', current_balance: 1500, iso_currency_code: 'USD', institution_name: 'First Platypus Bank', created_at: new Date().toISOString() })
-      return json(route, { item_id: 'item-new' })
+      return json(route, { item_id: 'item-new', institution_name: 'First Platypus Bank', accounts: [] })
     }
-    if (path === '/functions/v1/plaid-sync') return json(route, { added: 0 })
+    if (path === '/functions/v1/plaid-sync') {
+      state.syncBodies.push(body)
+      // The function's wire format (toAppAccount / toAppTransaction): cents, app sign.
+      return json(route, {
+        added: [{ transaction_id: 'ptx-1', account_id: 'p-new-1', amount_cents: -1250, date: iso(1), name: 'Platypus Coffee', pending: false, category_primary: 'FOOD_AND_DRINK', category_detailed: null }],
+        modified: [], removed: [],
+        accounts: [{ account_id: 'p-new-1', name: 'Platypus Checking', official_name: null, mask: '4321', type: 'depository', subtype: 'checking', current_balance_cents: 150000, available_balance_cents: 150000, limit_cents: null }],
+        next_cursor: 'cursor-new', has_more: false,
+      })
+    }
     if (path === '/functions/v1/household-invite') {
       if (!opts.inviteFunction) return json(route, { message: 'Function not found' }, 404)
       state.inviteBody = body
@@ -322,6 +426,12 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     }, session())
   }
   return state
+}
+
+/** Every payload pushed for one record (push_household_records), oldest first. */
+export function pushedPayloads(state: { pushes: Record<string, unknown>[] }, entity: string, match: (id: string, payload: Record<string, unknown>) => boolean) {
+  return state.pushes.flatMap((p) => (p.p_records as { entity: string; id: string; payload: Record<string, unknown> }[]))
+    .filter((r) => r.entity === entity && match(r.id, r.payload)).map((r) => r.payload)
 }
 
 /** Collect CSP violations and page errors so tests can assert none happened. */

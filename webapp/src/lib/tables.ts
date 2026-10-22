@@ -2,6 +2,7 @@
 // (PostgREST PGRST205 / 42P01 / 404) is reported as `available: false` so screens can explain instead of failing.
 // Candidate names are tried in order and the first that exists is remembered. Assumptions: WEB-STATUS.md.
 import { optNum, pick } from './schema'
+import { loadDaveyData, monthKey } from './serverData'
 import { supabase } from './supabase'
 
 type Row = Record<string, unknown>
@@ -34,6 +35,15 @@ export function isMissingTable(error: { code?: string; message?: string } | null
 }
 
 export async function fetchOptional(name: OptionalTable): Promise<TableResult> {
+  // Bank connections and budgets come from the household's shared records (see serverData.ts).
+  if (name === 'items' || name === 'budgets') {
+    const data = await loadDaveyData()
+    resolved.set(name, 'household_records')
+    const key = monthKey()
+    const rows = name === 'items' ? data.connections : data.budgets.filter((b) => b.month_key === key)
+    // Without a household there's nothing on the server to read or write.
+    return { rows: rows as Row[], available: data.records.size > 0, table: 'household_records' }
+  }
   const known = resolved.get(name)
   if (known === null) return { rows: [], available: false }
   const candidates = known ? [known] : OPTIONAL_TABLES[name]

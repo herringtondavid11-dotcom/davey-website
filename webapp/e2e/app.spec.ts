@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test'
-import { mockBackend, watchConsole } from './mock'
+import { pushedPayloads, mockBackend, watchConsole } from './mock'
 
 test('overview shows net worth, accounts with nickname and last 4, recent transactions', async ({ page }) => {
   const problems = watchConsole(page)
   await mockBackend(page, { signedIn: true })
   await page.goto('/app/')
-  // Assets 8,420.17 + 25,000 + 512,640.55 + 12,800; debts 1,875.42 + 3,400 + 412,300 + 18,250.
-  await expect(page.getByTestId('net-worth')).toHaveText('$123,035.30')
+  // Assets 8,420.17 + 25,000 + 512,640.55 + 12,800 + the home 690,000 (its own Real Estate account in Davey);
+  // debts 1,875.42 + 3,400 + 412,300 + 18,250.
+  await expect(page.getByTestId('net-worth')).toHaveText('$813,035.30')
   await expect(page.getByText('Joint checking', { exact: true })).toBeVisible()
   await expect(page.getByText('Chase · •••• 0000')).toBeVisible()
   await expect(page.getByText('Plaid Saving', { exact: true })).toBeVisible()
@@ -24,8 +25,9 @@ test('transactions: search, filter, and edit category, notes and Business/Person
   await expect(page.getByRole('status').filter({ hasText: 'transaction' })).toContainText('1 transaction')
   await page.getByRole('button', { name: 'Clear filters' }).click()
 
+  // In Davey, Business or Personal belongs to the account (Studio is the business account).
   await page.getByLabel('Business / Personal').selectOption('business')
-  await expect(page.getByRole('status').filter({ hasText: 'transactions' })).toContainText('15 transactions')
+  await expect(page.getByRole('status').filter({ hasText: 'transactions' })).toContainText('12 transactions')
   await page.getByLabel('Business / Personal').selectOption('')
 
   await page.getByRole('button', { name: /Whole Foods Market/ }).click()
@@ -33,14 +35,11 @@ test('transactions: search, filter, and edit category, notes and Business/Person
   await expect(dialog.getByLabel('Notes')).toHaveValue('Weekly shop')
   await dialog.getByLabel('Category').selectOption('Business Expenses')
   await dialog.getByLabel('Notes').fill('Team lunch supplies')
-  await dialog.getByRole('button', { name: 'Business' }).click()
   await dialog.getByRole('button', { name: 'Save' }).click()
   await expect(dialog).toBeHidden()
 
-  const patch = state.calls.find((c) => c.method === 'PATCH' && c.path.startsWith('/rest/v1/transactions'))
-  expect(patch?.path).toContain('id=eq.txn-1')
-  expect(patch?.body).toEqual({ category: 'Business Expenses', notes: 'Team lunch supplies', is_business: true })
-  await expect(page.getByRole('button', { name: /Whole Foods Market/ })).toContainText('Business')
+  const [pushed] = pushedPayloads(state, 'transaction', (id) => id === 'txn-1')
+  expect(pushed).toMatchObject({ categoryID: 'cat-business-expenses', note: 'Team lunch supplies', payee: 'Whole Foods Market', amount: -8420 })
 })
 
 test('connect a bank: web link token, Plaid Link, exchange, then Name Your Accounts', async ({ page }) => {
@@ -51,14 +50,28 @@ test('connect a bank: web link token, Plaid Link, exchange, then Name Your Accou
   await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
   expect(state.linkTokenBody).toEqual({ platform: 'web', redirect_uri: 'https://daveypersonalfinance.com/app/oauth' })
   expect(state.exchangeBody).toMatchObject({ public_token: 'public-production-abc', platform: 'web' })
-  expect(state.calls.some((c) => c.path === '/functions/v1/plaid-sync')).toBe(true)
+  expect(state.syncBodies).toEqual([{ item_id: 'item-new' }])
+  // The new bank is shared with the household the way the app imports one, so the iPhone and Mac get it too.
+  const bank = pushedPayloads(state, 'bankConnection', () => true)
+  expect(bank).toEqual([expect.objectContaining({ itemID: 'item-new', institutionName: 'First Platypus Bank', cursor: 'cursor-new', status: 'ok' })])
+  const [account] = pushedPayloads(state, 'account', (_, p) => p.externalID === 'p-new-1')
+  expect(account).toMatchObject({ type: 'checking', source: 'plaid', startingBalance: 150000 + 1250 })
+  expect(pushedPayloads(state, 'transaction', (_, p) => p.externalID === 'ptx-1')[0]).toMatchObject({ amount: -1250, payee: 'Platypus Coffee' })
 
   await page.getByLabel(/Platypus Checking/).fill('Emergency fund')
   await page.getByRole('button', { name: 'Done' }).click()
   await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
   await expect(page.getByText('Emergency fund', { exact: true })).toBeVisible()
-  expect(state.calls.find((c) => c.method === 'PATCH' && c.path.includes('acc-new'))?.body).toEqual({ nickname: 'Emergency fund' })
+  expect(pushedPayloads(state, 'account', (_, p) => p.externalID === 'p-new-1').at(-1)).toMatchObject({ nickname: 'Emergency fund' })
   expect(problems).toEqual([])
+})
+
+test('without a household, Connect a Bank explains instead of creating an unreachable connection', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true, noHousehold: true })
+  await page.goto('/app/connect')
+  await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
+  await expect(page.getByText(/Turn on Household Sharing/)).toBeVisible()
+  expect(state.linkTokenBody).toBeNull()
 })
 
 test('/oauth resumes Plaid Link with receivedRedirectUri exactly once', async ({ page }) => {
