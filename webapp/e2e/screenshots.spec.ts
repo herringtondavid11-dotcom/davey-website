@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { EMAIL, PASSWORD, mockBackend } from './mock'
+import { PAGES } from './pages'
 
 const VIEWPORTS = [
   { width: 390, height: 844 },
@@ -7,6 +8,7 @@ const VIEWPORTS = [
   { width: 1440, height: 900 },
 ]
 const THEMES = ['light', 'dark'] as const
+
 
 async function noHorizontalOverflow(page: Page) {
   const { scroll, inner } = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }))
@@ -44,7 +46,7 @@ for (const vp of VIEWPORTS) {
       await shot('03-overview')
 
       // Transactions + edit sheet
-      await page.getByRole('link', { name: 'Transactions' }).click()
+      await page.getByRole('link', { name: phone ? 'Activity' : 'Transactions' }).first().click()
       await expect(page.getByRole('heading', { name: 'Transactions' })).toBeVisible()
       await shot('04-transactions')
       await page.getByRole('button', { name: /Adobe/ }).click()
@@ -56,7 +58,8 @@ for (const vp of VIEWPORTS) {
       await page.getByRole('button', { name: 'Cancel' }).click()
 
       // Connect a Bank → Name your accounts
-      await page.getByRole('link', { name: phone ? 'Banks' : 'Connect a Bank' }).first().click()
+      await page.getByRole('link', { name: phone ? 'More' : 'Connect a Bank' }).first().click()
+      if (phone) await page.getByRole('link', { name: 'Connect a Bank' }).click()
       await expect(page.getByRole('heading', { name: 'Connect your bank securely' })).toBeVisible()
       await shot('06-connect')
       await page.getByRole('button', { name: 'Connect a Bank' }).click()
@@ -64,9 +67,16 @@ for (const vp of VIEWPORTS) {
       await shot('07-name-accounts')
 
       // Settings
-      await page.getByRole('link', { name: 'Settings' }).click()
+      await page.goto('/app/settings')
       await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible()
       await shot('08-settings')
+      for (const p of PAGES) {
+        if (p.phoneOnly && !phone) continue
+        await page.goto(p.path)
+        await expect(page.getByRole('heading', { level: 1, name: p.heading })).toBeVisible()
+        await page.waitForLoadState('networkidle')
+        await shot(p.name)
+      }
       info.annotations.push({ type: 'screenshots', description: `${browserName}-${vp.width}-${theme}` })
     })
   }

@@ -17,7 +17,10 @@ export interface PlaidCreateOptions {
   token: string
   receivedRedirectUri?: string
   onSuccess: (publicToken: string, metadata: PlaidLinkMetadata) => void
-  onExit?: (error: { error_code?: string; display_message?: string | null } | null, metadata: unknown) => void
+  onExit?: (
+    error: { error_code?: string; error_message?: string; display_message?: string | null } | null,
+    metadata: { institution?: { institution_id?: string; name?: string } | null; link_session_id?: string; request_id?: string },
+  ) => void
   onEvent?: (eventName: string, metadata: unknown) => void
 }
 
@@ -54,6 +57,8 @@ const store = () => window.localStorage
 export interface PendingLink {
   linkToken: string
   startedAt: string
+  /** Set when re-authenticating an existing connection (update mode). */
+  updateItemId?: string
 }
 
 export function savePendingLink(p: PendingLink, storage: Storage = store()) {
@@ -93,14 +98,80 @@ function errorMessage(e: unknown, fallback: string) {
   return fallback
 }
 
-export async function createLinkToken(): Promise<string> {
+export const RECONNECT_UNSUPPORTED =
+  "Reconnecting from the web needs a server update that isn't live yet. Reconnect this bank in the Davey app for now."
+
+/**
+ * New connection, or update mode for an existing Item (re-login). Update mode requires the server to answer with
+ * mode:'update'; otherwise we stop, because a plain link token would create a duplicate connection.
+ */
+export async function createLinkToken(opts: { itemId?: string } = {}): Promise<string> {
   const { data, error } = await supabase.functions.invoke('plaid-link-token', {
-    body: { platform: 'web', redirect_uri: PLAID_REDIRECT_URI },
+    body: { platform: 'web', redirect_uri: PLAID_REDIRECT_URI, ...(opts.itemId ? { item_id: opts.itemId, mode: 'update' } : {}) },
   })
   if (error) throw new Error(errorMessage(error, "Couldn't start the bank connection."))
   const token = data?.link_token ?? data?.linkToken
   if (typeof token !== 'string') throw new Error("Couldn't start the bank connection.")
+  if (opts.itemId && data?.mode !== 'update') throw new Error(RECONNECT_UNSUPPORTED)
   return token
+}
+
+// Last Link problem, kept so Report to Plaid can include the identifiers Plaid support asks for.
+const ISSUE_KEY = 'davey.plaid.lastIssue'
+export interface LinkIssue {
+  at: string
+  institution?: string
+  institutionId?: string
+  linkSessionId?: string
+  requestId?: string
+  errorCode?: string
+  errorMessage?: string
+}
+export function saveLinkIssue(issue: LinkIssue) {
+  try {
+    localStorage.setItem(ISSUE_KEY, JSON.stringify(issue))
+  } catch {
+    /* ignore */
+  }
+}
+export function readLinkIssue(): LinkIssue | null {
+  try {
+    return JSON.parse(localStorage.getItem(ISSUE_KEY) ?? 'null')
+  } catch {
+    return null
+  }
+}
+
+export interface IssueReport {
+  institution: string
+  kind: string
+  details: string
+  issue?: LinkIssue | null
+}
+
+/** Sends to the plaid-report-issue Edge Function; if it isn't deployed, returns a mailto: link instead. */
+export async function reportIssue(report: IssueReport): Promise<{ sent: true } | { sent: false; mailto: string }> {
+  const { data, error } = await supabase.functions.invoke('plaid-report-issue', { body: { platform: 'web', ...report } })
+  if (!error && data?.ok !== false) return { sent: true }
+  const lines = [
+    `Institution: ${report.institution}`,
+    `Problem: ${report.kind}`,
+    '',
+    report.details,
+    '',
+    ...(report.issue
+      ? [
+          `Link session: ${report.issue.linkSessionId ?? '-'}`,
+          `Request ID: ${report.issue.requestId ?? '-'}`,
+          `Institution ID: ${report.issue.institutionId ?? '-'}`,
+          `Error: ${report.issue.errorCode ?? '-'} ${report.issue.errorMessage ?? ''}`,
+          `When: ${report.issue.at}`,
+        ]
+      : []),
+    'Sent from Davey on the web',
+  ]
+  const mailto = `mailto:support@daveypersonalfinance.com?subject=${encodeURIComponent(`Bank connection problem: ${report.institution}`)}&body=${encodeURIComponent(lines.join('\n'))}`
+  return { sent: false, mailto }
 }
 
 export async function exchangePublicToken(publicToken: string, metadata: PlaidLinkMetadata): Promise<{ itemId?: string }> {

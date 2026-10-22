@@ -23,6 +23,16 @@ export const ACCOUNT_COLUMNS = {
   institution: ['institution_name', 'institution'],
   hidden: ['is_hidden', 'hidden'],
   createdAt: ['created_at'],
+  business: ['is_business', 'business', 'usage', 'classification'],
+  creditLimit: ['credit_limit', 'balance_limit', 'limit'],
+  apr: ['apr', 'purchase_apr', 'interest_rate', 'interest_rate_percentage'],
+  originalPrincipal: ['original_principal', 'origination_principal_amount', 'original_loan_amount'],
+  originationDate: ['origination_date', 'loan_start_date'],
+  termMonths: ['term_months', 'loan_term_months'],
+  minimumPayment: ['minimum_payment', 'minimum_payment_amount', 'monthly_payment', 'next_monthly_payment'],
+  nextPaymentDue: ['next_payment_due_date', 'payment_due_date'],
+  propertyValue: ['property_value', 'home_value', 'estimated_value'],
+  lastSynced: ['last_synced_at', 'updated_at'],
 } as const
 
 export const TRANSACTION_COLUMNS = {
@@ -71,6 +81,17 @@ export interface Account {
   institution?: string
   hidden: boolean
   createdAt?: string
+  usage: Usage
+  creditLimit?: number
+  /** Percent, e.g. 6.5 for 6.5%. */
+  apr?: number
+  originalPrincipal?: number
+  originationDate?: string
+  termMonths?: number
+  minimumPayment?: number
+  nextPaymentDue?: string
+  propertyValue?: number
+  lastSynced?: string
   raw: Row
 }
 
@@ -118,9 +139,34 @@ export function normalizeAccount(row: Row): Account {
     institution: str(pick(row, c.institution)),
     hidden: pick(row, c.hidden) === true,
     createdAt: str(pick(row, c.createdAt)),
+    usage: usageFromRaw(pick(row, c.business)),
+    creditLimit: optNum(pick(row, c.creditLimit)),
+    apr: percent(pick(row, c.apr)),
+    originalPrincipal: optNum(pick(row, c.originalPrincipal)),
+    originationDate: str(pick(row, c.originationDate))?.slice(0, 10),
+    termMonths: optNum(pick(row, c.termMonths)),
+    minimumPayment: optNum(pick(row, c.minimumPayment)),
+    nextPaymentDue: str(pick(row, c.nextPaymentDue))?.slice(0, 10),
+    propertyValue: optNum(pick(row, c.propertyValue)),
+    lastSynced: str(pick(row, c.lastSynced)),
     raw: row,
   }
 }
+
+function optNum(v: unknown): number | undefined {
+  if (v === undefined || v === null || v === '') return undefined
+  const n = Number(v)
+  return Number.isFinite(n) ? n : undefined
+}
+
+/** Rates may be stored as 0.065 or 6.5; returns percent. */
+function percent(v: unknown): number | undefined {
+  const n = optNum(v)
+  if (n === undefined) return undefined
+  return n > 0 && n < 1 ? n * 100 : n
+}
+
+export { optNum }
 
 export function usageFromRaw(v: unknown): Usage {
   if (v === true) return 'business'

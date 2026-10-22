@@ -43,3 +43,13 @@ export function typeLabel(type: string): string {
   }
   return labels[type] ?? type.charAt(0).toUpperCase() + type.slice(1)
 }
+
+export function shortDateTime(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
+export function percentText(v: number, digits = 0): string {
+  return `${v.toFixed(digits)}%`
+}

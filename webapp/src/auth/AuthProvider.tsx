@@ -4,6 +4,8 @@ import { IDLE_TIMEOUT_MS } from '../config'
 import { ACTIVITY_EVENTS, idleState, readLastActive, writeLastActive, type IdleState } from '../lib/idle'
 import { clearPendingLink } from '../lib/plaid'
 import { supabase } from '../lib/supabase'
+import { resetResolvedTables } from '../lib/tables'
+import { clearTableCache } from '../lib/useTable'
 
 export type AuthStatus = 'loading' | 'signedOut' | 'needsMfa' | 'needsEnroll' | 'ready'
 
@@ -68,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined)
     try {
       clearPendingLink()
+      clearTableCache()
+      resetResolvedTables()
       sessionStorage.clear()
     } catch {
       /* ignore */

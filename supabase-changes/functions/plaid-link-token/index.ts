@@ -1,13 +1,16 @@
 // plaid-link-token: creates a Plaid Link token for the signed-in user.
 //   iOS:  POST {}                                  → redirect_uri = iOS universal link (unchanged behaviour)
 //   Web:  POST { "platform": "web", ... }          → redirect_uri = https://daveypersonalfinance.com/app/oauth
-// Response: { link_token, expiration }
+//   Reconnect (update mode): add { "item_id": "...", "mode": "update" } → response also has mode:'update'
+//         (only when the user owns the Item and _shared/access-token.ts is wired; otherwise no mode is returned).
+// Response: { link_token, expiration, mode? }
 //
 // Secrets (already set for the existing function; names may differ — see WEB-PHASE1.md before deploying):
 //   PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENV (production|sandbox), optional PLAID_WEBHOOK_URL,
 //   optional PLAID_IOS_REDIRECT_URI, optional PLAID_PRODUCTS (comma-separated, default "transactions").
 //   SUPABASE_URL and SUPABASE_ANON_KEY are provided by the platform.
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { accessTokenForItem } from '../_shared/access-token.ts'
 import { corsHeaders, handlePreflight } from '../_shared/cors.ts'
 import { linkTokenRequest, parsePlatform } from './platform.ts'
 
@@ -43,7 +46,19 @@ Deno.serve(async (req) => {
   const host = PLAID_HOSTS[env]
   if (!host) return json(req, { error: 'bad_plaid_env' }, 500)
 
+  // Update mode: look up the Item's access token with the service role, scoped to this user.
+  let accessToken: string | undefined
+  if (body.mode === 'update' && typeof body.item_id === 'string') {
+    try {
+      const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+      accessToken = (await accessTokenForItem(admin, userData.user.id, body.item_id)) ?? undefined
+    } catch (e) {
+      console.warn('update mode unavailable:', (e as Error).message)
+    }
+  }
+
   const request = linkTokenRequest({
+    accessToken,
     platform: parsePlatform(body),
     userId: userData.user.id,
     products: (Deno.env.get('PLAID_PRODUCTS') ?? 'transactions').split(',').map((p) => p.trim()).filter(Boolean),
@@ -61,5 +76,5 @@ Deno.serve(async (req) => {
     console.error('link/token/create failed', plaid.error_code, plaid.error_message, plaid.request_id)
     return json(req, { error: plaid.error_code ?? 'plaid_error', message: plaid.display_message ?? 'Could not start Plaid Link.' }, 502)
   }
-  return json(req, { link_token: plaid.link_token, expiration: plaid.expiration })
+  return json(req, { link_token: plaid.link_token, expiration: plaid.expiration, ...(accessToken ? { mode: 'update' } : {}) })
 })

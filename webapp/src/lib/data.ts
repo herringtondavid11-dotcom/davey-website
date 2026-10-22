@@ -73,3 +73,16 @@ export async function updateAccountNickname(a: Account, nickname: string): Promi
   if (!row) throw new Error("You don't have permission to rename this account.")
   return normalizeAccount(row)
 }
+
+export async function updateAccountUsage(a: Account, usage: Usage): Promise<Account> {
+  const col = writeColumn(a.raw, ACCOUNT_COLUMNS.business)
+  const { data, error } = await supabase
+    .from(TABLES.accounts)
+    .update({ [col]: usageToRaw(usage, col, a.raw) })
+    .eq('id', a.raw.id as string)
+    .select('*')
+  if (error) throw error
+  const row = data?.[0]
+  if (!row) throw new Error("You don't have permission to change this account.")
+  return normalizeAccount(row)
+}

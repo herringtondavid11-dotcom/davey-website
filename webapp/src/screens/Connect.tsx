@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { CheckIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
 import { claimOAuthResume } from '../lib/plaid'
@@ -8,6 +8,14 @@ import { usePlaidFlow, type FlowState } from './usePlaidFlow'
 
 function FlowView({ state, onStart, onDone }: { state: FlowState; onStart: () => void; onDone: () => void }) {
   if (state.step === 'naming') return <NameAccounts accounts={state.accounts} institution={state.institution} onDone={onDone} />
+  if (state.step === 'reconnected')
+    return (
+      <section className="card connect-hero" role="status">
+        <h2>{state.institution ?? 'Your bank'} is reconnected</h2>
+        <p className="muted">New transactions will sync in the next few minutes.</p>
+        <div><button className="btn btn-primary" onClick={onDone}>Done</button></div>
+      </section>
+    )
   if (state.step === 'saving')
     return (
       <section className="card connect-hero" aria-live="polite">
@@ -37,10 +45,19 @@ function FlowView({ state, onStart, onDone }: { state: FlowState; onStart: () =>
 export function Connect() {
   const navigate = useNavigate()
   const flow = usePlaidFlow()
+  const location = useLocation()
+  const reconnectId = new URLSearchParams(location.search).get('reconnect') ?? undefined
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (reconnectId && !autoStarted.current) {
+      autoStarted.current = true
+      void flow.start(reconnectId)
+    }
+  }, [reconnectId, flow])
   return (
     <div className="page">
       <div className="page-head"><div><h1>Connect a Bank</h1><p>Add checking, savings, credit cards, loans and investments.</p></div></div>
-      <FlowView state={flow.state} onStart={flow.start} onDone={() => navigate('/', { replace: true })} />
+      <FlowView state={flow.state} onStart={() => flow.start(reconnectId)} onDone={() => navigate(reconnectId ? '/accounts' : '/', { replace: true })} />
     </div>
   )
 }

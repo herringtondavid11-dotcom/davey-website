@@ -103,3 +103,8 @@ export function categoryOptions(list: Transaction[]): string[] {
   for (const t of list) if (t.category) set.add(t.category)
   return [...set].sort((a, b) => a.localeCompare(b))
 }
+
+/** Business views (Tax tab) appear when any account or transaction is marked Business. */
+export function hasBusiness(accounts: Account[], transactions: Transaction[]): boolean {
+  return accounts.some((a) => a.usage === 'business') || transactions.some((t) => t.usage === 'business')
+}

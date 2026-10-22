@@ -5,7 +5,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const out = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'app')
-export const ROUTES = ['oauth', 'transactions', 'connect', 'settings', 'login', 'forgot', 'reset', 'security']
+export const ROUTES = [
+  'oauth', 'transactions', 'connect', 'settings', 'login', 'forgot', 'reset', 'security', 'accounts', 'help', 'more',
+  'budget', 'cash-flow', 'recurring', 'credit-cards', 'loans', 'investments', 'household', 'exports', 'tax',
+]
 
 const index = join(out, 'index.html')
 if (!existsSync(index)) throw new Error('Build output missing: ' + index)

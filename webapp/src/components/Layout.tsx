@@ -1,17 +1,18 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
-import { BankIcon, OverviewIcon, SettingsIcon, SignOutIcon, TransactionsIcon } from './Icons'
+import { useData } from '../lib/DataProvider'
+import { hasBusiness } from '../lib/finance'
+import { MoreIcon, PlusIcon, SignOutIcon } from './Icons'
 import { IdleWarning } from './IdleWarning'
-
-const NAV = [
-  { to: '/', label: 'Overview', icon: OverviewIcon, end: true },
-  { to: '/transactions', label: 'Transactions', icon: TransactionsIcon },
-  { to: '/connect', label: 'Connect a Bank', short: 'Banks', icon: BankIcon },
-  { to: '/settings', label: 'Settings', icon: SettingsIcon },
-]
+import { NAV_GROUPS, TAB_ITEMS } from './nav'
 
 export function Layout() {
   const { email, signOut } = useAuth()
+  const { accounts, transactions } = useData()
+  const location = useLocation()
+  const business = hasBusiness(accounts ?? [], transactions ?? [])
+  const inMore = !TAB_ITEMS.some((t) => (t.end ? location.pathname === t.to : location.pathname.startsWith(t.to)))
+
   return (
     <div className="shell">
       <aside className="sidebar" aria-label="Davey">
@@ -19,18 +20,28 @@ export function Layout() {
           <img src={`${import.meta.env.BASE_URL}icon-96.png`} alt="" width="32" height="32" />
           Davey
         </a>
-        <nav aria-label="Main" style={{ display: 'grid', gap: 4 }}>
-          {NAV.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>
-              <Icon />
-              {label}
-            </NavLink>
-          ))}
+        <NavLink to="/connect" className="btn btn-primary connect-cta"><PlusIcon size={18} />Connect a Bank</NavLink>
+        <nav aria-label="Main" className="side-nav">
+          {NAV_GROUPS.map((g, i) => {
+            const items = g.items.filter((it) => !it.businessOnly || business)
+            if (!items.length) return null
+            return (
+              <div key={g.label ?? i} className="nav-group">
+                {g.label && <div className="nav-group-label">{g.label}</div>}
+                {items.map(({ to, label, icon: Icon, end }) => (
+                  <NavLink key={to} to={to} end={end} className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>
+                    <Icon size={20} />
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            )
+          })}
         </nav>
         <div className="spacer" />
         {email && <div className="who" title={email}>{email}</div>}
         <button type="button" className="nav-link signout" onClick={() => signOut()}>
-          <SignOutIcon />
+          <SignOutIcon size={20} />
           Sign out
         </button>
       </aside>
@@ -38,12 +49,16 @@ export function Layout() {
         <Outlet />
       </main>
       <nav className="tabbar" aria-label="Main">
-        {NAV.map(({ to, label, short, icon: Icon, end }) => (
+        {TAB_ITEMS.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => 'tab' + (isActive ? ' active' : '')}>
             <Icon />
-            {short ?? label}
+            {label}
           </NavLink>
         ))}
+        <NavLink to="/more" className={() => 'tab' + (inMore ? ' active' : '')}>
+          <MoreIcon />
+          More
+        </NavLink>
       </nav>
       <IdleWarning />
     </div>

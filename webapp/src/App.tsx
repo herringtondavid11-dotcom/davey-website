@@ -5,7 +5,10 @@ import { Layout } from './components/Layout'
 import { FullPageSpinner } from './components/Spinner'
 import { DataProvider } from './lib/DataProvider'
 import { supabase } from './lib/supabase'
+import { Accounts } from './screens/Accounts'
 import { Connect, OAuthReturn } from './screens/Connect'
+import { ConnectionHelp } from './screens/ConnectionHelp'
+import { More } from './screens/More'
 import { ForgotPassword } from './screens/ForgotPassword'
 import { Login } from './screens/Login'
 import { MfaChallenge } from './screens/MfaChallenge'
@@ -82,6 +85,9 @@ export function AppRoutes() {
         <Route path="/connect" element={<Connect />} />
         <Route path="/oauth" element={<OAuthReturn />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/accounts" element={<Accounts />} />
+        <Route path="/help" element={<ConnectionHelp />} />
+        <Route path="/more" element={<More />} />
         <Route path="/security" element={<Navigate to="/settings" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

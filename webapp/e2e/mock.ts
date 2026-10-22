@@ -22,7 +22,8 @@ export function fixtures() {
     { id: 'acc-3', plaid_account_id: 'p-3', name: 'Sapphire Preferred', nickname: 'Travel card', mask: '3333', type: 'credit', subtype: 'credit card', current_balance: 1875.42, iso_currency_code: 'USD', institution_name: 'Chase', created_at: '2026-01-02T00:00:00Z' },
     { id: 'acc-4', plaid_account_id: 'p-4', name: 'Brokerage', nickname: null, mask: '4444', type: 'investment', subtype: 'brokerage', current_balance: 512640.55, iso_currency_code: 'USD', institution_name: 'Fidelity', created_at: '2026-01-02T00:00:00Z' },
     { id: 'acc-5', plaid_account_id: 'p-5', name: 'Home Mortgage', nickname: null, mask: '5555', type: 'loan', subtype: 'mortgage', current_balance: 412300, iso_currency_code: 'USD', institution_name: 'Rocket Mortgage', created_at: '2026-01-02T00:00:00Z' },
-  ]
+    { id: 'acc-6', plaid_account_id: 'p-6', name: 'Everyday Business Checking', nickname: 'Studio', mask: '6666', type: 'depository', subtype: 'checking', current_balance: 12800, iso_currency_code: 'USD', institution_name: 'Wells Fargo', created_at: '2026-01-02T00:00:00Z', is_business: true },
+  ].map((a) => ({ is_business: false, ...a }))
   const merchants: [string, number, string, string, boolean?][] = [
     ['Whole Foods Market', 84.2, 'Groceries', 'acc-1'],
     ['Adobe', 59.99, 'Subscriptions', 'acc-3', true],
@@ -53,7 +54,20 @@ export function fixtures() {
   return { accounts, transactions }
 }
 
+export function extraTables(): Record<string, Row[]> {
+  return {
+    plaid_items: [
+      { id: 'item-row-1', plaid_item_id: 'item-chase', institution_name: 'Chase', status: 'good', error_code: null, last_synced_at: new Date(Date.now() - 3600_000).toISOString() },
+      { id: 'item-row-2', plaid_item_id: 'item-wf', institution_name: 'Wells Fargo', status: 'login_required', error_code: 'ITEM_LOGIN_REQUIRED', error_message: 'Sign in to Wells Fargo again', last_synced_at: new Date(Date.now() - 4 * 86400_000).toISOString() },
+    ],
+  }
+}
+
 export interface MockOptions {
+  /** plaid-link-token answers mode:'update' for reconnects (the server change is deployed). */
+  updateMode?: boolean
+  /** plaid-report-issue Edge Function is deployed. */
+  reportFunction?: boolean
   /** 'verified' = user already has an authenticator; 'none' = must enroll. */
   mfa?: 'verified' | 'none'
   backup?: boolean
@@ -67,6 +81,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     aal: 'aal1' as 'aal1' | 'aal2',
     calls: [] as { path: string; method: string; body: unknown }[],
     linkTokenBody: null as unknown,
+    extra: extraTables() as Record<string, Row[]>,
+    reportBody: null as unknown,
     exchangeBody: null as unknown,
   }
   const now = new Date().toISOString()
@@ -147,8 +163,20 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     // ---- REST ----
     const rest = path.match(/^\/rest\/v1\/(\w+)$/)
     if (rest) {
-      const table = rest[1] as 'accounts' | 'transactions'
-      const rows = state[table] as Row[]
+      const name = rest[1]
+      const rows = name === 'accounts' || name === 'transactions' ? (state[name] as Row[]) : state.extra[name]
+      if (!rows) return json(route, { code: 'PGRST205', message: `Could not find the table 'public.${name}' in the schema cache` }, 404)
+      if (method === 'POST') {
+        const added = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: `${name}-${rows.length + i + 1}`, ...r }))
+        rows.push(...added)
+        return json(route, added, 201)
+      }
+      if (method === 'DELETE') {
+        const id = url.searchParams.get('id')?.replace(/^eq\./, '')
+        const i = rows.findIndex((r) => String(r.id) === id)
+        const removed = i >= 0 ? rows.splice(i, 1) : []
+        return json(route, removed)
+      }
       if (method === 'GET') {
         const offset = Number(url.searchParams.get('offset') ?? 0)
         const limit = Number(url.searchParams.get('limit') ?? rows.length)
@@ -166,7 +194,13 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     // ---- Edge Functions ----
     if (path === '/functions/v1/plaid-link-token') {
       state.linkTokenBody = body
-      return json(route, { link_token: 'link-production-web-123', expiration: now })
+      if (body.mode === 'update' && !opts.updateMode) return json(route, { link_token: 'link-production-web-123', expiration: now })
+      return json(route, { link_token: 'link-production-web-123', expiration: now, ...(body.mode === 'update' ? { mode: 'update' } : {}) })
+    }
+    if (path === '/functions/v1/plaid-report-issue') {
+      if (!opts.reportFunction) return json(route, { message: 'Function not found' }, 404)
+      state.reportBody = body
+      return json(route, { ok: true })
     }
     if (path === '/functions/v1/plaid-exchange') {
       state.exchangeBody = body
