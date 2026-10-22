@@ -70,3 +70,14 @@ test('recurring: subscriptions, bills, income and a calendar', async ({ page }) 
   await cell.click()
   await expect(page.locator('.day-detail')).toContainText('Netflix')
 })
+
+for (const [scheme, spend, over] of [['light', 'rgb(50, 109, 162)', 'rgb(180, 90, 67)'], ['dark', 'rgb(86, 145, 201)', 'rgb(217, 128, 106)']] as const) {
+  test(`charts use the app's colors: spending slate, overspend terracotta (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme })
+    await mockBackend(page, { signedIn: true })
+    await page.goto('/app/cash-flow')
+    await expect(page.locator('.s-spend').first()).toHaveCSS('background-color', spend)
+    await page.goto('/app/budget')
+    await expect(page.locator('.meter.over > span').first()).toHaveCSS('background-color', over)
+  })
+}

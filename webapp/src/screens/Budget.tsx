@@ -38,7 +38,7 @@ function BudgetLine({ row, editable, onSave }: { row: BudgetRow | { category: st
           {has && <span className="muted"> of {money(r.limit)}</span>}
         </span>
       </div>
-      {has && <Meter value={r.used} over={r.over} label={`${row.category}: ${Math.round(r.used * 100)}% of budget`} />}
+      {has && <Meter value={r.used} over={r.over} near={!r.over && r.used >= 0.8} label={`${row.category}: ${Math.round(r.used * 100)}% of budget`} />}
       <div className="budget-bottom small">
         {has ? (
           <span className={r.over ? 'negative' : 'muted'}>{r.over ? `${money(-r.remaining)} over` : `${money(r.remaining)} left`}</span>

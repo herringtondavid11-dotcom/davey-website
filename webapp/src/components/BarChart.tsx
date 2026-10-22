@@ -130,10 +130,10 @@ export function compact(v: number): string {
 }
 
 /** Single progress meter: status color + text, never color alone. */
-export function Meter({ value, over, label }: { value: number; over?: boolean; label: string }) {
+export function Meter({ value, over, near, label }: { value: number; over?: boolean; near?: boolean; label: string }) {
   const pct = Math.max(0, Math.min(1, value)) * 100
   return (
-    <div className={'meter' + (over ? ' over' : '')} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(value * 100)} aria-label={label}>
+    <div className={'meter' + (over ? ' over' : near ? ' near' : '')} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(value * 100)} aria-label={label}>
       <span style={{ width: `${pct}%` }} />
     </div>
   )

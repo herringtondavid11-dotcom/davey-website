@@ -68,7 +68,7 @@ export function Investments() {
   }
   const holdingsTotal = holdings.reduce((s, h) => s + h.value, 0) || 1
   const sortedTypes = [...byType].sort((a, b) => b[1] - a[1])
-  const alloc: [string, number][] = sortedTypes.length > 5 ? [...sortedTypes.slice(0, 4), ['Other', sortedTypes.slice(4).reduce((s, [, v]) => s + v, 0)]] : sortedTypes
+  const alloc: [string, number][] = sortedTypes.length > 6 ? [...sortedTypes.slice(0, 5), ['Other', sortedTypes.slice(5).reduce((s, [, v]) => s + v, 0)]] : sortedTypes
   const byAccount = invest.map((a) => [compactName(a), a.balance] as const).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
 
   const sortedHoldings = [...holdings].sort((x, y) => {

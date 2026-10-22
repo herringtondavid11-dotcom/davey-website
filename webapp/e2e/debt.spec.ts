@@ -72,3 +72,13 @@ test('investments: performance (estimated history), growth, forecast and finish-
   await page.getByRole('button', { name: 'Refresh' }).click()
   await expect.poll(() => state.investmentsBodies).toEqual([{ item_id: 'item-fid', refresh: true }])
 })
+
+for (const [scheme, first] of [['light', 'rgb(47, 109, 176)'], ['dark', 'rgb(79, 139, 208)']] as const) {
+  test(`investments allocation uses the app's chart colors (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme })
+    await mockBackend(page, { signedIn: true })
+    await page.goto('/app/investments')
+    const swatch = page.locator('.alloc-legend .swatch').first()
+    await expect(swatch).toHaveCSS('background-color', first)
+  })
+}

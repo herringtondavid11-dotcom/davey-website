@@ -62,3 +62,14 @@ the GitHub Pages run instead.
 - Checked: a deep link (/app/budget) survives the access code, sign-in and 2-step code.
 - New tests: focus.spec (focus indicator ≥ 3:1, light + dark; fails on the old CSS), access.spec deep link.
 - Counts: Vitest 101/101, Playwright Chromium 89/89.
+
+## Loop 7 — 2026-10-22 11:00 UTC
+- Palette audit (every color in the CSS vs the app's assets). Found: Cash flow drew spending in gold (the app: slate
+  blue = spending, gold = nearing a limit); Investments allocation used generic bright blue/orange/green instead of the
+  app's six categorical chart colors (and its dark mode skipped slot 5); budget bars had no "nearing the limit" state.
+- Fixed: chart colors are now the app's ChartIncome/Slate/Gold/Overspend/Grid and ChartCategory1–6 values, light and
+  dark; allocation shows six slots before "Other" like the app; budget bars turn chart gold at 80% (the app's alert
+  threshold) and terracotta over.
+- New tests: money.spec chart colors (light + dark), debt.spec allocation colors (light + dark), Meter.test.
+- Counts: Vitest 102/102, Playwright Chromium 93/93 (three runs; one earlier run had a single failure that didn't
+  repeat and wasn't captured; watching for it with failure output on).

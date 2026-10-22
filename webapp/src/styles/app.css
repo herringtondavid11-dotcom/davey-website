@@ -340,8 +340,9 @@ button.row:hover { background: var(--surface-2); }
 .stat-sub { font-size: .8125rem; color: var(--muted); }
 .spend-hero { display: grid; gap: 16px; }
 .meter { height: 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
-.meter > span { display: block; height: 100%; border-radius: 999px; background: var(--positive); }
-.meter.over > span { background: var(--over); }
+.meter > span { display: block; height: 100%; border-radius: 999px; background: var(--chart-income); }
+.meter.near > span { background: var(--chart-gold); }
+.meter.over > span { background: var(--chart-over); }
 .budget-list { padding: 0 0 6px; }
 .budget-line { padding: 12px 20px; display: grid; gap: 8px; }
 .budget-line + .budget-line { border-top: 1px solid var(--border); }
@@ -365,11 +366,13 @@ button.row:hover { background: var(--surface-2); }
 .chart .hit { fill: transparent; cursor: default; outline: none; }
 .chart .hit:focus-visible { stroke: var(--gold); stroke-width: 2; }
 /* Series: brand sage (income) and gold (spending); validated with legend + table as secondary encoding. */
-.s-income { fill: #4E7A62; background: #4E7A62; }
-.s-spend { fill: #C99A2E; background: #C99A2E; }
-:root[data-theme="dark"] .s-income { fill: #6F9A82; background: #6F9A82; }
-:root[data-theme="dark"] .s-spend { fill: #E8B84A; background: #E8B84A; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .s-income { fill: #6F9A82; background: #6F9A82; } :root:not([data-theme="light"]) .s-spend { fill: #E8B84A; background: #E8B84A; } }
+/* The app's ChartStyle (ChartIncome/Slate/Gold/Overspend/Grid assets): sage = income, slate blue = spending,
+   gold = nearing a limit, terracotta = overspending. */
+:root { --chart-income: #3A8560; --chart-spend: #326DA2; --chart-gold: #A77F19; --chart-over: #B45A43; --chart-grid: #C9D6E3; }
+:root[data-theme="dark"] { --chart-income: #5FAE85; --chart-spend: #5691C9; --chart-gold: #B88C19; --chart-over: #D9806A; --chart-grid: #3A4A60; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --chart-income: #5FAE85; --chart-spend: #5691C9; --chart-gold: #B88C19; --chart-over: #D9806A; --chart-grid: #3A4A60; } }
+.s-income { fill: var(--chart-income); background: var(--chart-income); }
+.s-spend { fill: var(--chart-spend); background: var(--chart-spend); }
 .tooltip {
   position: absolute; top: 0; transform: translateX(-50%); pointer-events: none; z-index: 5;
   background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow);
@@ -448,9 +451,12 @@ button.row:hover { background: var(--surface-2); }
 .alloc-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .alloc-legend li { display: grid; grid-template-columns: 14px 1fr auto auto; gap: 10px; align-items: center; font-size: .9375rem; }
 .alloc-legend b { min-width: 3.5em; text-align: right; }
-.alloc-0 { background: #2a78d6; } .alloc-1 { background: #eb6834; } .alloc-2 { background: #1baf7a; } .alloc-3 { background: #eda100; } .alloc-4 { background: #008300; } .alloc-other { background: var(--slate); }
-:root[data-theme="dark"] .alloc-0 { background: #3987e5; } :root[data-theme="dark"] .alloc-1 { background: #d95926; } :root[data-theme="dark"] .alloc-2 { background: #199e70; } :root[data-theme="dark"] .alloc-3 { background: #c98500; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .alloc-0 { background: #3987e5; } :root:not([data-theme="light"]) .alloc-1 { background: #d95926; } :root:not([data-theme="light"]) .alloc-2 { background: #199e70; } :root:not([data-theme="light"]) .alloc-3 { background: #c98500; } }
+/* Part-to-whole charts: the app's ChartStyle.categories (ChartCategory1–6 assets: blue, ochre, sage, clay, teal, olive),
+   in this order; anything past six folds into Other (grid color). */
+:root { --cat-1: #2F6DB0; --cat-2: #B07A00; --cat-3: #2A8F5E; --cat-4: #B4602A; --cat-5: #0B87A8; --cat-6: #7A7A10; }
+:root[data-theme="dark"] { --cat-1: #4F8BD0; --cat-2: #BC8810; --cat-3: #2F9D69; --cat-4: #C97538; --cat-5: #1C98B8; --cat-6: #8F8F25; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --cat-1: #4F8BD0; --cat-2: #BC8810; --cat-3: #2F9D69; --cat-4: #C97538; --cat-5: #1C98B8; --cat-6: #8F8F25; } }
+.alloc-0 { background: var(--cat-1); } .alloc-1 { background: var(--cat-2); } .alloc-2 { background: var(--cat-3); } .alloc-3 { background: var(--cat-4); } .alloc-4 { background: var(--cat-5); } .alloc-5 { background: var(--cat-6); } .alloc-other { background: var(--slate); }
 .ticker { font-weight: 700; }
 .holding-name { font-weight: 400; font-size: .8125rem; display: inline-block; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 @media (max-width: 599px) { .holding-name { display: none; } }
