@@ -43,3 +43,28 @@ test('investments: holdings, gain/loss and allocation', async ({ page }) => {
   await expect(page.locator('.alloc-legend')).toContainText('ETFs')
   await expect(page.locator('.alloc-legend')).toContainText('Bonds')
 })
+
+test('investments: performance (estimated history), growth, forecast and finish-setup banner', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true, investmentsConsent: true })
+  await page.goto('/app/investments')
+  // Finish setting up opens update mode with Investments consent (no new connection).
+  const banner = page.getByRole('region', { name: 'Finish setup' })
+  await expect(banner).toContainText('Finish setting up Fidelity Investments to see holdings & history')
+  await expect(banner.getByRole('link', { name: 'Finish setup' })).toHaveAttribute('href', '/app/connect?reconnect=item-fid&consent=investments')
+  await expect(page.getByText('Estimated history')).toBeVisible()
+  await expect(page.getByRole('img', { name: 'Portfolio value, 1Y' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Growth' })).toBeVisible()
+  // Forecast: from today's value at 6% for 10 years, then live as the inputs change.
+  const value = page.getByTestId('forecast-value')
+  const total = 512_640.55
+  const fmt = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
+  await expect(value).toHaveText(fmt(total * Math.pow(1.005, 120)))
+  await page.getByRole('spinbutton', { name: 'Time horizon' }).fill('15')
+  await expect(value).toHaveText(fmt(total * Math.pow(1.005, 180)))
+  await page.getByRole('slider', { name: 'Monthly contribution' }).fill('500')
+  await expect(value).toHaveText(fmt(total * Math.pow(1.005, 180) + 500 * ((Math.pow(1.005, 180) - 1) / 0.005)))
+  await expect(page.getByRole('table', { name: 'At 6%, no contributions' })).toContainText('5 years')
+  await expect(page.getByText('Projection for planning only, not a guarantee.')).toBeVisible()
+  await page.getByRole('button', { name: 'Refresh' }).click()
+  await expect.poll(() => state.investmentsBodies).toEqual([{ item_id: 'item-fid', refresh: true }])
+})

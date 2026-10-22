@@ -10,8 +10,9 @@ type Row = Record<string, unknown>
 export const OPTIONAL_TABLES = {
   items: ['plaid_items', 'items', 'bank_connections'],
   budgets: ['budgets', 'category_budgets'],
-  holdings: ['holdings', 'investment_holdings'],
-  securities: ['securities'],
+  holdings: ['investment_holdings', 'holdings'],
+  securities: ['investment_securities', 'securities'],
+  snapshots: ['investment_snapshots'],
   households: ['households'],
   members: ['household_members'],
   invites: ['household_invites'],
@@ -28,6 +29,7 @@ export interface TableResult {
 }
 
 const resolved = new Map<OptionalTable, string | null>()
+const PAGE = 1000
 
 export function isMissingTable(error: { code?: string; message?: string } | null, status?: number): boolean {
   if (!error) return false
@@ -48,10 +50,17 @@ export async function fetchOptional(name: OptionalTable): Promise<TableResult> {
   if (known === null) return { rows: [], available: false }
   const candidates = known ? [known] : OPTIONAL_TABLES[name]
   for (const table of candidates) {
-    const { data, error, status } = await supabase.from(table).select('*')
+    const { data, error, status } = await supabase.from(table).select('*').range(0, PAGE - 1)
     if (!error) {
       resolved.set(name, table)
-      return { rows: (data ?? []) as Row[], available: true, table }
+      const rows = (data ?? []) as Row[]
+      // The API returns at most 1,000 rows per request (investment history is several thousand).
+      for (let from = PAGE; rows.length === from; from += PAGE) {
+        const more = await supabase.from(table).select('*').range(from, from + PAGE - 1)
+        if (more.error) throw more.error
+        rows.push(...((more.data ?? []) as Row[]))
+      }
+      return { rows, available: true, table }
     }
     if (!isMissingTable(error, status)) throw error
   }
@@ -139,7 +148,7 @@ export function normalizeHoldings(holdings: Row[], securities: Row[]): Holding[]
       id: str(pick(h, ['id'])) ?? String(i),
       accountId: str(pick(h, ['account_id'])),
       name: str(pick(h, ['name', 'security_name'])) ?? str(pick(s, ['name'])) ?? str(pick(h, ['ticker_symbol', 'ticker'])) ?? 'Holding',
-      ticker: str(pick(h, ['ticker_symbol', 'ticker', 'symbol'])) ?? str(pick(s, ['ticker_symbol'])),
+      ticker: str(pick(h, ['ticker_symbol', 'ticker', 'symbol'])) ?? str(pick(s, ['ticker_symbol', 'ticker'])),
       quantity,
       price,
       value,

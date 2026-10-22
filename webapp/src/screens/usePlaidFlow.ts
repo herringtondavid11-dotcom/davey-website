@@ -15,6 +15,7 @@ import {
   type LinkMode,
   saveLinkIssue,
   savePendingLink,
+  syncInvestments,
   syncItem,
   type PlaidHandler,
   type PlaidLinkMetadata,
@@ -40,6 +41,7 @@ export function usePlaidFlow() {
   const handler = useRef<PlaidHandler | null>(null)
   // The connection's mode and its one automatic retry with the fallback token (see isFallbackExit).
   const mode = useRef<LinkMode>('bank')
+  const consentInvestments = useRef(false)
   const fallbackRetried = useRef(false)
   const usingFallback = useRef(false)
 
@@ -71,6 +73,11 @@ export function usePlaidFlow() {
       clearPendingLink()
       setState({ step: 'saving', institution: metadata.institution?.name })
       await syncItem(itemId)
+      // "Finish setting up": Investments was just added to this connection: pull holdings and history now.
+      if (consentInvestments.current) {
+        consentInvestments.current = false
+        await syncInvestments(itemId).catch(() => undefined)
+      }
       await reload()
       setState({ step: 'reconnected', institution: metadata.institution?.name })
     },
@@ -143,15 +150,16 @@ export function usePlaidFlow() {
   const openRef = useRef<typeof open | null>(null)
   openRef.current = open
 
-  const start = useCallback(async (updateItemId?: string, linkMode: LinkMode = 'bank') => {
+  const start = useCallback(async (updateItemId?: string, linkMode: LinkMode = 'bank', opts: { consentInvestments?: boolean } = {}) => {
     mode.current = updateItemId ? 'bank' : linkMode
+    consentInvestments.current = Boolean(updateItemId && opts.consentInvestments)
     fallbackRetried.current = false
     usingFallback.current = false
     setState({ step: 'starting' })
     try {
       // A bank connected here is shared through the household; without one it would reach no device.
       if (!updateItemId && !(await householdID(await loadDaveyData()))) throw new Error(NO_HOUSEHOLD)
-      const [token] = await Promise.all([createLinkToken({ itemId: updateItemId, mode: mode.current }), loadPlaid()])
+      const [token] = await Promise.all([createLinkToken({ itemId: updateItemId, mode: mode.current, consentInvestments: consentInvestments.current }), loadPlaid()])
       savePendingLink({ linkToken: token, startedAt: new Date().toISOString(), updateItemId })
       await open({ token, updateItemId })
     } catch (e) {

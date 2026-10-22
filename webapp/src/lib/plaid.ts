@@ -108,8 +108,9 @@ export const RECONNECT_UNSUPPORTED =
 export type LinkMode = 'bank' | 'loans' | 'brokerage'
 
 /** The plaid-link-token body for the web (pure, unit-tested). */
-export function linkTokenBody(opts: { itemId?: string; mode?: LinkMode; fallback?: boolean; institutionId?: string } = {}): Record<string, unknown> {
-  if (opts.itemId) return { platform: 'web', redirect_uri: PLAID_REDIRECT_URI, item_id: opts.itemId, mode: 'update' }
+export function linkTokenBody(opts: { itemId?: string; mode?: LinkMode; fallback?: boolean; institutionId?: string; consentInvestments?: boolean } = {}): Record<string, unknown> {
+  // Update mode; with consentInvestments it also adds Plaid Investments to the same connection (no relink).
+  if (opts.itemId) return { platform: 'web', redirect_uri: PLAID_REDIRECT_URI, item_id: opts.itemId, mode: 'update', ...(opts.consentInvestments ? { consent: 'investments' } : {}) }
   return {
     platform: 'web',
     redirect_uri: PLAID_REDIRECT_URI,
@@ -134,7 +135,7 @@ export async function logLinkEvent(fields: Record<string, string | boolean | und
   }
 }
 
-export async function createLinkToken(opts: { itemId?: string; mode?: LinkMode; fallback?: boolean; institutionId?: string } = {}): Promise<string> {
+export async function createLinkToken(opts: { itemId?: string; mode?: LinkMode; fallback?: boolean; institutionId?: string; consentInvestments?: boolean } = {}): Promise<string> {
   const { data, error } = await supabase.functions.invoke('plaid-link-token', { body: linkTokenBody(opts) })
   if (error) throw new Error(errorMessage(error, "Couldn't start the bank connection."))
   const token = data?.link_token ?? data?.linkToken
@@ -235,4 +236,25 @@ export async function syncItem(itemId?: string): Promise<void> {
   } catch {
     /* the app's scheduled sync catches up */
   }
+}
+
+export interface ItemStatus {
+  item_id: string
+  status: string
+  investments_status: string | null
+  institution_name: string | null
+}
+
+/** Each connection's state (plaid-item-status): includes whether a brokerage still needs Investments access. */
+export async function itemStatuses(): Promise<ItemStatus[]> {
+  const { data, error } = await supabase.functions.invoke('plaid-item-status', { body: {} })
+  if (error) return []
+  return (data?.items ?? []) as ItemStatus[]
+}
+
+/** Pulls holdings and value history for a connection (plaid-investments); `refresh` asks the brokerage first. */
+export async function syncInvestments(itemId: string, refresh = false): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('plaid-investments', { body: { item_id: itemId, ...(refresh ? { refresh: true } : {}) } })
+  if (error) throw new Error("Couldn't refresh investments. Try again in a minute.")
+  return String(data?.status ?? 'unknown')
 }

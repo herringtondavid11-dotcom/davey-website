@@ -51,22 +51,25 @@ export function Connect() {
   const navigate = useNavigate()
   const flow = usePlaidFlow()
   const location = useLocation()
-  const reconnectId = new URLSearchParams(location.search).get('reconnect') ?? undefined
+  const query = new URLSearchParams(location.search)
+  const reconnectId = query.get('reconnect') ?? undefined
+  // ?reconnect=<item>&consent=investments: "Finish setting up" a brokerage (adds Investments, same connection).
+  const consentInvestments = query.get('consent') === 'investments'
   const autoStarted = useRef(false)
   useEffect(() => {
     if (reconnectId && !autoStarted.current) {
       autoStarted.current = true
-      void flow.start(reconnectId)
+      void flow.start(reconnectId, 'bank', { consentInvestments })
     }
-  }, [reconnectId, flow])
+  }, [reconnectId, flow, consentInvestments])
   return (
     <div className="page">
       <div className="page-head"><div><h1>Connect a Bank</h1><p>Add checking, savings, credit cards, loans and investments.</p></div></div>
       <FlowView
         state={flow.state}
-        onStart={() => flow.start(reconnectId)}
+        onStart={() => flow.start(reconnectId, 'bank', { consentInvestments })}
         onLoans={reconnectId ? undefined : () => flow.start(undefined, 'loans')}
-        onDone={() => navigate(reconnectId ? '/accounts' : '/', { replace: true })}
+        onDone={() => navigate(consentInvestments ? '/investments' : reconnectId ? '/accounts' : '/', { replace: true })}
       />
     </div>
   )

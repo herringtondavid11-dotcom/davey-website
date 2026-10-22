@@ -524,3 +524,24 @@ button.row:hover { background: var(--surface-2); }
 }
 @media (max-width: 420px) { .row-amount small { display: none; } }
 @media (min-width: 1600px) { .main { padding-inline: 56px; } }
+
+/* ---------- Line charts and the forecaster ---------- */
+.chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .area { stroke: none; opacity: .28; }
+.mark-slate .line { stroke: var(--slate); } .mark-slate .area { fill: var(--slate); } .swatch.mark-slate { background: var(--slate); }
+.mark-positive .line { stroke: var(--positive); } .mark-positive .area { fill: var(--positive); opacity: .45; } .swatch.mark-positive { background: var(--positive); }
+.mark-gold .line { stroke: var(--gold); } .swatch.mark-gold { background: var(--gold); }
+.forecast { display: grid; gap: 16px; }
+.forecast-fields { display: grid; gap: 14px 24px; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+.forecast-field { display: grid; gap: 6px; }
+.forecast-field label { font-weight: 600; font-size: .875rem; }
+.forecast-input { display: flex; align-items: center; gap: 6px; }
+.forecast-input .input { width: 140px; min-height: 36px; }
+.forecast-field input[type="range"] { width: 100%; accent-color: var(--gold); }
+.forecast-presets { max-width: 420px; }
+.check-row { display: flex; gap: 8px; align-items: center; font-size: .9375rem; }
+.banner { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 14px 20px; border-left: 4px solid var(--gold); }
+.chip { display: inline-block; font-size: .75rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.holdings-sort { display: flex; gap: 8px; align-items: center; }
+.btn-link { background: none; border: 0; padding: 0; color: var(--gold-ink, var(--gold)); font-weight: 600; text-decoration: underline; cursor: pointer; justify-self: start; }
+.row-title.two-lines { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

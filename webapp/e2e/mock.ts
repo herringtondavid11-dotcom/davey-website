@@ -105,7 +105,14 @@ export function extraTables(): Record<string, Row[]> {
       { security_id: 's3', name: 'Vanguard Total Bond Market ETF', ticker_symbol: 'BND', type: 'fixed income' },
       { security_id: 's4', name: 'Cash sweep', ticker_symbol: 'CASH', type: 'cash' },
     ],
+    // A year of reconstructed history for the brokerage (Plaid account p-4) plus Davey's two real days.
+    investment_snapshots: Array.from({ length: 366 }, (_, i) => {
+      const d = new Date(Date.now() - (365 - i) * 86_400_000)
+      const value = 420_000 + i * 250 + (i === 200 ? 5_000 : 0)
+      return { account_id: 'p-4', date: d.toISOString().slice(0, 10), value: i === 365 ? 512_640.55 : value, net_flow: i === 200 ? 5_000 : 0, estimated: i < 364 }
+    }),
     plaid_items: [
+      { id: 'item-row-3', plaid_item_id: 'item-fid', institution_name: 'Fidelity', status: 'good', error_code: null, last_synced_at: new Date(Date.now() - 3600_000).toISOString() },
       { id: 'item-row-1', plaid_item_id: 'item-chase', institution_name: 'Chase', status: 'good', error_code: null, last_synced_at: new Date(Date.now() - 3600_000).toISOString() },
       { id: 'item-row-2', plaid_item_id: 'item-wf', institution_name: 'Wells Fargo', status: 'login_required', error_code: 'ITEM_LOGIN_REQUIRED', error_message: 'Sign in to Wells Fargo again', last_synced_at: new Date(Date.now() - 4 * 86400_000).toISOString() },
     ],
@@ -191,6 +198,8 @@ export interface MockOptions {
   mfa?: 'verified' | 'none'
   backup?: boolean
   signedIn?: boolean
+  /** The brokerage was linked without Plaid Investments (Investments shows "Finish setting up"). */
+  investmentsConsent?: boolean
   /** Supabase's email limit is hit (no custom SMTP yet). */
   emailRateLimited?: boolean
   /** The user doesn't share a household (Davey on the web has nothing to show or connect into). */
@@ -214,6 +223,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     pushes: [] as Row[],
     pushed: [] as { household_id: string; entity: string; id: string; payload: Row; updated_at: string }[],
     syncBodies: [] as Row[],
+    investmentsBodies: [] as Row[],
   }
   const now = new Date().toISOString()
   if ((opts.mfa ?? 'verified') === 'verified') {
@@ -403,6 +413,14 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
         return json(route, { cancelled: true })
       }
       return json(route, { link: 'https://daveypersonalfinance.com/join?t=tok-again-456' })
+    }
+    if (path === '/functions/v1/plaid-item-status') {
+      return json(route, { items: [{ item_id: 'item-fid', needs_sync: false, status: 'ok', institution_name: 'Fidelity Investments',
+        investments_status: opts.investmentsConsent ? 'needs_consent' : 'ok' }] })
+    }
+    if (path === '/functions/v1/plaid-investments') {
+      state.investmentsBodies.push(body)
+      return json(route, { status: 'ok', accounts: [] })
     }
     if (path === '/functions/v1/plaid-exchange') {
       state.exchangeBody = body
