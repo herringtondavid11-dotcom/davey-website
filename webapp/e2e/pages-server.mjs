@@ -19,7 +19,11 @@ createServer(async (req, res) => {
   for (const candidate of [base, base + '.html', join(base, 'index.html')]) {
     if (await isFile(candidate)) {
       res.writeHead(200, { 'Content-Type': types[extname(candidate)] ?? 'application/octet-stream' })
-      return res.end(await readFile(candidate))
+      let body = await readFile(candidate)
+      // Local test server is plain http: WebKit (unlike Chromium) applies the CSP's upgrade-insecure-requests to
+      // localhost and then fails every asset with a TLS error. Production is https and keeps the directive.
+      if (extname(candidate) === '.html') body = Buffer.from(body.toString('utf8').replace(/;?\s*upgrade-insecure-requests/g, ''))
+      return res.end(body)
     }
   }
   res.writeHead(404, { 'Content-Type': types['.html'] })

@@ -89,3 +89,8 @@ Autonomous run; David unavailable. Defaults chosen and logged here. Marketing-si
 - **Sign in with Apple on the web** needs the Apple provider in Supabase to accept a web Services ID (QUESTION for
   David: set up a Services ID + return URL `https://zvyargbnvccdqgmtytck.supabase.co/auth/v1/callback`, add it to the
   Apple provider's client IDs next to the bundle ID). Until then the button explains it's coming soon.
+- (Mac session) WebKit + Firefox on the Mac: the local test server now strips the CSP's `upgrade-insecure-requests` from
+  HTML (WebKit applies it to http://localhost and failed every asset with a TLS error; production is https and keeps
+  it). WebKit: 48/49 (the PWA offline test hits Playwright/WebKit's "internal error" on goto with a service worker while
+  offline). Firefox can't launch inside this Mac session's command sandbox (plugin-container "Operation not
+  permitted"); run `npm run e2e` in a normal Terminal for Firefox.
