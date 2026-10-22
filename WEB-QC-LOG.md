@@ -178,3 +178,7 @@ the GitHub Pages run instead.
   → sign in + message; (d) wrong code, resend after 60 s, email limit; (e) PIN pass + code step across refreshes.
   Auth/access/proof specs ×4–5 repeats: 152/152 and 130/130.
 - Counts: Vitest 112/112, Playwright Chromium 119/119 (two full runs).
+
+## Loop 21 — 2026-10-22 19:55 UTC (hourly check)
+- Pages: da55550 (email-link sign-in) deployed (success). No new commits from other sessions. No issues found.
+- Counts: Vitest 112/112, Playwright Chromium 119/119.
