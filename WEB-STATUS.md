@@ -1,16 +1,23 @@
-# Davey Web — status (overnight 2026-10-22)
+# Davey Web — status (morning of 2026-10-22)
 
-_Updated after every feature. Phase 1 details: WEB-PHASE1.md. Decisions: DECISIONS.md._
+**Live:** https://daveypersonalfinance.com/app (GitHub Pages from `main`). Phases 1–3 are built, tested and pushed.
+Details: Phase 1 in WEB-PHASE1.md, every default decision in DECISIONS.md, server changes in `supabase-changes/README.md`.
 
-## David: do this in the morning (in order)
+## David: do this in the morning (≈30 min, in order)
 
-1. ~~GitHub write access~~ **Done at 05:21 UTC** — pushes to `main` work and GitHub Pages deploys each one (Pages build for `fa537af` succeeded). Later commits are pushed by a loop every 15 minutes.
-2. **Bank testing on the web needs these server steps** (commands in WEB-PHASE1.md): deploy `plaid-link-token` (platform=web), add CORS to `plaid-exchange` + `plaid-sync`, add Plaid redirect URI `https://daveypersonalfinance.com/app/oauth`, add `https://daveypersonalfinance.com/app/**` to Supabase Auth redirect URLs.
-3. **Optional server changes** (each feature degrades gracefully without them) — see "Server changes" below.
+1. **Make bank connections work on the web** (required for bank testing; exact commands in WEB-PHASE1.md › Remaining steps):
+   - Deploy `plaid-link-token` from `supabase-changes/functions/plaid-link-token/` (+ `_shared/cors.ts`). Diff against the deployed version first.
+   - Add CORS to `plaid-exchange` and `plaid-sync` and redeploy them.
+   - Plaid Dashboard › Allowed redirect URIs: add `https://daveypersonalfinance.com/app/oauth`.
+   - Supabase › Auth › URL Configuration › Redirect URLs: add `https://daveypersonalfinance.com/app/**`.
+2. **Test:** sign in at /app (2-step setup on first web sign-in; save the recovery key) → Connect a Bank → Name your accounts → Overview. Try an OAuth bank (Chase) to exercise /app/oauth.
+3. **Check the guessed schema** against the iOS repo: `webapp/src/lib/schema.ts` (accounts, transactions) and `webapp/src/lib/tables.ts` (plaid_items, budgets, holdings, securities, household_members, household_invites, recurring_transactions). Each screen degrades gracefully if a table differs, but it then shows less.
+4. **Optional server updates** (each feature already explains itself without them): Reconnect/update mode, Report to Plaid, login activity, household invites from the web, Ask AI on the web — table in `supabase-changes/README.md`.
+5. **Run WebKit + Firefox tests on your Mac** (only Chromium exists in the cloud container): `cd webapp && npm ci && npx playwright install webkit firefox && npm run build && npm run e2e`.
 
 ## Push status
 
-GitHub access works since 05:21 UTC; `main` deploys to https://daveypersonalfinance.com/app via GitHub Pages. A loop pushes new commits every 15 minutes; a git bundle backup is refreshed after every commit.
+GitHub write access works since 05:21 UTC. Every commit tonight is on `claude/dazzling-faraday-c87dto` and `main`; GitHub Pages deployed each push (checked: Pages run for `fa537af` succeeded). A git bundle backup was refreshed after every commit.
 
 ## Done
 
@@ -36,28 +43,20 @@ GitHub access works since 05:21 UTC; `main` deploys to https://daveypersonalfina
 | Accessibility | axe-core (WCAG 2.1 A/AA) on every screen in light and dark: 0 serious/critical. Fixed badge contrast, chart/calendar/button names. Keyboard: focusable chart bars with tooltips, Esc closes sheets and Ask AI. |
 | Connection Help + Report to Plaid | Troubleshooting topics; report form sends to `plaid-report-issue` with Link session/request IDs from the last failed Link; falls back to a pre-filled email if the function isn't deployed. |
 
-## In progress / next
+ / next
 
-Recurring + calendar → PWA + polish.
-
-## Blocked / needs David
+## Blocked / not done
 
 | Item | Why | What to do |
 |---|---|---|
-| WebKit + Firefox test runs | Only Chromium is installed in the cloud container | `cd webapp && npx playwright install webkit firefox && npm run e2e` on a Mac. |
-| Real schema | Supabase REST and the iOS repo aren't reachable from the container | Confirm column/table names in `webapp/src/lib/schema.ts` and `tables.ts`. |
+| Real bank connection on the web | Needs the server steps above (not deployable from here: no production changes allowed) | Step 1 above. |
+| WebKit + Firefox runs | Browsers not installed in the cloud container | Step 5 above. Config already runs all three. |
+| Schema verification | Supabase REST blocked from the container; iOS repo not available | Step 3 above. |
+| Web sign-up / paywall | Not in scope tonight; accounts are created in the app | Phase 4. |
+| HTTP security headers (`frame-ancestors`, HSTS) | GitHub Pages can't set headers; CSP is a `<meta>` + frame-busting | Put Cloudflare (or similar) in front later. |
 
-## Server changes (in `/supabase-changes`, none deployed)
+## Tests (final run)
 
-| File | Needed for | Status |
-|---|---|---|
-| `functions/plaid-link-token/*` + `_shared/cors.ts` | Connecting banks from the web | **Required** for bank testing. |
-| `_shared/access-token.ts` (wire `decryptAccessToken` to the existing helper) | Reconnect from the web (update mode) | Optional; until wired, Reconnect sends people to the app. |
-| `functions/plaid-report-issue` + `migrations/20261022_plaid_issue_reports.sql` | Report to Plaid in-app | Optional; falls back to email. |
-| `functions/login-activity` | Settings › Login activity across devices | Optional. |
-| `household-invite` (contract in supabase-changes/README.md) | Household › invite from the web | Optional; needs your household schema. |
-| `functions/ask-ai/PATCH.md` (CORS + accept `context`/`history`) | Ask AI on the web | Optional; panel explains it's app-only until then. |
-
-## Tests
-
-- Vitest: 36 passed. Playwright (Chromium): 31 passed, including no-overflow checks at 360 px and 1920 px on every screen.
+- **Vitest: 70 passed** (12 files): TOTP RFC vectors, schema normalization, budgets/cash flow, recurring detection + calendar, loan/card math (amortization, payoff, refinance, LTV, avalanche), tax (P&L, SE tax, IRS periods, deduction finder), CSV/PDF/ZIP writers, Ask AI rendering + context, Edge Function platform logic.
+- **Playwright (Chromium): 52 passed** (12 files) against the repo served like GitHub Pages with mocked Supabase + Plaid: sign-in + 2-step, recovery key, enrollment, reset, idle sign-out, Overview, Transactions edit, Connect + /oauth once, Accounts (nickname + Business), Reconnect (both server states), Report to Plaid (function + email fallback), Budget, Cash flow, Recurring calendar, Credit cards, Loans, Investments, Household, Settings, Exports (real file downloads checked), Tax + CPA ZIP, Ask AI (answer, not-enabled, limit), PWA (manifest, SW, offline), no overflow at 360 px and 1920 px on every screen, **axe WCAG 2.1 AA: 0 serious/critical in light and dark**, zero CSP violations on key flows.
+- **Screenshots:** 122 in `webapp/screenshots/` (390 / 1024 / 1440 × light / dark × 20 screens + Ask AI panel).

@@ -1,6 +1,8 @@
 # Davey Web — Phase 1
 
-**Built and committed for https://daveypersonalfinance.com/app. NOT yet deployed:** on 2026-10-22 GitHub refused the push (HTTP 403, the Claude GitHub App has no write access to this repo). Once `main` has this commit, GitHub Pages deploys it and sign-in works; **connecting a bank from the web needs steps 1–2 below** (Edge Function + Plaid redirect URI).
+> Phases 2–3 (Budget, Cash flow, Recurring, Accounts, Cards, Loans, Investments, Household, Settings, Exports, Tax, Ask AI, PWA) shipped overnight 2026-10-22 — see **WEB-STATUS.md** for the current state and the morning checklist.
+
+**Live at https://daveypersonalfinance.com/app** (GitHub Pages from `main`, pushed 2026-10-22 05:21 UTC after write access was granted). Sign-in works now; **connecting a bank from the web needs steps 1–2 below** (Edge Function + Plaid redirect URI).
 
 ## Remaining steps for David (in order)
 
