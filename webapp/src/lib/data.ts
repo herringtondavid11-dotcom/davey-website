@@ -100,3 +100,23 @@ export async function saveBudget(table: string, existing: Record<string, unknown
   if (error) throw new Error("Couldn't add this budget here. Add it in the Davey app for now.")
   return data?.[0] as Record<string, unknown>
 }
+
+/** Every transaction between two dates (inclusive), paging through the API. Used by exports and tax. */
+export async function fetchTransactionsBetween(from: string, to: string, pageSize = 1000): Promise<Transaction[]> {
+  const col = TRANSACTION_COLUMNS.date[0]
+  const out: Transaction[] = []
+  for (let page = 0; page < 50; page++) {
+    const start = page * pageSize
+    const { data, error } = await supabase
+      .from(TABLES.transactions)
+      .select('*')
+      .gte(col, from)
+      .lte(col, to)
+      .order(col, { ascending: false })
+      .range(start, start + pageSize - 1)
+    if (error) throw error
+    out.push(...(data ?? []).map(normalizeTransaction))
+    if (!data || data.length < pageSize) break
+  }
+  return out
+}

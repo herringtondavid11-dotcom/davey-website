@@ -39,6 +39,7 @@ export function fixtures() {
     ['Interest', -21.7, 'Income', 'acc-2'],
     ['Home Depot', 231.04, 'Home', 'acc-3'],
     ['Staples', 48.9, 'Business Expenses', 'acc-3', true],
+    ['Canva', 12.99, 'Subscriptions', 'acc-3'],
   ]
   const transactions: Row[] = merchants.map(([m, amount, category, account, biz], i) => ({
     id: `txn-${i + 1}`,
@@ -62,6 +63,7 @@ export function fixtures() {
     ['Equinox', 49, 'Health', 'acc-3', 20],
     ['Safeway', 180, 'Groceries', 'acc-1', 12],
     ['Adobe', 59.99, 'Subscriptions', 'acc-6', 18, true],
+    ['Stripe Payout', -3500, 'Income', 'acc-6', 25, true],
   ]
   const now = new Date()
   for (let back = 1; back <= 6; back++) {
@@ -229,6 +231,16 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
         return json(route, removed)
       }
       if (method === 'GET') {
+        let list = rows
+        for (const v of url.searchParams.getAll('date')) {
+          const [op, val] = [v.slice(0, 3), v.slice(4)]
+          list = list.filter((r) => (op === 'gte' ? String(r.date) >= val : op === 'lte' ? String(r.date) <= val : true))
+        }
+        if (list !== rows) {
+          const offset = Number(url.searchParams.get('offset') ?? 0)
+          const limit = Number(url.searchParams.get('limit') ?? list.length)
+          return json(route, list.slice(offset, offset + limit))
+        }
         const offset = Number(url.searchParams.get('offset') ?? 0)
         const limit = Number(url.searchParams.get('limit') ?? rows.length)
         return json(route, rows.slice(offset, offset + limit))

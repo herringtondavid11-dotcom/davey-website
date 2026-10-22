@@ -451,3 +451,23 @@ button.row:hover { background: var(--surface-2); }
 @media (max-width: 599px) { .role-list div { grid-template-columns: 1fr; gap: 2px; } }
 .pw-form { padding-bottom: 16px; }
 .activity-list .settings-row { border-top: 1px solid var(--border); }
+
+/* ---------- Exports, tax ---------- */
+.export-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }
+.export-card { display: grid; gap: 10px; align-content: start; }
+.export-card .btn { justify-self: start; }
+.data-table .indent { padding-left: 36px; font-weight: 400; color: var(--muted); }
+.data-table .total-row th, .data-table .total-row td { font-weight: 800; border-top: 2px solid var(--border); }
+.est-list { margin: 0 0 12px; display: grid; gap: 8px; }
+.est-list div { display: flex; justify-content: space-between; gap: 12px; }
+.est-list dt { color: var(--muted); }
+.est-list dd { margin: 0; font-weight: 600; }
+.est-list .total-row { border-top: 1px solid var(--border); padding-top: 8px; }
+.est-list .total-row dt, .est-list .total-row dd { color: var(--text); font-weight: 800; }
+.deduction-row { grid-template-columns: 40px minmax(0, 1fr) auto; }
+.deduction-actions { display: flex; align-items: center; gap: 12px; }
+@media (max-width: 599px) { .deduction-actions { flex-direction: column; align-items: flex-end; gap: 6px; } }
+.tips { border-top: 1px solid var(--border); }
+.tips h3 { font-size: .9375rem; margin-bottom: 8px; }
+.tips ul { margin: 0; padding-left: 20px; color: var(--muted); display: grid; gap: 4px; }
+.data-table td.wrap { white-space: normal; }

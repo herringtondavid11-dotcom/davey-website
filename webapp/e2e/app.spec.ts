@@ -18,14 +18,14 @@ test('overview shows net worth, accounts with nickname and last 4, recent transa
 test('transactions: search, filter, and edit category, notes and Business/Personal', async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true })
   await page.goto('/app/transactions')
-  await expect(page.getByRole('status').filter({ hasText: 'transactions' })).toContainText('55 transactions')
+  await expect(page.getByRole('status').filter({ hasText: 'transactions' })).toContainText('62 transactions')
 
   await page.getByLabel('Search transactions').fill('coffee')
   await expect(page.getByRole('status').filter({ hasText: 'transaction' })).toContainText('1 transaction')
   await page.getByRole('button', { name: 'Clear filters' }).click()
 
   await page.getByLabel('Business / Personal').selectOption('business')
-  await expect(page.getByRole('status').filter({ hasText: 'transactions' })).toContainText('9 transactions')
+  await expect(page.getByRole('status').filter({ hasText: 'transactions' })).toContainText('15 transactions')
   await page.getByLabel('Business / Personal').selectOption('')
 
   await page.getByRole('button', { name: /Whole Foods Market/ }).click()

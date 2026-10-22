@@ -9,7 +9,9 @@ import { Accounts } from './screens/Accounts'
 import { Budget } from './screens/Budget'
 import { CashFlow } from './screens/CashFlow'
 import { CreditCards } from './screens/CreditCards'
+import { Exports } from './screens/Exports'
 import { Household } from './screens/Household'
+import { Tax } from './screens/Tax'
 import { Investments } from './screens/Investments'
 import { Loans } from './screens/Loans'
 import { RecurringScreen } from './screens/Recurring'
@@ -102,6 +104,8 @@ export function AppRoutes() {
         <Route path="/loans" element={<Loans />} />
         <Route path="/investments" element={<Investments />} />
         <Route path="/household" element={<Household />} />
+        <Route path="/exports" element={<Exports />} />
+        <Route path="/tax" element={<Tax />} />
         <Route path="/security" element={<Navigate to="/settings" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

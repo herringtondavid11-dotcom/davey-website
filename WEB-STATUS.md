@@ -4,13 +4,13 @@ _Updated after every feature. Phase 1 details: WEB-PHASE1.md. Decisions: DECISIO
 
 ## David: do this in the morning (in order)
 
-1. **GitHub write access** for the Claude GitHub App on `davey-website` (if the push log below still says 403). Everything is committed; a retry loop pushes to the work branch and `main` every 15 min.
+1. ~~GitHub write access~~ **Done at 05:21 UTC** — pushes to `main` work and GitHub Pages deploys each one (Pages build for `fa537af` succeeded). Later commits are pushed by a loop every 15 minutes.
 2. **Bank testing on the web needs these server steps** (commands in WEB-PHASE1.md): deploy `plaid-link-token` (platform=web), add CORS to `plaid-exchange` + `plaid-sync`, add Plaid redirect URI `https://daveypersonalfinance.com/app/oauth`, add `https://daveypersonalfinance.com/app/**` to Supabase Auth redirect URLs.
 3. **Optional server changes** (each feature degrades gracefully without them) — see "Server changes" below.
 
 ## Push status
 
-See the log at the bottom (updated by the loop). Backup bundle of all unpushed commits: scratchpad `davey-web.bundle` (lost when the session container ends).
+GitHub access works since 05:21 UTC; `main` deploys to https://daveypersonalfinance.com/app via GitHub Pages. A loop pushes new commits every 15 minutes; a git bundle backup is refreshed after every commit.
 
 ## Done
 
@@ -28,17 +28,18 @@ See the log at the bottom (updated by the loop). Backup bundle of all unpushed c
 | Investments | Totals, gain/loss vs cost basis, allocation bar (validated 5-hue palette, extras fold into Other) with legend, holdings table per account (from `holdings` + `securities`). |
 | Household | Members with roles (Owner / Can edit / View only); owners change roles and remove members (RLS-enforced); invite link via `household-invite` (copy link; pending invites with copy); explains if the function isn't deployed. |
 | Settings | Profile name (auth metadata), password change, 2-step + recovery key, sign out / sign out everywhere (confirm), login activity (`login-activity` function, else this browser + last sign-in), connection issues, theme. Account names moved to Accounts. |
+| Exports | Date range (this/last month, YTD, last year, custom), account, All/Personal/Business. CSV (Excel-safe, formula-injection-safe), PDF statement (summary, accounts, categories, transactions), ZIP of all three. Generated in the browser (own PDF/ZIP writers, no third parties). |
+| Tax (Business only) | This/last year: business income, expenses, net profit, P&L by category; estimated tax (SE 15.3% × 92.35% + federal bracket + state, editable, remembered); IRS quarterly periods with due dates and amounts to set aside; deduction finder (personal spending that looks like business, grouped by merchant, one-tap "Mark Business"); CPA package ZIP (P&L PDF + business CSV + category totals). |
 | Connection Help + Report to Plaid | Troubleshooting topics; report form sends to `plaid-report-issue` with Link session/request IDs from the last failed Link; falls back to a pre-filled email if the function isn't deployed. |
 
 ## In progress / next
 
-Recurring + calendar → Exports + Tax → Ask AI → PWA + polish.
+Recurring + calendar → Ask AI → PWA + polish.
 
 ## Blocked / needs David
 
 | Item | Why | What to do |
 |---|---|---|
-| Push to GitHub | 403: app has no write access | Grant access (step 1). |
 | WebKit + Firefox test runs | Only Chromium is installed in the cloud container | `cd webapp && npx playwright install webkit firefox && npm run e2e` on a Mac. |
 | Real schema | Supabase REST and the iOS repo aren't reachable from the container | Confirm column/table names in `webapp/src/lib/schema.ts` and `tables.ts`. |
 

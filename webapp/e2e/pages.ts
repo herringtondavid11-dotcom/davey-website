@@ -9,5 +9,7 @@ export const PAGES: { path: string; name: string; heading: string | RegExp; phon
   { path: '/app/loans', name: '17-loans', heading: 'Mortgages & loans' },
   { path: '/app/investments', name: '18-investments', heading: 'Investments' },
   { path: '/app/household', name: '19-household', heading: 'Household' },
+  { path: '/app/exports', name: '20-exports', heading: 'Exports' },
+  { path: '/app/tax', name: '21-tax', heading: 'Tax' },
   { path: '/app/more', name: '12-more', heading: 'More', phoneOnly: true },
 ]

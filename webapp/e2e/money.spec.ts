@@ -36,7 +36,7 @@ test('cash flow: chart with tooltip and month table', async ({ page }) => {
   await expect(page.getByRole('img', { name: /Income and spending, last 6 months/ })).toBeVisible()
   const rows = page.locator('.data-table tbody tr')
   await expect(rows).toHaveCount(6)
-  await expect(rows.nth(1)).toContainText('$4,200')
+  await expect(rows.nth(1)).toContainText('$7,700')
   await page.locator('.chart .hit').nth(4).hover()
   await expect(page.locator('.tooltip')).toContainText('Income')
   await page.getByRole('button', { name: '12 months' }).click()
