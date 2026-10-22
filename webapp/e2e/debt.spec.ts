@@ -52,7 +52,7 @@ test('investments: performance (estimated history), growth, forecast and finish-
   await expect(banner).toContainText('Finish setting up Fidelity Investments to see holdings & history')
   await expect(banner.getByRole('link', { name: 'Finish setup' })).toHaveAttribute('href', '/app/connect?reconnect=item-fid&consent=investments')
   await expect(page.getByText('Estimated history')).toBeVisible()
-  await expect(page.getByRole('img', { name: 'Portfolio value, 1Y' })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'Portfolio value, 1Y', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Growth' })).toBeVisible()
   // Forecast: from today's value at 6% for 10 years, then live as the inputs change.
   const value = page.getByTestId('forecast-value')

@@ -545,3 +545,6 @@ button.row:hover { background: var(--surface-2); }
 .holdings-sort { display: flex; gap: 8px; align-items: center; }
 .btn-link { background: none; border: 0; padding: 0; color: var(--gold-ink, var(--gold)); font-weight: 600; text-decoration: underline; cursor: pointer; justify-self: start; }
 .row-title.two-lines { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-head.wrap { flex-wrap: wrap; row-gap: 8px; }
+.segmented.compact { flex-wrap: wrap; max-width: 100%; }
+.segmented.compact button { padding: 6px 10px; min-height: 34px; }

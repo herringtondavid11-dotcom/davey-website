@@ -91,7 +91,10 @@ export function LineChart({ points, series, format, height = 220, label, stacked
             <text key={i} className="axis" x={x(i)} y={height - 6} textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}>{p.label}</text>
           ) : null))}
           {hover !== null && points[hover] && <line className="baseline" x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + plotH} />}
-          <rect className="hit" x={pad.l} y={pad.t} width={plotW} height={plotH} tabIndex={0} aria-label={`${label}: use arrow keys to read values`}
+          <rect className="hit" x={pad.l} y={pad.t} width={plotW} height={plotH} tabIndex={0} role="img"
+            aria-label={hover !== null && points[hover]
+              ? `${points[hover].title}${series.length > 1 ? ': ' + series.map((s) => `${s.name} ${format(points[hover].values[s.key] ?? 0)}`).join(', ') : ''}`
+              : `${label}. Use the arrow keys to read values.`}
             onPointerMove={onMove} onPointerLeave={() => setHover(null)}
             onKeyDown={(e) => {
               if (e.key === 'ArrowRight') setHover((h) => Math.min(points.length - 1, (h ?? -1) + 1))

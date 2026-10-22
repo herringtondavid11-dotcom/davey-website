@@ -120,9 +120,9 @@ export function Investments() {
           </section>
 
           <section className="card card-pad" aria-labelledby="perf">
-            <div className="card-head" style={{ padding: 0 }}>
+            <div className="card-head wrap" style={{ padding: 0 }}>
               <h2 id="perf">Performance {estimated && <span className="chip" title="Rebuilt from today's holdings and your investment transactions until Davey has 30 days of its own daily values.">Estimated history</span>}</h2>
-              <div className="segmented" role="group" aria-label="Range">
+              <div className="segmented compact" role="group" aria-label="Range">
                 {RANGES.map((r) => <button key={r} type="button" aria-pressed={range === r} onClick={() => setRange(r)}>{r}</button>)}
               </div>
             </div>
@@ -138,9 +138,9 @@ export function Investments() {
 
           {growth.length > 0 && (
             <section className="card" aria-labelledby="growth">
-              <div className="card-head">
+              <div className="card-head wrap">
                 <h2 id="growth">Growth</h2>
-                <div className="segmented" role="group" aria-label="Period">
+                <div className="segmented compact" role="group" aria-label="Period">
                   {(['monthly', 'quarterly', 'annual'] as const).map((g) => <button key={g} type="button" aria-pressed={granularity === g} onClick={() => setGranularity(g)}>{g[0].toUpperCase() + g.slice(1)}</button>)}
                 </div>
               </div>
