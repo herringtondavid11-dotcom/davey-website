@@ -151,3 +151,15 @@ the GitHub Pages run instead.
 ## Loop 18 — 2026-10-22 18:51 UTC (hourly check)
 - Pages: d44ef69 deployed (success). No new commits from other sessions. No issues found.
 - Counts: Vitest 112/112, Playwright Chromium 107/107.
+
+## Loop 19 — 2026-10-22 19:03 UTC (David's real login: link-only email, back to the start)
+- Cause: production Auth email templates were still Supabase's defaults (link, no code); codes were 8 digits; the link
+  pointed at the Site URL (home page).
+- Fixed (web): "Enter the 6-digit code we emailed you", exactly 6 digits (pasted spaces OK), emails ask for links to
+  /app/, and an old link landing on the home page (?code= or #error_code/#access_token) is forwarded to /app/ (code
+  screen or finished sign-in). Home page itself unaffected.
+- Fixed (app, davey-ios release-candidate a54ae9c): code screens say/accept 6 digits; fakes 123456/654321.
+- Server config: code-only branded template + scripts/auth-email-fix.sh (Management API, before/after, rollback);
+  needs David's Mac run (AUTH-EMAIL-FIX.md). Until then emails still arrive as the default link email.
+- New tests: auth.spec (6-digit field and wording, redirect_to /app/, old link → code screen, home page not redirected).
+- Counts: Vitest 112/112, Playwright Chromium 110/110.

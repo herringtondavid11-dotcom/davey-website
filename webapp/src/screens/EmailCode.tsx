@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { AuthCard } from '../components/AuthCard'
+import { APP_BASE, SITE_ORIGIN } from '../config'
 import { authErrorMessage } from '../lib/authErrors'
 import { supabase } from '../lib/supabase'
 
 const RESEND_SECONDS = 60
 const SENT_KEY = 'davey.emailCodeSentAt'
 
-/** Sends the sign-in code to the account's email (Davey's "Your Davey sign-in link" email, which shows the code). */
+export const CODE_LENGTH = 6
+
+/** Sends the 6-digit sign-in code to the account's email ("Your Davey sign-in code"). The code is what counts; if an
+ * older email still has a link, it leads back into the app (not the home page). */
 async function sendCode(email: string) {
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } })
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: `${SITE_ORIGIN}${APP_BASE}/` } })
   if (error) throw error
   try { sessionStorage.setItem(SENT_KEY, `${email}|${Date.now()}`) } catch { /* storage off */ }
 }
@@ -57,7 +61,7 @@ export function EmailCode() {
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    if (!email || digits.length < 6) return
+    if (!email || digits.length !== CODE_LENGTH) return
     setBusy(true)
     setError('')
     const { error } = await supabase.auth.verifyOtp({ email, token: digits, type: 'email' })
@@ -85,16 +89,16 @@ export function EmailCode() {
 
   const wait = sentAt ? Math.min(RESEND_SECONDS, Math.max(0, RESEND_SECONDS - Math.floor((now - sentAt) / 1000))) : 0
   return (
-    <AuthCard title="Check your email" lead={<>We sent a sign-in code to <strong>{email ? maskEmail(email) : 'your email'}</strong>. Enter it to finish signing in.</>}>
+    <AuthCard title="Check your email" lead={<>Enter the 6-digit code we emailed you at <strong>{email ? maskEmail(email) : 'your email'}</strong>.</>}>
       <form className="form" onSubmit={submit} noValidate>
         <label className="field">
-          <span>Code from the email</span>
-          <input className="input code-input" inputMode="numeric" autoComplete="one-time-code" maxLength={9} autoFocus
-            value={code} onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, ''))} />
+          <span>6-digit code</span>
+          <input className="input code-input" inputMode="numeric" autoComplete="one-time-code" autoFocus
+            pattern="[0-9]{6}" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH))} />
         </label>
         {notice && <p className="notice" role="status">{notice}</p>}
         {error && <p className="error" role="alert">{error}</p>}
-        <button className="btn btn-primary btn-block" disabled={busy || digits.length < 6}>{busy ? 'Checking…' : 'Continue'}</button>
+        <button className="btn btn-primary btn-block" disabled={busy || digits.length !== CODE_LENGTH}>{busy ? 'Checking…' : 'Continue'}</button>
       </form>
       <div className="auth-foot">
         <button type="button" className="link-btn" disabled={wait > 0} onClick={resend}>{wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'}</button>

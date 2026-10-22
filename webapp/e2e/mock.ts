@@ -4,8 +4,8 @@ export const SUPABASE = 'https://zvyargbnvccdqgmtytck.supabase.co'
 export const EMAIL = 'alex@example.com'
 export const PASSWORD = 'correct horse battery'
 export const GOOD_CODE = '123456'
-/** The sign-in code in the email (Supabase sends 8 digits for this project). */
-export const EMAIL_CODE = '48213957'
+/** The 6-digit sign-in code in the email (AUTH-EMAIL-FIX.md). */
+export const EMAIL_CODE = '482139'
 
 type Row = Record<string, unknown>
 type Factor = { id: string; friendly_name: string; factor_type: 'totp'; status: 'verified' | 'unverified'; created_at: string; updated_at: string }

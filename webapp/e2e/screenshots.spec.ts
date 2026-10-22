@@ -46,7 +46,7 @@ for (const vp of VIEWPORTS) {
       await page.getByLabel('Password').fill(PASSWORD)
       await page.getByRole('button', { name: 'Sign in', exact: true }).click()
       await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
-      await page.getByLabel('Code from the email').fill(EMAIL_CODE)
+      await page.getByLabel('6-digit code').fill(EMAIL_CODE)
       await shot('02-two-step')
       await page.getByRole('button', { name: 'Continue' }).click()
 
