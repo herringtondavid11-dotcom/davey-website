@@ -1,23 +1,33 @@
 # Davey Web — status (morning of 2026-10-22)
 
-**Live:** https://daveypersonalfinance.com/app (GitHub Pages from `main`). Phases 1–3 are built, tested and pushed.
-Details: Phase 1 in WEB-PHASE1.md, every default decision in DECISIONS.md, server changes in `supabase-changes/README.md`.
+**Live:** https://daveypersonalfinance.com/app (GitHub Pages from `main`, last push `b15e92c`+). Phases 1–3 built; Phase 4
+(real data) done together with the Mac session: the web reads and writes the app's shared copy (`household_records`), so
+it shows the same accounts and data as the iPhone/Mac for anyone using Household Sharing.
+Details: DECISIONS.md (incl. the 2026-10-22 reconciliation notes), server changes in `supabase-changes/README.md`.
 
-## David: do this in the morning (≈30 min, in order)
+## David: do this in the morning (in order)
 
-1. **Make bank connections work on the web** (required for bank testing; exact commands in WEB-PHASE1.md › Remaining steps):
-   - Deploy `plaid-link-token` from `supabase-changes/functions/plaid-link-token/` (+ `_shared/cors.ts`). Diff against the deployed version first.
-   - Add CORS to `plaid-exchange` and `plaid-sync` and redeploy them.
-   - Plaid Dashboard › Allowed redirect URIs: add `https://daveypersonalfinance.com/app/oauth`.
-   - Supabase › Auth › URL Configuration › Redirect URLs: add `https://daveypersonalfinance.com/app/**`.
-2. **Test:** sign in at /app (2-step setup on first web sign-in; save the recovery key) → Connect a Bank → Name your accounts → Overview. Try an OAuth bank (Chase) to exercise /app/oauth.
-3. **Check the guessed schema** against the iOS repo: `webapp/src/lib/schema.ts` (accounts, transactions) and `webapp/src/lib/tables.ts` (plaid_items, budgets, holdings, securities, household_members, household_invites, recurring_transactions). Each screen degrades gracefully if a table differs, but it then shows less.
-4. **Optional server updates** (each feature already explains itself without them): Reconnect/update mode, Report to Plaid, login activity, household invites from the web, Ask AI on the web — table in `supabase-changes/README.md`.
-5. **Run WebKit + Firefox tests on your Mac** (only Chromium exists in the cloud container): `cd webapp && npm ci && npx playwright install webkit firefox && npm run build && npm run e2e`.
+1. **Plaid Dashboard › Allowed redirect URIs:** add `https://daveypersonalfinance.com/app/oauth` (OAuth banks on the
+   web). The server side (`plaid-link-token` web mode, CORS) is already deployed by the Mac session.
+2. **Supabase › Auth › URL Configuration › Redirect URLs:** add `https://daveypersonalfinance.com/app/**`.
+3. **Test bank connection:** sign in at /app (2-step setup on first web sign-in; save the recovery key) → Connect a Bank →
+   Name your accounts → it appears on the iPhone/Mac via Household Sharing. Try Chase for the OAuth path.
+4. **Apply `supabase-changes/davey-ios/web-cors.patch`** (one `git apply` + one deploy command in the README): enables
+   invite / remove / leave household, Report to Plaid, disconnect bank and Link diagnostics from the web.
+5. **Sign in with Apple on the web (optional):** create an Apple Services ID with return URL
+   `https://zvyargbnvccdqgmtytck.supabase.co/auth/v1/callback`, add it to Supabase's Apple provider client IDs.
+6. **Run WebKit + Firefox tests on your Mac:** `cd webapp && npm ci && npx playwright install webkit firefox && npm run build && npm run e2e`.
+7. **Questions logged in DECISIONS.md:** single transactions markable Business? Apple Services ID?
 
 ## Push status
 
-GitHub write access works since 05:21 UTC. Every commit tonight is on `claude/dazzling-faraday-c87dto` and `main`; GitHub Pages deployed each push (checked: Pages run for `fa537af` succeeded). A git bundle backup was refreshed after every commit.
+All commits are on `claude/dazzling-faraday-c87dto` and `main`. `main` also has two Mac-session commits (06652bd,
+91d370e); they were merged, not overwritten (merge commit da22a33). GitHub Pages deploys every push.
+
+## Tests (end of Phase 4)
+
+Vitest 80/80. Playwright (Chromium) 55/55, including screenshots (390/1024/1440 × light/dark), axe WCAG 2.1 AA (0
+serious/critical, light and dark) and no overflow at 360/1920 px. WebKit/Firefox: run on the Mac (step 6).
 
 ## Done
 

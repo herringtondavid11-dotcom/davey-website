@@ -119,7 +119,8 @@ const daveyType = (a: Row) =>
     : a.subtype === 'savings' ? 'savings' : 'checking'
 const cents = (n: unknown) => Math.round(Number(n ?? 0) * 100)
 const categoryId = (name: string) => `cat-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
-const localMidnight = (day: string) => { const [y, m, d] = day.split('-').map(Number); return new Date(y, m - 1, d).toISOString() }
+// Noon UTC: the same calendar day in every US time zone (the browser runs as Los Angeles, Node as UTC).
+const localMidnight = (day: string) => { const [y, m, d] = day.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d, 12)).toISOString() }
 
 /** The fixtures (web-shaped rows) as the app's household records: what production actually serves. */
 export function householdRecords(state: { accounts: Row[]; transactions: Row[]; extra: Record<string, Row[]> }) {
