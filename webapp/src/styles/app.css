@@ -86,7 +86,9 @@ p { margin: 0; }
 a { color: inherit; }
 button, input, select, textarea { font: inherit; color: inherit; }
 svg { display: block; flex: none; }
-:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: 8px; }
+:focus-visible { outline: 3px solid var(--gold-ink); outline-offset: 2px; border-radius: 8px; }
+/* Navy surfaces in both themes: plain gold (gold ink is under 3:1 on navy). */
+.sidebar :focus-visible, .networth :focus-visible { outline-color: var(--gold); }
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .muted { color: var(--muted); }
 .positive { color: var(--positive-ink); }
@@ -118,7 +120,7 @@ svg { display: block; flex: none; }
   border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
 }
 textarea.input { min-height: 88px; resize: vertical; }
-.input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 184, 74, .3); }
+.input:focus { outline: none; border-color: var(--gold-ink); box-shadow: 0 0 0 3px rgba(232, 184, 74, .3); }
 .code-input { font-size: 1.5rem; letter-spacing: .35em; text-align: center; font-variant-numeric: tabular-nums; }
 .form { display: grid; gap: 16px; }
 .field-hint { margin-top: -10px; }

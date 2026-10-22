@@ -51,3 +51,14 @@ the GitHub Pages run instead.
   daveypersonalfinance.com; GitHub Pages deploys for every push tonight are checked instead.)
 - New test: public.spec.
 - Counts: Vitest 101/101, Playwright Chromium 86/86.
+
+## Loop 6 — 2026-10-22 10:45 UTC
+- Live: David confirmed from a real browser (10:32 UTC) that daveypersonalfinance.com/app serves the new build and
+  redirects to /app/access?next=/login with the Company access code screen.
+- Found: in light mode the keyboard focus ring was plain gold on white/light surfaces, 1.84:1 (WCAG 1.4.11 needs 3:1);
+  input focus border the same.
+- Fixed: focus ring and focused-input border use gold ink in light mode (gold in dark mode and on navy surfaces:
+  sidebar, net worth card).
+- Checked: a deep link (/app/budget) survives the access code, sign-in and 2-step code.
+- New tests: focus.spec (focus indicator ≥ 3:1, light + dark; fails on the old CSS), access.spec deep link.
+- Counts: Vitest 101/101, Playwright Chromium 89/89.
