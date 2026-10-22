@@ -69,3 +69,7 @@ Autonomous run; David unavailable. Defaults chosen and logged here. Marketing-si
   the transaction's account to Business.
 - (Mac session) Liabilities come out of the adapter as amounts owed (positive), and a mortgage's home counts in net
   worth as its own Real Estate account, as in the app.
+- (Mac session) `ask-ai` deployed with a web mode (release-candidate 3e08d1f): body `platform:"web"` → one answer-only
+  round grounded in the `context` numbers (validated as data: view, month, net_worth, month_income, month_spending,
+  account_count, top 8 categories), JSON `{answer, follow_ups}`, CORS for Davey's origins, same plan limits (HTTP 402
+  `plan_limit` when the month's questions are used up; the web shows the limit message for 402 and 429).

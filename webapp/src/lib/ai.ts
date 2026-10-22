@@ -52,7 +52,7 @@ export async function askAi(question: string, history: ChatTurn[], context: Retu
   })
   if (error) {
     const status = (error as { context?: { status?: number } }).context?.status
-    if (status === 429) throw new Error("You've used this month's AI questions. They reset on the 1st (Premium includes 100 a month).")
+    if (status === 429 || status === 402) throw new Error("You've used this month's AI questions. They reset on the 1st (Premium includes 100 a month).")
     if (status === 404 || /failed to send|not found/i.test(error.message)) throw new Error(AI_UNAVAILABLE)
     throw new Error("Davey AI couldn't answer right now. Try again in a moment.")
   }
