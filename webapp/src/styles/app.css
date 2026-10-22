@@ -165,7 +165,7 @@ textarea.input { min-height: 88px; resize: vertical; }
 .sidebar .nav-link.signout { background: none; border: 0; width: 100%; cursor: pointer; font: inherit; font-weight: 600; }
 
 .main { min-width: 0; padding: 32px clamp(16px, 3vw, 40px) 104px; }
-.page { width: min(100%, 1080px); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.page { width: min(100%, 1240px); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .page > * { min-width: 0; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .page-head p { color: var(--muted); margin-top: 4px; }
@@ -218,7 +218,7 @@ button.row:hover { background: var(--surface-2); }
 .avatar { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--cream); color: var(--navy); font-weight: 800; font-family: var(--font-head); }
 .avatar.alt { background: var(--blue-grey); }
 .row-main { min-width: 0; }
-.row-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-title { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-sub { font-size: .8125rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-amount { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .row-amount small { display: block; font-weight: 500; font-size: .75rem; color: var(--muted); }
@@ -516,3 +516,11 @@ button.row:hover { background: var(--surface-2); }
   .ai-panel { width: 100%; padding-bottom: env(safe-area-inset-bottom); }
 }
 @media (prefers-reduced-motion: reduce) { .typing span { animation: none; } }
+
+/* Polish */
+@media (max-width: 599px) {
+  .filters .input { font-size: .9375rem; padding-inline: 10px; }
+  .ai-fab { width: 48px; height: 48px; padding: 0; justify-content: center; }
+}
+@media (max-width: 420px) { .row-amount small { display: none; } }
+@media (min-width: 1600px) { .main { padding-inline: 56px; } }
