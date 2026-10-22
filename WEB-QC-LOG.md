@@ -73,3 +73,9 @@ the GitHub Pages run instead.
 - New tests: money.spec chart colors (light + dark), debt.spec allocation colors (light + dark), Meter.test.
 - Counts: Vitest 102/102, Playwright Chromium 93/93 (three runs; one earlier run had a single failure that didn't
   repeat and wasn't captured; watching for it with failure output on).
+
+## Loop 8 — 2026-10-22 11:20 UTC
+- Flake hunt: full Chromium suite ×4 (372 runs) → 1 failure: screenshots "1280 light". Cause: the test left the access
+  code screen before the pass was saved (test timing, not an app bug); a11y.spec had the same race.
+- Fixed: both tests wait for the Sign in screen before navigating. Screenshots + a11y ×3: 36/36.
+- Counts: Vitest 102/102, Playwright Chromium 93/93.

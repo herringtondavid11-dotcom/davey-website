@@ -34,6 +34,8 @@ for (const vp of VIEWPORTS) {
       await shot('00-access-code')
       await page.getByLabel('Access code').fill(TEST_PIN)
       await page.getByRole('button', { name: 'Continue' }).click()
+      // Wait for the pass to be saved (the code screen moves on to sign-in) before leaving the page.
+      await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
       await page.goto('/app/signup')
       await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible()
       await shot('00-sign-up')

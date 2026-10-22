@@ -41,6 +41,7 @@ for (const scheme of ['light', 'dark'] as const) {
     await check('/access (error)')
     await page.getByLabel('Access code').fill('246810')
     await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
     for (const path of ['/app/login', '/app/signup', '/app/forgot']) {
       await page.goto(path)
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
