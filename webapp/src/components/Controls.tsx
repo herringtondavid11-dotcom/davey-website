@@ -37,3 +37,34 @@ export function Stat({ label, value, tone, sub }: { label: string; value: string
     </div>
   )
 }
+
+/** Numeric input that keeps its own text while typing; reports a number (NaN-safe). */
+export function NumberField({ label, value, onChange, prefix, suffix, step = 'any', id }: {
+  label: string
+  value: number
+  onChange: (v: number) => void
+  prefix?: string
+  suffix?: string
+  step?: string
+  id: string
+}) {
+  return (
+    <label className="field num-field" htmlFor={id}>
+      <span>{label}</span>
+      <span className="affix">
+        {prefix && <i aria-hidden>{prefix}</i>}
+        <input
+          id={id}
+          className="input"
+          type="number"
+          inputMode="decimal"
+          step={step}
+          min={0}
+          value={Number.isFinite(value) ? value : ''}
+          onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+        />
+        {suffix && <i aria-hidden>{suffix}</i>}
+      </span>
+    </label>
+  )
+}

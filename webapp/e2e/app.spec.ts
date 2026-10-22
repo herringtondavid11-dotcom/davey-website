@@ -5,8 +5,8 @@ test('overview shows net worth, accounts with nickname and last 4, recent transa
   const problems = watchConsole(page)
   await mockBackend(page, { signedIn: true })
   await page.goto('/app/')
-  // Assets 8,420.17 + 25,000 + 512,640.55 + 12,800; debts 1,875.42 + 412,300.
-  await expect(page.getByTestId('net-worth')).toHaveText('$144,685.30')
+  // Assets 8,420.17 + 25,000 + 512,640.55 + 12,800; debts 1,875.42 + 3,400 + 412,300 + 18,250.
+  await expect(page.getByTestId('net-worth')).toHaveText('$123,035.30')
   await expect(page.getByText('Joint checking', { exact: true })).toBeVisible()
   await expect(page.getByText('Chase · •••• 0000')).toBeVisible()
   await expect(page.getByText('Plaid Saving', { exact: true })).toBeVisible()

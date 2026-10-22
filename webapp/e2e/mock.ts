@@ -19,9 +19,11 @@ export function fixtures() {
   const accounts: Row[] = [
     { id: 'acc-1', plaid_account_id: 'p-1', name: 'Plaid Checking', nickname: 'Joint checking', mask: '0000', type: 'depository', subtype: 'checking', current_balance: 8420.17, available_balance: 8120.17, iso_currency_code: 'USD', institution_name: 'Chase', created_at: '2026-01-02T00:00:00Z' },
     { id: 'acc-2', plaid_account_id: 'p-2', name: 'Plaid Saving', nickname: null, mask: '1111', type: 'depository', subtype: 'savings', current_balance: 25000, available_balance: 25000, iso_currency_code: 'USD', institution_name: 'Chase', created_at: '2026-01-02T00:00:00Z' },
-    { id: 'acc-3', plaid_account_id: 'p-3', name: 'Sapphire Preferred', nickname: 'Travel card', mask: '3333', type: 'credit', subtype: 'credit card', current_balance: 1875.42, iso_currency_code: 'USD', institution_name: 'Chase', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-3', plaid_account_id: 'p-3', name: 'Sapphire Preferred', nickname: 'Travel card', mask: '3333', type: 'credit', subtype: 'credit card', current_balance: 1875.42, credit_limit: 15000, apr: 21.49, minimum_payment: 40, next_payment_due_date: iso(-9), iso_currency_code: 'USD', institution_name: 'Chase', created_at: '2026-01-02T00:00:00Z' },
     { id: 'acc-4', plaid_account_id: 'p-4', name: 'Brokerage', nickname: null, mask: '4444', type: 'investment', subtype: 'brokerage', current_balance: 512640.55, iso_currency_code: 'USD', institution_name: 'Fidelity', created_at: '2026-01-02T00:00:00Z' },
-    { id: 'acc-5', plaid_account_id: 'p-5', name: 'Home Mortgage', nickname: null, mask: '5555', type: 'loan', subtype: 'mortgage', current_balance: 412300, iso_currency_code: 'USD', institution_name: 'Rocket Mortgage', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-5', plaid_account_id: 'p-5', name: 'Home Mortgage', nickname: null, mask: '5555', type: 'loan', subtype: 'mortgage', current_balance: 412300, interest_rate: 6.25, original_principal: 450000, origination_date: '2021-06-01', term_months: 360, minimum_payment: 2770.73, property_value: 690000, iso_currency_code: 'USD', institution_name: 'Rocket Mortgage', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-7', plaid_account_id: 'p-7', name: 'Blue Cash Everyday', nickname: null, mask: '7777', type: 'credit', subtype: 'credit card', current_balance: 3400, credit_limit: 6000, apr: 27.24, minimum_payment: 85, iso_currency_code: 'USD', institution_name: 'American Express', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'acc-8', plaid_account_id: 'p-8', name: 'Auto Loan', nickname: 'Car', mask: '8888', type: 'loan', subtype: 'auto', current_balance: 18250, interest_rate: 5.9, original_principal: 32000, origination_date: '2023-03-01', term_months: 60, minimum_payment: 617.2, iso_currency_code: 'USD', institution_name: 'Capital One', created_at: '2026-01-02T00:00:00Z' },
     { id: 'acc-6', plaid_account_id: 'p-6', name: 'Everyday Business Checking', nickname: 'Studio', mask: '6666', type: 'depository', subtype: 'checking', current_balance: 12800, iso_currency_code: 'USD', institution_name: 'Wells Fargo', created_at: '2026-01-02T00:00:00Z', is_business: true },
   ].map((a) => ({ is_business: false, ...a }))
   const merchants: [string, number, string, string, boolean?][] = [
@@ -82,6 +84,18 @@ export function extraTables(): Record<string, Row[]> {
       { id: 'b2', category: 'Dining', amount: 150 },
       { id: 'b3', category: 'Subscriptions', amount: 120 },
       { id: 'b4', category: 'Travel', amount: 300 },
+    ],
+    holdings: [
+      { id: 'h1', account_id: 'acc-4', security_id: 's1', quantity: 820, institution_price: 287.4, institution_value: 235668, cost_basis: 180000 },
+      { id: 'h2', account_id: 'acc-4', security_id: 's2', quantity: 410, institution_price: 451.2, institution_value: 184992, cost_basis: 150000 },
+      { id: 'h3', account_id: 'acc-4', security_id: 's3', quantity: 900, institution_price: 72.1, institution_value: 64890, cost_basis: 70000 },
+      { id: 'h4', account_id: 'acc-4', security_id: 's4', quantity: 27090.55, institution_price: 1, institution_value: 27090.55, cost_basis: 27090.55 },
+    ],
+    securities: [
+      { security_id: 's1', name: 'Vanguard Total Stock Market ETF', ticker_symbol: 'VTI', type: 'etf' },
+      { security_id: 's2', name: 'Apple Inc.', ticker_symbol: 'AAPL', type: 'equity' },
+      { security_id: 's3', name: 'Vanguard Total Bond Market ETF', ticker_symbol: 'BND', type: 'fixed income' },
+      { security_id: 's4', name: 'Cash sweep', ticker_symbol: 'CASH', type: 'cash' },
     ],
     plaid_items: [
       { id: 'item-row-1', plaid_item_id: 'item-chase', institution_name: 'Chase', status: 'good', error_code: null, last_synced_at: new Date(Date.now() - 3600_000).toISOString() },

@@ -8,6 +8,9 @@ import { supabase } from './lib/supabase'
 import { Accounts } from './screens/Accounts'
 import { Budget } from './screens/Budget'
 import { CashFlow } from './screens/CashFlow'
+import { CreditCards } from './screens/CreditCards'
+import { Investments } from './screens/Investments'
+import { Loans } from './screens/Loans'
 import { RecurringScreen } from './screens/Recurring'
 import { Connect, OAuthReturn } from './screens/Connect'
 import { ConnectionHelp } from './screens/ConnectionHelp'
@@ -94,6 +97,9 @@ export function AppRoutes() {
         <Route path="/budget" element={<Budget />} />
         <Route path="/cash-flow" element={<CashFlow />} />
         <Route path="/recurring" element={<RecurringScreen />} />
+        <Route path="/credit-cards" element={<CreditCards />} />
+        <Route path="/loans" element={<Loans />} />
+        <Route path="/investments" element={<Investments />} />
         <Route path="/security" element={<Navigate to="/settings" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

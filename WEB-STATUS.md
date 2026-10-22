@@ -23,11 +23,14 @@ See the log at the bottom (updated by the loop). Backup bundle of all unpushed c
 | Budget | Month picker, All/Personal/Business, income vs spent meter, budgets vs actual (over-budget first, terracotta + "$x over" text), not-budgeted categories, edit/set budget when a `budgets` table exists (otherwise read-only note). Transfers/card payments excluded. |
 | Cash flow | 6/12 months, All/Personal/Business, averages + savings rate, income vs spending bar chart (hover/focus tooltip, legend), month table. |
 | Recurring + calendar | Detects subscriptions, bills and income from transactions (weekly → yearly, variable amounts marked "~", stale streams dropped), merged with a stored `recurring_transactions` table if present. Month calendar: real past charges + projections, day detail, legend. Monthly totals + due in 7 days. |
+| Credit cards | Per-card balance/limit, utilization meter + band, APR, minimum, due date; overall utilization; avalanche payoff planner (debt-free date, interest, which card first). |
+| Mortgages & loans | Per loan: % paid off, payoff date + interest left, extra-payment savings, yearly amortization table, refinance (new payment, break-even, lifetime interest after costs), mortgage equity + LTV (PMI hint). Prefilled from account fields; edits are local what-ifs. |
+| Investments | Totals, gain/loss vs cost basis, allocation bar (validated 5-hue palette, extras fold into Other) with legend, holdings table per account (from `holdings` + `securities`). |
 | Connection Help + Report to Plaid | Troubleshooting topics; report form sends to `plaid-report-issue` with Link session/request IDs from the last failed Link; falls back to a pre-filled email if the function isn't deployed. |
 
 ## In progress / next
 
-Recurring + calendar → Credit cards, Loans, Investments → Household + Settings → Exports + Tax → Ask AI → PWA + polish.
+Recurring + calendar → Household + Settings → Exports + Tax → Ask AI → PWA + polish.
 
 ## Blocked / needs David
 
