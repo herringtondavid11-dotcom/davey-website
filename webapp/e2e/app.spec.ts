@@ -81,14 +81,9 @@ test('/oauth resumes Plaid Link with receivedRedirectUri exactly once', async ({
   expect(after).toEqual([])
 })
 
-test('settings: rename an account, switch theme', async ({ page }) => {
-  const state = await mockBackend(page, { signedIn: true })
+test('settings: switch theme', async ({ page }) => {
+  await mockBackend(page, { signedIn: true })
   await page.goto('/app/settings')
-  const field = page.getByRole('textbox', { name: /Plaid Saving/ })
-  await field.fill('Rainy day')
-  await field.locator('xpath=..').getByRole('button', { name: 'Save' }).click()
-  await expect(page.getByText('Saved', { exact: true })).toBeVisible()
-  expect(state.calls.find((c) => c.method === 'PATCH' && c.path.includes('acc-2'))?.body).toEqual({ nickname: 'Rainy day' })
   await page.getByRole('button', { name: 'Dark' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 })

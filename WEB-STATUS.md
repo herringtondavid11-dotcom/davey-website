@@ -26,11 +26,13 @@ See the log at the bottom (updated by the loop). Backup bundle of all unpushed c
 | Credit cards | Per-card balance/limit, utilization meter + band, APR, minimum, due date; overall utilization; avalanche payoff planner (debt-free date, interest, which card first). |
 | Mortgages & loans | Per loan: % paid off, payoff date + interest left, extra-payment savings, yearly amortization table, refinance (new payment, break-even, lifetime interest after costs), mortgage equity + LTV (PMI hint). Prefilled from account fields; edits are local what-ifs. |
 | Investments | Totals, gain/loss vs cost basis, allocation bar (validated 5-hue palette, extras fold into Other) with legend, holdings table per account (from `holdings` + `securities`). |
+| Household | Members with roles (Owner / Can edit / View only); owners change roles and remove members (RLS-enforced); invite link via `household-invite` (copy link; pending invites with copy); explains if the function isn't deployed. |
+| Settings | Profile name (auth metadata), password change, 2-step + recovery key, sign out / sign out everywhere (confirm), login activity (`login-activity` function, else this browser + last sign-in), connection issues, theme. Account names moved to Accounts. |
 | Connection Help + Report to Plaid | Troubleshooting topics; report form sends to `plaid-report-issue` with Link session/request IDs from the last failed Link; falls back to a pre-filled email if the function isn't deployed. |
 
 ## In progress / next
 
-Recurring + calendar → Household + Settings → Exports + Tax → Ask AI → PWA + polish.
+Recurring + calendar → Exports + Tax → Ask AI → PWA + polish.
 
 ## Blocked / needs David
 
@@ -47,6 +49,8 @@ Recurring + calendar → Household + Settings → Exports + Tax → Ask AI → P
 | `functions/plaid-link-token/*` + `_shared/cors.ts` | Connecting banks from the web | **Required** for bank testing. |
 | `_shared/access-token.ts` (wire `decryptAccessToken` to the existing helper) | Reconnect from the web (update mode) | Optional; until wired, Reconnect sends people to the app. |
 | `functions/plaid-report-issue` + `migrations/20261022_plaid_issue_reports.sql` | Report to Plaid in-app | Optional; falls back to email. |
+| `functions/login-activity` | Settings › Login activity across devices | Optional. |
+| `household-invite` (contract in supabase-changes/README.md) | Household › invite from the web | Optional; needs your household schema. |
 
 ## Tests
 

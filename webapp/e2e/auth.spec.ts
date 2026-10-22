@@ -69,7 +69,7 @@ test('accounts without 2-step verification must enroll and get a recovery key', 
 test('sign out is local only and returns to sign in', async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true })
   await page.goto('/app/settings')
-  await page.getByRole('button', { name: 'Sign out' }).first().click()
+  await page.getByRole('button', { name: 'Sign out', exact: true }).last().click()
   await expect(page).toHaveURL(/\/app\/login/)
   const logout = state.calls.find((c) => c.path.startsWith('/auth/v1/logout'))
   expect(logout?.path).toContain('scope=local')

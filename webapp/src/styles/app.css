@@ -435,3 +435,19 @@ button.row:hover { background: var(--surface-2); }
 @media (max-width: 599px) { .holding-name { display: none; } }
 @media (max-width: 599px) { .hide-sm { display: none; } }
 .loan-block .link-btn, .card-pad .link-btn { justify-self: start; }
+
+/* ---------- Household, settings ---------- */
+.member-row { align-items: center; }
+.member-who { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.input-sm { min-height: 36px; padding: 6px 10px; width: auto; }
+.roles { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; }
+.roles legend { font-size: .875rem; font-weight: 600; margin-bottom: 8px; }
+.invite-link { display: flex; gap: 8px; margin-top: 16px; }
+.invite-link .input { min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .875rem; }
+.role-list { margin: 12px 0 0; display: grid; gap: 10px; }
+.role-list div { display: grid; grid-template-columns: 8rem 1fr; gap: 12px; }
+.role-list dt { font-weight: 700; }
+.role-list dd { margin: 0; }
+@media (max-width: 599px) { .role-list div { grid-template-columns: 1fr; gap: 2px; } }
+.pw-form { padding-bottom: 16px; }
+.activity-list .settings-row { border-top: 1px solid var(--border); }

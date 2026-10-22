@@ -85,6 +85,11 @@ export function extraTables(): Record<string, Row[]> {
       { id: 'b3', category: 'Subscriptions', amount: 120 },
       { id: 'b4', category: 'Travel', amount: 300 },
     ],
+    household_members: [
+      { id: 'm1', user_id: 'user-1', display_name: 'Alex', email: 'alex@example.com', role: 'owner', joined_at: '2026-01-02T00:00:00Z' },
+      { id: 'm2', user_id: 'user-2', display_name: 'Jordan', email: 'jordan@example.com', role: 'member', joined_at: '2026-03-14T00:00:00Z' },
+    ],
+    household_invites: [{ id: 'i1', invitee_first_name: 'Sam', status: 'pending', expires_at: new Date(Date.now() + 5 * 86400_000).toISOString(), token: 'tok-sam' }],
     holdings: [
       { id: 'h1', account_id: 'acc-4', security_id: 's1', quantity: 820, institution_price: 287.4, institution_value: 235668, cost_basis: 180000 },
       { id: 'h2', account_id: 'acc-4', security_id: 's2', quantity: 410, institution_price: 451.2, institution_value: 184992, cost_basis: 150000 },
@@ -107,6 +112,10 @@ export function extraTables(): Record<string, Row[]> {
 export interface MockOptions {
   /** plaid-link-token answers mode:'update' for reconnects (the server change is deployed). */
   updateMode?: boolean
+  /** household-invite Edge Function is deployed. */
+  inviteFunction?: boolean
+  /** login-activity Edge Function is deployed. */
+  activityFunction?: boolean
   /** plaid-report-issue Edge Function is deployed. */
   reportFunction?: boolean
   /** 'verified' = user already has an authenticator; 'none' = must enroll. */
@@ -124,6 +133,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     linkTokenBody: null as unknown,
     extra: extraTables() as Record<string, Row[]>,
     reportBody: null as unknown,
+    inviteBody: null as unknown,
     exchangeBody: null as unknown,
   }
   const now = new Date().toISOString()
@@ -249,6 +259,18 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       return json(route, { item_id: 'item-new' })
     }
     if (path === '/functions/v1/plaid-sync') return json(route, { added: 0 })
+    if (path === '/functions/v1/household-invite') {
+      if (!opts.inviteFunction) return json(route, { message: 'Function not found' }, 404)
+      state.inviteBody = body
+      return json(route, { token: 'tok-new-123' })
+    }
+    if (path === '/functions/v1/login-activity') {
+      if (!opts.activityFunction) return json(route, { message: 'Function not found' }, 404)
+      return json(route, { events: [
+        { created_at: new Date(Date.now() - 3600_000).toISOString(), action: 'login', ip_address: '73.15.2.10', user_agent: 'Davey/1.0 CFNetwork Darwin iPhone' },
+        { created_at: new Date(Date.now() - 86400_000).toISOString(), action: 'user_updated_password', ip_address: '73.15.2.10' },
+      ] })
+    }
 
     return json(route, { message: `unmocked ${method} ${path}` }, 404)
   })
