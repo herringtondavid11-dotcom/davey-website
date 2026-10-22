@@ -123,10 +123,28 @@ export function niceTicks(max: number, count = 4): number[] {
   return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step)
 }
 
+/** Axis money: "$1.2M", "$750k", "$40", "-$5k". */
+/** Ticks that fit [min, max] closely (trend lines: net worth, portfolio), so a 4% change isn't a flat line. */
+export function rangeTicks(min: number, max: number, count = 4): number[] {
+  if (!(max > min)) {
+    const pad = Math.max(1, Math.abs(max) * 0.05)
+    min -= pad
+    max += pad
+  }
+  const raw = (max - min) / count
+  const mag = 10 ** Math.floor(Math.log10(raw))
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((x) => x >= raw) ?? raw
+  const lo = Math.floor(min / step) * step
+  const hi = Math.ceil(max / step) * step
+  return Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, i) => +(lo + i * step).toFixed(6))
+}
+
 export function compact(v: number): string {
-  if (v >= 1_000_000) return `$${+(v / 1_000_000).toFixed(1)}M`
-  if (v >= 1000) return `$${+(v / 1000).toFixed(1)}k`
-  return `$${v}`
+  const sign = v < 0 ? '-' : ''
+  const a = Math.abs(v)
+  if (a >= 1_000_000) return `${sign}$${+(a / 1_000_000).toFixed(1)}M`
+  if (a >= 1000) return `${sign}$${+(a / 1000).toFixed(1)}k`
+  return `${sign}$${+a.toFixed(0)}`
 }
 
 /** Single progress meter: status color + text, never color alone. */

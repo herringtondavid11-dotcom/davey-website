@@ -99,3 +99,12 @@ the GitHub Pages run instead.
 - New tests: access.spec ×3 (full query through code + login + 2-step; idle sign-out then resume; never another
   user's), pendingLink.test ×2; idle.test updated for the 4-hour lifetime. Both new e2e tests fail on the old code.
 - Counts: Vitest 104/104, Playwright Chromium 97/97.
+
+## Loop 11 — 2026-10-22 12:16 UTC (hourly check; main had the Mac session's redesigned Overview + Accounts goals)
+- Pages: previous deploys succeeded. Pulled main (7c5f066): Vitest 112/112, Playwright 100/100 before fixes.
+- Found: net worth, portfolio and forecast chart axes read "$$1M", "$$750k", "$$0" (the formatter already adds "$"; the
+  Investments/forecast ones predate the redesign); negative axis values would read "$-5000"; the net worth trend
+  started at $0, so +4% over 6 months drew as a flat line.
+- Fixed: one "$" (sign first: "-$5k"); net worth and portfolio trends scale to their range.
+- New tests: compact.test (labels, range ticks), sweep.spec (no "$$" on chart screens; net worth axis not from $0).
+- Counts: Vitest 115/115, Playwright Chromium 102/102.

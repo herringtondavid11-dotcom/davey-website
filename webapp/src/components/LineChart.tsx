@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { niceTicks } from './BarChart'
+import { niceTicks, rangeTicks } from './BarChart'
 
 export interface LineSeries {
   key: string
@@ -17,13 +17,15 @@ export interface LinePoint {
 /**
  * Line chart (or stacked areas with `stacked`): recessive grid, one y-axis, a hover/focus readout. Same look as BarChart.
  */
-export function LineChart({ points, series, format, height = 220, label, stacked = false }: {
+export function LineChart({ points, series, format, height = 220, label, stacked = false, fitRange = false }: {
   points: LinePoint[]
   series: LineSeries[]
   format: (v: number) => string
   height?: number
   label: string
   stacked?: boolean
+  /** Scale to the data's range instead of from $0 (one-series trend lines). */
+  fitRange?: boolean
 }) {
   const box = useRef<HTMLDivElement>(null)
   const [W, setW] = useState(720)
@@ -39,19 +41,22 @@ export function LineChart({ points, series, format, height = 220, label, stacked
   }, [])
 
   const totals = points.map((p) => (stacked ? series.reduce((s, x) => s + Math.max(0, p.values[x.key] ?? 0), 0) : Math.max(...series.map((x) => p.values[x.key] ?? 0))))
-  const ticks = niceTicks(Math.max(1, ...totals))
+  const values = points.flatMap((p) => series.map((x) => p.values[x.key] ?? 0))
+  const fit = fitRange && !stacked && values.length > 0
+  const ticks = fit ? rangeTicks(Math.min(...values), Math.max(...values)) : niceTicks(Math.max(1, ...totals))
   const top = ticks[ticks.length - 1]
+  const bottom = fit ? ticks[0] : 0
   const pad = { l: 56, r: 8, t: 8, b: 24 }
   const plotW = W - pad.l - pad.r
   const plotH = height - pad.t - pad.b
   const x = (i: number) => pad.l + (points.length <= 1 ? plotW / 2 : (i / (points.length - 1)) * plotW)
-  const y = (v: number) => pad.t + plotH - (Math.max(0, v) / top) * plotH
+  const y = (v: number) => pad.t + plotH - ((fit ? v - bottom : Math.max(0, v)) / (top - bottom)) * plotH
   const every = Math.ceil(points.length / Math.max(1, Math.floor(plotW / 70)))
 
   // Stacked: cumulative baselines per series.
   const layers = series.map((s, si) => points.map((p) => {
     const below = stacked ? series.slice(0, si).reduce((sum, x) => sum + Math.max(0, p.values[x.key] ?? 0), 0) : 0
-    return { lo: below, hi: below + Math.max(0, p.values[s.key] ?? 0) }
+    return { lo: below, hi: below + (fit ? p.values[s.key] ?? 0 : Math.max(0, p.values[s.key] ?? 0)) }
   }))
 
   const onMove = (e: React.PointerEvent<SVGRectElement>) => {

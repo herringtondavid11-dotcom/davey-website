@@ -48,7 +48,7 @@ export function Forecaster({ currentValue }: { currentValue: number }) {
         <div className="stat"><span className="stat-label">Contributions</span><span className="stat-value num">{moneyWhole(result.totalContributions)}</span></div>
         <div className="stat"><span className="stat-label">Growth</span><span className="stat-value num positive">{moneyWhole(result.totalGrowth)}</span></div>
       </div>
-      <LineChart stacked points={points} label={`Projected value over ${years} years`} format={(v) => `$${compact(v)}`}
+      <LineChart stacked points={points} label={`Projected value over ${years} years`} format={compact}
         series={[{ key: 'principal', name: 'Starting value + contributions', className: 'mark-slate' }, { key: 'growth', name: 'Growth', className: 'mark-positive' }]} />
       <div className="forecast-fields">
         <Field label="Starting value" value={startValue} onChange={setStart} min={0} max={Math.max(1_000_000, currentValue * 3)} step={1000} unit="$" />

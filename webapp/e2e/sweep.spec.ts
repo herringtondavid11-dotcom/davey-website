@@ -64,3 +64,25 @@ test('every screen: a brand-new account (no household data yet) gets a heading a
   }
   expect(problems).toEqual([])
 })
+
+test('chart axes never show a doubled dollar sign (Overview, Investments, Cash flow)', async ({ page }) => {
+  await mockBackend(page, { signedIn: true })
+  for (const path of ['/app/', '/app/investments', '/app/cash-flow']) {
+    await page.goto(path)
+    await page.waitForLoadState('networkidle')
+    const svgText = (await page.locator('svg text').allTextContents()).join(' ')
+    expect(svgText, path).not.toContain('$$')
+    expect(await page.locator('main').innerText(), path).not.toContain('$$')
+  }
+})
+
+test('net worth trend is scaled to its range, not from $0 (a 4% change is visible)', async ({ page }) => {
+  await mockBackend(page, { signedIn: true })
+  await page.goto('/app/')
+  const chart = page.locator('figure[aria-label^="Net worth"]')
+  await expect(chart).toBeVisible()
+  const labels = await chart.locator('svg text.axis').allTextContents()
+  const money = labels.filter((l) => l.includes('$'))
+  expect(money.length).toBeGreaterThan(1)
+  expect(money).not.toContain('$0')
+})

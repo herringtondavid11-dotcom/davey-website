@@ -129,7 +129,7 @@ export function Investments() {
             {window.length > 1 ? (
               <>
                 <p className="muted small">{rangeChange !== undefined && `${rangeChange >= 0 ? '+' : ''}${moneyWhole(rangeChange)} · `}{pct(rangeReturn)} time-weighted (deposits and withdrawals left out)</p>
-                <LineChart label={`Portfolio value, ${range}`} format={(v) => `$${compact(v)}`}
+                <LineChart fitRange label={`Portfolio value, ${range}`} format={compact}
                   points={window.map((p) => ({ label: new Date(p.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }), title: `${p.date}: ${moneyWhole(p.value)}`, values: { value: p.value } }))}
                   series={[{ key: 'value', name: 'Value', className: 'mark-gold' }]} />
               </>

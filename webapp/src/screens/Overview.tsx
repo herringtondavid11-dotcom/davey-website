@@ -100,7 +100,7 @@ export function Overview() {
             </div>
           </div>
           {series.length > 1 && (
-            <LineChart label={`Net worth, ${range}`} height={170} format={(v) => `$${compact(v)}`}
+            <LineChart fitRange label={`Net worth, ${range}`} height={170} format={compact}
               points={series.map((p) => ({ label: new Date(`${p.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), title: `${p.date}: ${moneyWhole(p.net)}`, values: { net: p.net } }))}
               series={[{ key: 'net', name: 'Net worth', className: 'mark-gold' }]} />
           )}
