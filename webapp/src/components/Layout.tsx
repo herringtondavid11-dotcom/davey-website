@@ -5,6 +5,7 @@ import { useData } from '../lib/DataProvider'
 import { hasBusiness } from '../lib/finance'
 import { MoreIcon, PlusIcon, SignOutIcon } from './Icons'
 import { Spinner } from './Spinner'
+import { SyncBanner } from './SyncBanner'
 import { AskAI } from './AskAI'
 import { IdleWarning } from './IdleWarning'
 import { NAV_GROUPS, TAB_ITEMS } from './nav'
@@ -49,6 +50,7 @@ export function Layout() {
         </button>
       </aside>
       <main className="main" id="main">
+        <SyncBanner />
         <Suspense fallback={<Spinner />}>
           <Outlet />
         </Suspense>

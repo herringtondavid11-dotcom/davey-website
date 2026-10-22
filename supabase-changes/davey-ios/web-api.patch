@@ -1,0 +1,144 @@
+diff -ruN a/supabase/functions/_shared/supabase.ts b/supabase/functions/_shared/supabase.ts
+--- a/supabase/functions/_shared/supabase.ts	2026-10-22 05:55:13.190253932 +0000
++++ b/supabase/functions/_shared/supabase.ts	2026-10-22 05:55:13.193760213 +0000
+@@ -76,6 +76,7 @@
+   item_id: string;
+   access_token_ciphertext: string;
+   institution_name: string | null;
++  created_at?: string;
+   needs_sync?: boolean;
+   status?: string;
+   status_updated_at?: string | null;
+diff -ruN a/supabase/functions/ask-ai/index.ts b/supabase/functions/ask-ai/index.ts
+--- a/supabase/functions/ask-ai/index.ts	2026-10-22 05:55:05.481450534 +0000
++++ b/supabase/functions/ask-ai/index.ts	2026-10-22 05:55:05.607619755 +0000
+@@ -257,5 +257,5 @@
+   return new Response(sse, {
+     headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" },
+   });
+-}));
++}, { cors: "app" }));
+ 
+diff -ruN a/supabase/functions/household-invite/index.ts b/supabase/functions/household-invite/index.ts
+--- a/supabase/functions/household-invite/index.ts	2026-10-22 05:55:05.457240260 +0000
++++ b/supabase/functions/household-invite/index.ts	2026-10-22 05:55:05.551432268 +0000
+@@ -156,4 +156,4 @@
+     return await respond(userId, inviteId, token, email);
+   }
+   throw new HttpError(400, "invalid_request", "Unknown action.");
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/household-leave/index.ts b/supabase/functions/household-leave/index.ts
+--- a/supabase/functions/household-leave/index.ts	2026-10-22 05:55:05.467539094 +0000
++++ b/supabase/functions/household-leave/index.ts	2026-10-22 05:55:05.578177980 +0000
+@@ -23,4 +23,4 @@
+     console.error("Left notice failed");
+   }
+   return json({ left: true });
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/household-remove-member/index.ts b/supabase/functions/household-remove-member/index.ts
+--- a/supabase/functions/household-remove-member/index.ts	2026-10-22 05:55:05.462331283 +0000
++++ b/supabase/functions/household-remove-member/index.ts	2026-10-22 05:55:05.565577177 +0000
+@@ -19,4 +19,4 @@
+     console.error("Removed notice failed");
+   }
+   return json({ removed: true });
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/household-status/index.ts b/supabase/functions/household-status/index.ts
+--- a/supabase/functions/household-status/index.ts	2026-10-22 05:55:05.452029062 +0000
++++ b/supabase/functions/household-status/index.ts	2026-10-22 05:55:05.536125094 +0000
+@@ -100,4 +100,4 @@
+       needs_name: !(profile?.first_name?.trim() || profile?.display_name?.trim()),
+     },
+   });
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/link-support/index.ts b/supabase/functions/link-support/index.ts
+--- a/supabase/functions/link-support/index.ts	2026-10-22 05:55:05.487922134 +0000
++++ b/supabase/functions/link-support/index.ts	2026-10-22 05:55:05.623370041 +0000
+@@ -71,4 +71,4 @@
+   if (action === "report") return await report(userId, body);
+   if (action === "issues") return await issues(userId);
+   throw new HttpError(400, "invalid_request", "Unknown action.");
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/plaid-item-remove/index.ts b/supabase/functions/plaid-item-remove/index.ts
+--- a/supabase/functions/plaid-item-remove/index.ts	2026-10-22 05:55:05.499832926 +0000
++++ b/supabase/functions/plaid-item-remove/index.ts	2026-10-22 05:55:05.649890568 +0000
+@@ -22,4 +22,4 @@
+   }
+   await deleteItem(item.user_id, itemId);
+   return json({ removed: true });
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/plaid-item-status/index.ts b/supabase/functions/plaid-item-status/index.ts
+--- a/supabase/functions/plaid-item-status/index.ts	2026-10-22 05:55:05.446728159 +0000
++++ b/supabase/functions/plaid-item-status/index.ts	2026-10-22 05:55:05.664156449 +0000
+@@ -1,5 +1,6 @@
+ // What Plaid's webhooks said about the user's banks: which have new transactions to sync and which need the user to
+-// sign in again. The app asks when it becomes active. Body: {}. Returns { items: [{ item_id, needs_sync, status }] }.
++// sign in again. The app asks when it becomes active. Body: {}. Returns { items: [{ item_id, needs_sync, status,
++// institution_name, created_at }] } (Davey on the web lists the household's banks from this).
+ import { handle, json } from "../_shared/http.ts";
+ import { listItems, requireUser } from "../_shared/supabase.ts";
+ 
+@@ -9,6 +10,8 @@
+     item_id: item.item_id,
+     needs_sync: item.needs_sync ?? false,
+     status: item.status ?? "ok",
++    institution_name: item.institution_name ?? null,
++    created_at: item.created_at ?? null,
+   }));
+   return json({ items });
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/plaid-link-session/index.ts b/supabase/functions/plaid-link-session/index.ts
+--- a/supabase/functions/plaid-link-session/index.ts	2026-10-22 05:55:05.493924193 +0000
++++ b/supabase/functions/plaid-link-session/index.ts	2026-10-22 05:55:05.636976084 +0000
+@@ -92,4 +92,4 @@
+   }
+   if (sessions.length === 0) console.log(`Link token has no session data (request_id=${result.request_id ?? "none"})`);
+   return json({ sessions });
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/plaid-sync/index.ts b/supabase/functions/plaid-sync/index.ts
+--- a/supabase/functions/plaid-sync/index.ts	2026-10-22 05:55:05.505422519 +0000
++++ b/supabase/functions/plaid-sync/index.ts	2026-10-22 05:55:05.664386053 +0000
+@@ -1,7 +1,9 @@
+ // Pulls transaction changes for one Item since the app's cursor.
+ // The app owns the cursor (stored with its data), so a sync the app fails to save is simply
+ // fetched again next time; the server keeps no per-sync state.
+-// Body: { "item_id": "...", "cursor": "..." | null }
++// Body: { "item_id": "...", "cursor": "..." | null, "platform"?: "web" }
++// Davey on the web reads the full history (cursor null) each session and keeps nothing; its syncs leave needs_sync
++// alone so the app still picks up webhook-flagged changes for its own copy.
+ import { handle, HttpError, json, optionalString, requireString } from "../_shared/http.ts";
+ import {
+   type PlaidAccount,
+@@ -76,8 +78,13 @@
+       // Cards, mortgages and student loans: stored copy while fresh, else Plaid (daily, or after its webhook).
+       const liabilities = await liabilitiesForItem(userId, itemId, accessToken);
+       // Synced: any pending update is handled, and a working sync means the login is fine again.
+-      if (item.needs_sync || (item.status ?? "ok") !== "ok") {
+-        await updateItem(userId, itemId, { needs_sync: false, status: "ok", status_updated_at: new Date().toISOString() });
++      const fromWeb = body.platform === "web";
++      if ((item.needs_sync && !fromWeb) || (item.status ?? "ok") !== "ok") {
++        await updateItem(userId, itemId, {
++          ...(fromWeb ? {} : { needs_sync: false }),
++          status: "ok",
++          status_updated_at: new Date().toISOString(),
++        });
+       }
+       return json({
+         added: added.map(toAppTransaction),
+diff -ruN a/supabase/functions/profile-update/index.ts b/supabase/functions/profile-update/index.ts
+--- a/supabase/functions/profile-update/index.ts	2026-10-22 05:55:05.476489541 +0000
++++ b/supabase/functions/profile-update/index.ts	2026-10-22 05:55:05.593432815 +0000
+@@ -21,4 +21,4 @@
+     body: JSON.stringify({ display_name: first }),
+   });
+   return json({ profile: await getProfile(userId) });
+-}));
++}, { cors: "app" }));

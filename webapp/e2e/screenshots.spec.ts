@@ -33,7 +33,7 @@ for (const vp of VIEWPORTS) {
       await shot('01-login')
       await page.getByLabel('Email').fill(EMAIL)
       await page.getByLabel('Password').fill(PASSWORD)
-      await page.getByRole('button', { name: 'Sign in' }).click()
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click()
       await expect(page.getByRole('heading', { name: '2-step verification' })).toBeVisible()
       await page.getByLabel('Code').fill('123456')
       await shot('02-two-step')

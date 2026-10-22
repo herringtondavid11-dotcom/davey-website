@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { mockBackend, watchConsole } from './mock'
+import { mockBackend, watchConsole, webEdits } from './mock'
 
 test('budget: income vs spent, budgets vs actual, edit a budget', async ({ page }) => {
   const problems = watchConsole(page)
@@ -14,20 +14,19 @@ test('budget: income vs spent, budgets vs actual, edit a budget', async ({ page 
   await first.getByLabel('Monthly budget for Travel').fill('500')
   await first.getByRole('button', { name: 'Save' }).click()
   await expect(page.locator('.budget-line').filter({ hasText: 'Travel' })).toContainText('$87.70 left')
-  expect(state.calls.find((c) => c.method === 'PATCH' && c.path.startsWith('/rest/v1/budgets'))?.body).toEqual({ amount: 500 })
+  expect((await webEdits(page)).budgets.find((b: { category: string }) => b.category === 'Travel').amount).toBe(500)
+  void state
   // Business filter narrows to business spending.
   await page.getByRole('button', { name: 'Business', exact: true }).click()
-  await expect(page.locator('.budget-line').filter({ hasText: 'Dining' })).toContainText('$0.00')
+  await expect(page.locator('.budget-line').filter({ hasText: 'Dining Out' })).toContainText('$0.00')
   expect(problems).toEqual([])
 })
 
-test('budget without a budgets table explains and still shows spending', async ({ page }) => {
-  const state = await mockBackend(page, { signedIn: true })
-  delete state.extra.budgets
+test('budget: web budgets are labeled as saved in this browser', async ({ page }) => {
+  await mockBackend(page, { signedIn: true })
   await page.goto('/app/budget')
-  await expect(page.getByText('Budgets you set in the Davey app will appear here')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Spending by category' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Set budget' })).toHaveCount(0)
+  await expect(page.getByText('saved in this browser')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Not budgeted' })).toBeVisible()
 })
 
 test('cash flow: chart with tooltip and month table', async ({ page }) => {

@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { useData } from '../lib/DataProvider'
-import { fetchAccounts } from '../lib/data'
-import { newAccountsFromLink } from '../lib/linkFlow'
+import { toAccount } from '../lib/bank'
 import {
   clearPendingLink,
   createLinkToken,
@@ -32,15 +31,15 @@ export function usePlaidFlow() {
 
   const finish = useCallback(
     async (publicToken: string, metadata: PlaidLinkMetadata) => {
-      const startedAt = readPendingLink()?.startedAt
       clearPendingLink()
       setState({ step: 'saving', institution: metadata.institution?.name })
       try {
-        const { itemId } = await exchangePublicToken(publicToken, metadata)
-        await syncItem(itemId)
-        const accounts = await fetchAccounts()
-        await reload()
-        setState({ step: 'naming', accounts: newAccountsFromLink(accounts, metadata, startedAt), institution: metadata.institution?.name })
+        const result = await exchangePublicToken(publicToken, metadata)
+        const item = { item_id: result.itemId ?? '', needs_sync: false, status: 'ok', institution_name: result.institutionName ?? null, created_at: new Date().toISOString() }
+        const accounts = result.accounts.map((a) => toAccount(a, item))
+        setState({ step: 'naming', accounts, institution: result.institutionName })
+        // Pull the new bank's transactions in the background while the user names accounts.
+        void reload()
       } catch (e) {
         setState({ step: 'error', message: (e as Error).message })
       }

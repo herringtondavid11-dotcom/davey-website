@@ -40,7 +40,8 @@ test('tax: P&L, estimate, quarters, deduction finder, CPA package', async ({ pag
   const canva = page.getByRole('button', { name: /Mark Canva/ })
   await canva.click()
   await expect(canva).toHaveCount(0)
-  expect(state.calls.find((c) => c.method === 'PATCH' && c.path.includes('transactions'))?.body).toEqual({ is_business: true })
+  expect((await page.evaluate(() => JSON.parse(localStorage.getItem('davey.web-edits.user-1') ?? '{}'))).transactions['txn-13'].usage).toBe('business')
+  void state
   const [zip] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /CPA package/ }).click()])
   const z = readFileSync((await zip.path())!).toString('latin1')
   expect(z).toContain('profit-and-loss.pdf')

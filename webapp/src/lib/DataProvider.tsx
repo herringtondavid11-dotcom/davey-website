@@ -1,65 +1,85 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { TRANSACTION_PAGE, fetchAccounts, fetchTransactions } from './data'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useAuth } from '../auth/AuthProvider'
+import { setAnnotationUser } from './annotations'
+import { loadBankData, rebuild, type BankData, type BankItem, type ItemSyncError } from './bank'
+import { setCurrentData } from './data'
 import type { Account, Transaction } from './schema'
 
 interface DataContextValue {
   accounts: Account[] | null
   transactions: Transaction[] | null
+  items: BankItem[] | null
+  syncErrors: ItemSyncError[]
+  progress: { done: number; total: number } | null
   error: string | null
   hasMore: boolean
   reload: () => Promise<void>
   loadMore: () => Promise<void>
-  replaceTransaction: (t: Transaction) => void
-  replaceAccount: (a: Account) => void
+  /** Re-apply this browser's edits after one changes. */
+  replaceTransaction: (t?: Transaction) => void
+  replaceAccount: (a?: Account) => void
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [accounts, setAccounts] = useState<Account[] | null>(null)
-  const [transactions, setTransactions] = useState<Transaction[] | null>(null)
-  const [page, setPage] = useState(0)
-  const [hasMore, setHasMore] = useState(false)
+  const { session } = useAuth()
+  const [data, setData] = useState<BankData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [, setVersion] = useState(0)
+  const dataRef = useRef<BankData | null>(null)
+  const userId = session?.user.id
 
   const reload = useCallback(async () => {
     setError(null)
     try {
-      const [a, t] = await Promise.all([fetchAccounts(), fetchTransactions(0)])
-      setAccounts(a)
-      setTransactions(t)
-      setPage(0)
-      setHasMore(t.length === TRANSACTION_PAGE)
+      const d = await loadBankData((done, total) => setProgress({ done, total }))
+      dataRef.current = d
+      setCurrentData(d)
+      setData(d)
     } catch (e) {
-      setError((e as Error).message || "Couldn't load your data.")
-      setAccounts((prev) => prev ?? [])
-      setTransactions((prev) => prev ?? [])
+      setError((e as Error).message || "Couldn't load your banks.")
+      const empty: BankData = dataRef.current ?? { items: [], accounts: [], transactions: [], errors: [], raw: [] }
+      dataRef.current = empty
+      setCurrentData(empty)
+      setData(empty)
+    } finally {
+      setProgress(null)
     }
   }, [])
 
-  const loadMore = useCallback(async () => {
-    const next = await fetchTransactions(page + 1)
-    setTransactions((prev) => [...(prev ?? []), ...next.filter((n) => !prev?.some((p) => p.id === n.id))])
-    setPage(page + 1)
-    setHasMore(next.length === TRANSACTION_PAGE)
-  }, [page])
-
   useEffect(() => {
+    setAnnotationUser(userId)
     void reload()
-  }, [reload])
+    return () => setCurrentData(null)
+  }, [reload, userId])
+
+  const refresh = useCallback(() => {
+    const d = dataRef.current
+    if (!d) return
+    const next = { ...d, ...rebuild(d.raw) }
+    dataRef.current = next
+    setCurrentData(next)
+    setData(next)
+    setVersion((v) => v + 1)
+  }, [])
 
   const value = useMemo<DataContextValue>(
     () => ({
-      accounts,
-      transactions,
+      accounts: data?.accounts ?? null,
+      transactions: data?.transactions ?? null,
+      items: data?.items ?? null,
+      syncErrors: data?.errors ?? [],
+      progress,
       error,
-      hasMore,
+      hasMore: false,
       reload,
-      loadMore,
-      replaceTransaction: (t) => setTransactions((prev) => prev?.map((p) => (p.id === t.id ? t : p)) ?? prev),
-      replaceAccount: (a) => setAccounts((prev) => prev?.map((p) => (p.id === a.id ? a : p)) ?? prev),
+      loadMore: async () => undefined,
+      replaceTransaction: refresh,
+      replaceAccount: refresh,
     }),
-    [accounts, transactions, error, hasMore, reload, loadMore],
+    [data, progress, error, reload, refresh],
   )
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }

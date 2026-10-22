@@ -1,34 +1,21 @@
-import { supabase } from './supabase'
-import {
-  ACCOUNT_COLUMNS,
-  TABLES,
-  TRANSACTION_COLUMNS,
-  normalizeAccount,
-  normalizeTransaction,
-  usageToRaw,
-  writeColumn,
-  type Account,
-  type Transaction,
-  type Usage,
-} from './schema'
+// Reads and edits for the screens. Bank data comes from bank.ts (Edge Functions, in memory); edits are saved by
+// annotations.ts. The functions keep the shapes the screens already use.
+import { saveBudgetNote, setAccountNote, setTransactionNote } from './annotations'
+import type { BankData } from './bank'
+import { toAccount, toTransaction } from './bank'
+import type { Account, Transaction, Usage } from './schema'
 
-export const TRANSACTION_PAGE = 500
+let current: BankData | null = null
 
-export async function fetchAccounts(): Promise<Account[]> {
-  const { data, error } = await supabase.from(TABLES.accounts).select('*')
-  if (error) throw error
-  return (data ?? []).map(normalizeAccount)
+export function setCurrentData(d: BankData | null) {
+  current = d
+}
+export function currentData(): BankData | null {
+  return current
 }
 
-export async function fetchTransactions(page = 0, pageSize = TRANSACTION_PAGE): Promise<Transaction[]> {
-  const from = page * pageSize
-  const { data, error } = await supabase
-    .from(TABLES.transactions)
-    .select('*')
-    .order(TRANSACTION_COLUMNS.date[0], { ascending: false })
-    .range(from, from + pageSize - 1)
-  if (error) throw error
-  return (data ?? []).map(normalizeTransaction)
+function accountUsage(): Map<string, Usage> {
+  return new Map((current?.accounts ?? []).map((a) => [a.id, a.usage]))
 }
 
 export interface TransactionEdit {
@@ -37,86 +24,40 @@ export interface TransactionEdit {
   usage?: Usage
 }
 
-/** Builds the PATCH body for an edit, writing to the columns this row actually has. */
+/** The stored note for an edit: only fields that were given. */
 export function transactionPatch(t: Transaction, edit: TransactionEdit): Record<string, unknown> {
   const patch: Record<string, unknown> = {}
-  if (edit.category !== undefined) {
-    const col = writeColumn(t.raw, TRANSACTION_COLUMNS.category.filter((c) => c !== 'personal_finance_category'))
-    patch[col] = edit.category || null
-  }
-  if (edit.notes !== undefined) patch[writeColumn(t.raw, TRANSACTION_COLUMNS.notes)] = edit.notes.trim() || null
-  if (edit.usage !== undefined) {
-    const col = writeColumn(t.raw, TRANSACTION_COLUMNS.business)
-    patch[col] = usageToRaw(edit.usage, col, t.raw)
-  }
+  if (edit.category !== undefined) patch.category = edit.category || undefined
+  if (edit.notes !== undefined) patch.notes = edit.notes.trim() || undefined
+  if (edit.usage !== undefined) patch.usage = edit.usage
+  void t
   return patch
 }
 
 export async function updateTransaction(t: Transaction, edit: TransactionEdit): Promise<Transaction> {
-  const patch = transactionPatch(t, edit)
-  const { data, error } = await supabase.from(TABLES.transactions).update(patch).eq('id', t.raw.id as string).select('*')
-  if (error) throw error
-  const row = data?.[0]
-  if (!row) throw new Error("You don't have permission to edit this transaction.")
-  return normalizeTransaction(row)
+  setTransactionNote(t.id, transactionPatch(t, edit))
+  return toTransaction(t.raw, accountUsage())
+}
+
+function itemFor(a: Account) {
+  return current?.items.find((i) => i.item_id === a.itemId) ?? { item_id: a.itemId ?? '', needs_sync: false, status: 'ok', institution_name: a.institution ?? null, created_at: a.createdAt ?? null }
 }
 
 export async function updateAccountNickname(a: Account, nickname: string): Promise<Account> {
-  const col = writeColumn(a.raw, ACCOUNT_COLUMNS.nickname)
-  const { data, error } = await supabase
-    .from(TABLES.accounts)
-    .update({ [col]: nickname.trim() || null })
-    .eq('id', a.raw.id as string)
-    .select('*')
-  if (error) throw error
-  const row = data?.[0]
-  if (!row) throw new Error("You don't have permission to rename this account.")
-  return normalizeAccount(row)
+  setAccountNote(a.id, { nickname: nickname.trim() || undefined })
+  return toAccount(a.raw, itemFor(a))
 }
 
 export async function updateAccountUsage(a: Account, usage: Usage): Promise<Account> {
-  const col = writeColumn(a.raw, ACCOUNT_COLUMNS.business)
-  const { data, error } = await supabase
-    .from(TABLES.accounts)
-    .update({ [col]: usageToRaw(usage, col, a.raw) })
-    .eq('id', a.raw.id as string)
-    .select('*')
-  if (error) throw error
-  const row = data?.[0]
-  if (!row) throw new Error("You don't have permission to change this account.")
-  return normalizeAccount(row)
+  setAccountNote(a.id, { usage })
+  return toAccount(a.raw, itemFor(a))
 }
 
-/** Budgets live in the optional budgets table (see tables.ts). */
-export async function saveBudget(table: string, existing: Record<string, unknown> | undefined, category: string, amount: number) {
-  if (existing) {
-    const col = writeColumn(existing, ['amount', 'limit', 'monthly_amount', 'budget'])
-    const { data, error } = await supabase.from(table).update({ [col]: amount }).eq('id', existing.id as string).select('*')
-    if (error) throw error
-    if (!data?.[0]) throw new Error("You don't have permission to change this budget.")
-    return data[0] as Record<string, unknown>
-  }
-  const { data, error } = await supabase.from(table).insert({ category, amount }).select('*')
-  if (error) throw new Error("Couldn't add this budget here. Add it in the Davey app for now.")
-  return data?.[0] as Record<string, unknown>
+/** Every loaded transaction between two dates (the web holds the full history in memory). */
+export async function fetchTransactionsBetween(from: string, to: string): Promise<Transaction[]> {
+  return (current?.transactions ?? []).filter((t) => t.date >= from && t.date <= to)
 }
 
-/** Every transaction between two dates (inclusive), paging through the API. Used by exports and tax. */
-export async function fetchTransactionsBetween(from: string, to: string, pageSize = 1000): Promise<Transaction[]> {
-  const col = TRANSACTION_COLUMNS.date[0]
-  const out: Transaction[] = []
-  for (let page = 0; page < 50; page++) {
-    const start = page * pageSize
-    const { data, error } = await supabase
-      .from(TABLES.transactions)
-      .select('*')
-      .gte(col, from)
-      .lte(col, to)
-      .order(col, { ascending: false })
-      .range(start, start + pageSize - 1)
-    if (error) throw error
-    out.push(...(data ?? []).map(normalizeTransaction))
-    if (!data || data.length < pageSize) break
-  }
-  return out
+export async function saveBudget(_table: string, existing: Record<string, unknown> | undefined, category: string, amount: number) {
+  return saveBudgetNote(category, amount, existing?.id as string | undefined) as unknown as Record<string, unknown>
 }

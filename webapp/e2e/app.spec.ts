@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { mockBackend, watchConsole } from './mock'
+import { mockBackend, watchConsole, webEdits } from './mock'
 
 test('overview shows net worth, accounts with nickname and last 4, recent transactions', async ({ page }) => {
   const problems = watchConsole(page)
@@ -31,15 +31,14 @@ test('transactions: search, filter, and edit category, notes and Business/Person
   await page.getByRole('button', { name: /Whole Foods Market/ }).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByLabel('Notes')).toHaveValue('Weekly shop')
-  await dialog.getByLabel('Category').selectOption('Business Expenses')
+  await dialog.getByLabel('Category').selectOption('Shopping')
   await dialog.getByLabel('Notes').fill('Team lunch supplies')
   await dialog.getByRole('button', { name: 'Business' }).click()
   await dialog.getByRole('button', { name: 'Save' }).click()
   await expect(dialog).toBeHidden()
 
-  const patch = state.calls.find((c) => c.method === 'PATCH' && c.path.startsWith('/rest/v1/transactions'))
-  expect(patch?.path).toContain('id=eq.txn-1')
-  expect(patch?.body).toEqual({ category: 'Business Expenses', notes: 'Team lunch supplies', is_business: true })
+  expect((await webEdits(page)).transactions['txn-1']).toEqual({ category: 'Shopping', notes: 'Team lunch supplies', usage: 'business' })
+  void state
   await expect(page.getByRole('button', { name: /Whole Foods Market/ })).toContainText('Business')
 })
 
@@ -50,14 +49,14 @@ test('connect a bank: web link token, Plaid Link, exchange, then Name Your Accou
   await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
   await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
   expect(state.linkTokenBody).toEqual({ platform: 'web', redirect_uri: 'https://daveypersonalfinance.com/app/oauth' })
-  expect(state.exchangeBody).toMatchObject({ public_token: 'public-production-abc', platform: 'web' })
-  expect(state.calls.some((c) => c.path === '/functions/v1/plaid-sync')).toBe(true)
+  expect(state.exchangeBody).toMatchObject({ public_token: 'public-production-abc', institution_name: 'First Platypus Bank', platform: 'web' })
 
   await page.getByLabel(/Platypus Checking/).fill('Emergency fund')
   await page.getByRole('button', { name: 'Done' }).click()
   await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
   await expect(page.getByText('Emergency fund', { exact: true })).toBeVisible()
-  expect(state.calls.find((c) => c.method === 'PATCH' && c.path.includes('acc-new'))?.body).toEqual({ nickname: 'Emergency fund' })
+  expect((await webEdits(page)).accounts['p-new-1']).toEqual({ nickname: 'Emergency fund' })
+  expect(state.syncBodies.some((b) => b.item_id === 'item-new')).toBe(true)
   expect(problems).toEqual([])
 })
 

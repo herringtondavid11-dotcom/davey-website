@@ -6,7 +6,7 @@ async function signIn(page: import('@playwright/test').Page) {
   await expect(page).toHaveURL(/\/app\/login$/)
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill(PASSWORD)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
 }
 
 test('wrong password shows an error', async ({ page }) => {
@@ -14,7 +14,7 @@ test('wrong password shows an error', async ({ page }) => {
   await page.goto('/app/login')
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill('nope')
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page.getByRole('alert')).toHaveText("That email and password don't match.")
 })
 

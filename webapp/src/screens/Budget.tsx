@@ -110,6 +110,7 @@ export function Budget() {
           {rows.length > 0 && <span className="muted small num">{money(budgetedSpent)} of {money(totalBudget)}</span>}
         </div>
         {!available && <p className="notice card-notice">Budgets you set in the Davey app will appear here. Spending by category is below.</p>}
+        {available && <p className="muted small card-notice">Budgets set on the web are saved in this browser; the app's budgets stay on your iPhone and Mac.</p>}
         {available && rows.length === 0 && <p className="muted card-notice">No budgets yet. Set one on any category below.</p>}
         {rows.length > 0 && (
           <ul className="list budget-list">

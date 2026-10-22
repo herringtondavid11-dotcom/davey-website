@@ -83,6 +83,7 @@ export function EditTransaction({ t, account, categories, onClose, onSaved }: {
             <textarea className="input" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note" />
           </label>
           {error && <p className="error" role="alert">{error}</p>}
+          <p className="muted small">Saved in this browser.</p>
           <div className="sheet-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button className="btn btn-primary" disabled={!dirty || busy}>{busy ? 'Saving…' : 'Save'}</button>

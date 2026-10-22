@@ -4,10 +4,9 @@ import { NumberField, Stat } from '../components/Controls'
 import { DownloadIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
 import { useData } from '../lib/DataProvider'
-import { fetchTransactionsBetween, updateTransaction } from '../lib/data'
+import { updateTransaction } from '../lib/data'
 import { accountNameMap, cpaZip, download, taxPdf, transactionsCsv } from '../lib/exports'
 import { money, shortDate } from '../lib/format'
-import type { Transaction } from '../lib/schema'
 import { businessTransactions, estimateTax, findDeductions, groupDeductions, pnl, quarterly, type DeductionGroup } from '../lib/tax'
 
 const RATE_KEY = 'davey.tax.rates'
@@ -22,25 +21,14 @@ function loadRates() {
 }
 
 export function Tax() {
-  const { accounts, replaceTransaction } = useData()
+  const { accounts, transactions, replaceTransaction } = useData()
   const thisYear = new Date().getFullYear()
   const [year, setYear] = useState(thisYear)
-  const [list, setList] = useState<Transaction[] | null>(null)
   const [error, setError] = useState('')
   const [ratesPct, setRatesPct] = useState(loadRates)
   const [marked, setMarked] = useState<Set<string>>(new Set())
+  const list = useMemo(() => (transactions ? transactions.filter((t) => t.date.startsWith(String(year))) : null), [transactions, year])
 
-  useEffect(() => {
-    let live = true
-    setList(null)
-    fetchTransactionsBetween(`${year}-01-01`, `${year}-12-31`).then(
-      (l) => live && setList(l),
-      (e) => live && setError(e.message),
-    )
-    return () => {
-      live = false
-    }
-  }, [year])
   useEffect(() => {
     try {
       localStorage.setItem(RATE_KEY, JSON.stringify(ratesPct))
@@ -68,7 +56,6 @@ export function Tax() {
       for (const t of g.items) {
         const updated = await updateTransaction(t, { usage: 'business' })
         replaceTransaction(updated)
-        setList((l) => l?.map((x) => (x.id === t.id ? updated : x)) ?? l)
         setMarked((m) => new Set(m).add(t.id))
       }
     } catch (e) {
