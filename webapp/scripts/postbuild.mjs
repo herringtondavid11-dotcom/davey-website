@@ -1,18 +1,21 @@
 // GitHub Pages has no rewrites. Each SPA route gets its own copy of index.html (served at /app/<route> with a 200,
 // so the Plaid OAuth redirect lands on a real page). Any other /app/* path falls back via the root 404.html.
-import { copyFileSync, existsSync, readFileSync, readdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const out = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'app')
 export const ROUTES = [
-  'oauth', 'transactions', 'connect', 'settings', 'profile', 'login', 'signup', 'access', 'forgot', 'reset', 'security', 'accounts', 'help', 'more',
+  'oauth', 'transactions', 'connect', 'settings', 'profile', 'login', 'signup', 'access', 'auth/callback', 'forgot', 'reset', 'security', 'accounts', 'help', 'more',
   'budget', 'cash-flow', 'recurring', 'credit-cards', 'loans', 'investments', 'household', 'exports', 'tax',
 ]
 
 const index = join(out, 'index.html')
 if (!existsSync(index)) throw new Error('Build output missing: ' + index)
-for (const route of ROUTES) copyFileSync(index, join(out, route + '.html'))
+for (const route of ROUTES) {
+  mkdirSync(dirname(join(out, route + '.html')), { recursive: true })
+  copyFileSync(index, join(out, route + '.html'))
+}
 
 const html = readFileSync(index, 'utf8')
 if (!html.includes('Content-Security-Policy')) throw new Error('CSP meta missing from build')

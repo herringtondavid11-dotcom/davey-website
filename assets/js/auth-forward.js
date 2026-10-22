@@ -6,6 +6,6 @@
   var q = new URLSearchParams(l.search)
   var h = new URLSearchParams(l.hash.slice(1))
   if (q.has('code') || q.has('error_code') || h.has('access_token') || h.has('error_code')) {
-    l.replace('/app/' + l.search + l.hash)
+    l.replace('/app/auth/callback' + l.search + l.hash)
   }
 })()

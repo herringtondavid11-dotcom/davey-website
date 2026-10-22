@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { AuthCard } from '../components/AuthCard'
 import { APP_BASE, SITE_ORIGIN } from '../config'
@@ -10,12 +11,16 @@ const SENT_KEY = 'davey.emailCodeSentAt'
 
 export const CODE_LENGTH = 6
 
-/** Sends the 6-digit sign-in code to the account's email ("Your Davey sign-in code"). The code is what counts; if an
- * older email still has a link, it leads back into the app (not the home page). */
+/** Sends the sign-in email. Today Supabase's default template has a link (it lands on /app/auth/callback and signs in
+ * on this device); once AUTH-EMAIL-FIX.md is applied it shows the 6-digit code instead. Both work. */
 async function sendCode(email: string) {
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: `${SITE_ORIGIN}${APP_BASE}/` } })
-  if (error) throw error
+  // Recorded before the request, so a reload while it's in flight doesn't send a second email.
   try { sessionStorage.setItem(SENT_KEY, `${email}|${Date.now()}`) } catch { /* storage off */ }
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: `${SITE_ORIGIN}${APP_BASE}/auth/callback` } })
+  if (error) {
+    try { sessionStorage.removeItem(SENT_KEY) } catch { /* storage off */ }
+    throw error
+  }
 }
 
 /** When a code was last sent to `email` in this tab (so a reload or remount doesn't send another one). */
@@ -37,8 +42,9 @@ export function maskEmail(email: string): string {
 
 export function EmailCode() {
   const { email, refresh, signOut } = useAuth()
+  const linkMessage = (useLocation().state as { linkMessage?: string } | null)?.linkMessage
   const [code, setCode] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(linkMessage ?? '')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [now, setNow] = useState(Date.now())
@@ -96,6 +102,7 @@ export function EmailCode() {
           <input className="input code-input" inputMode="numeric" autoComplete="one-time-code" autoFocus
             pattern="[0-9]{6}" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH))} />
         </label>
+        <p className="muted small">No code in the email? Tap its sign-in link on this device and browser instead.</p>
         {notice && <p className="notice" role="status">{notice}</p>}
         {error && <p className="error" role="alert">{error}</p>}
         <button className="btn btn-primary btn-block" disabled={busy || digits.length !== CODE_LENGTH}>{busy ? 'Checking…' : 'Continue'}</button>

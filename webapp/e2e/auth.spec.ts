@@ -26,7 +26,7 @@ test('sign in: password, then the code emailed to the account (no QR code, no au
   await expect(page.getByText('a•••@example.com')).toBeVisible()
   await expect(page.getByAltText(/QR code/)).toHaveCount(0)
   // One code is sent, to the account's own address, without creating accounts.
-  expect(state.otpSends).toEqual([expect.objectContaining({ email: EMAIL, create_user: false })])
+  await expect.poll(() => state.otpSends).toEqual([expect.objectContaining({ email: EMAIL, create_user: false })])
   await page.getByLabel('6-digit code').fill('111111')
   await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page.getByRole('alert')).toContainText("didn't work")
@@ -49,6 +49,7 @@ test('email code: exactly 6 digits, clear wording, and the email never relies on
   await input.fill('48 21-39')
   await expect(input).toHaveValue('482139')
   // An older email's link (if any) comes back into the app, never the home page.
+  await expect.poll(() => state.calls.some((c) => c.path.startsWith('/auth/v1/otp'))).toBe(true)
   const otp = state.calls.find((c) => c.path.startsWith('/auth/v1/otp'))
   expect(decodeURIComponent(otp!.path)).toContain('redirect_to=https://daveypersonalfinance.com/app/')
   await page.getByRole('button', { name: 'Continue' }).click()
@@ -60,10 +61,10 @@ test('an old sign-in link that lands on the home page goes to the code screen, n
   await signIn(page)
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
   await page.goto('/?code=old-magic-link')
-  await expect(page).toHaveURL(/\/app\//)
+  await expect(page).toHaveURL(/\/app(\/|$)/)
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
   await page.goto('/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired')
-  await expect(page).toHaveURL(/\/app\//)
+  await expect(page).toHaveURL(/\/app(\/|$)/)
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
 })
 
@@ -76,6 +77,7 @@ test('email code: reload does not send a second code; resend waits 60 seconds', 
   const state = await mockBackend(page)
   await signIn(page)
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
+  await expect.poll(() => state.otpSends.length).toBe(1)
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
   expect(state.otpSends).toHaveLength(1)

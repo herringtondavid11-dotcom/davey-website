@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AuthProvider, useAuth } from './auth/AuthProvider'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { AuthProvider, isEmailVerifiedSession, useAuth } from './auth/AuthProvider'
 import { Layout } from './components/Layout'
 import { FullPageSpinner } from './components/Spinner'
 import { DataProvider } from './lib/DataProvider'
@@ -104,6 +104,41 @@ function SignedOutOnly({ children }: { children: ReactNode }) {
   return <AccessGate>{children}</AccessGate>
 }
 
+export const LINK_EXPIRED = 'That sign-in link has expired or was already used. Enter the 6-digit code from the newest email, or send a new code.'
+
+/**
+ * Where the emailed sign-in link lands (emailRedirectTo /app/auth/callback; old links reach it through the home page).
+ * supabase-js has already exchanged a ?code= once on page load (PKCE, same browser); a ?token_hash= link is verified
+ * here at most once. Signed in → the app; otherwise → the code screen (or sign-in) with a clear message.
+ */
+function AuthCallbackRoute() {
+  const { refresh } = useAuth()
+  const navigate = useNavigate()
+  const ran = useRef(false)
+  useEffect(() => {
+    if (ran.current) return
+    ran.current = true
+    const url = new URL(window.location.href)
+    const hash = new URLSearchParams(url.hash.replace(/^#/, ''))
+    const tokenHash = url.searchParams.get('token_hash')
+    const linkError = url.searchParams.get('error_code') ?? hash.get('error_code') ?? url.searchParams.get('error') ?? hash.get('error')
+    void (async () => {
+      await hashSession
+      let { data } = await supabase.auth.getSession()
+      const verified = () => Boolean(data.session && isEmailVerifiedSession(data.session.access_token))
+      if (!verified() && tokenHash && claimToken(tokenHash)) {
+        await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'email' })
+        ;({ data } = await supabase.auth.getSession())
+      }
+      window.history.replaceState(null, '', window.location.pathname)
+      await refresh()
+      if (verified()) navigate('/', { replace: true })
+      else navigate(data.session ? '/' : '/login', { replace: true, state: { linkMessage: linkError || tokenHash || url.searchParams.get('code') ? LINK_EXPIRED : undefined } })
+    })()
+  }, [navigate, refresh])
+  return <FullPageSpinner />
+}
+
 function Protected() {
   return (
     <Gate>
@@ -122,6 +157,7 @@ export function AppRoutes() {
       <Route path="/signup" element={<SignedOutOnly><SignUp /></SignedOutOnly>} />
       <Route path="/forgot" element={<SignedOutOnly><ForgotPassword /></SignedOutOnly>} />
       <Route path="/reset" element={<ResetRoute />} />
+      <Route path="/auth/callback" element={<AuthCallbackRoute />} />
       <Route element={<Protected />}>
         <Route index element={<Overview />} />
         <Route path="/transactions" element={<Transactions />} />

@@ -163,3 +163,18 @@ the GitHub Pages run instead.
   needs David's Mac run (AUTH-EMAIL-FIX.md). Until then emails still arrive as the default link email.
 - New tests: auth.spec (6-digit field and wording, redirect_to /app/, old link → code screen, home page not redirected).
 - Counts: Vitest 112/112, Playwright Chromium 110/110.
+
+## Loop 20 — 2026-10-22 19:17 UTC (sign-in works today without the Supabase change)
+- The code email asks Supabase to send its link to /app/auth/callback. Tapping it in the same browser finishes the
+  2nd step: supabase-js exchanges ?code= once on load; a ?token_hash= link is verified at most once. A link that
+  went to the home page (redirect not allowed) is forwarded to /app/auth/callback. Old/expired links → code screen
+  with "That sign-in link has expired or was already used. Enter the 6-digit code…" (or sign-in when signed out).
+- The code screen also says "No code in the email? Tap its sign-in link on this device and browser instead."
+- Fixed: a reload while the first code email was in flight could send a second one (now recorded before sending).
+- /app/** in the production redirect allow-list: reported added by the Mac session on 2026-10-21 (OVERNIGHT-REPORT.md);
+  not checkable from this container. If it isn't, the home-page forwarder covers it (test b3).
+- Proof (e2e/signin-proof.spec.ts): (a) code → Overview; (b) link → callback → signed in, 1 exchange, 0 verifies;
+  (b2) token_hash verified once; (b3) via home page; (c) expired/used links → code screen + message; (c2) signed out
+  → sign in + message; (d) wrong code, resend after 60 s, email limit; (e) PIN pass + code step across refreshes.
+  Auth/access/proof specs ×4–5 repeats: 152/152 and 130/130.
+- Counts: Vitest 112/112, Playwright Chromium 119/119 (two full runs).

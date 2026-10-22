@@ -244,6 +244,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     investmentsBodies: [] as Row[],
     pinFailures: 0,
     recovery: false,
+    pkceExchanges: [] as Row[],
+    verifyCalls: 0,
     otpSends: [] as Row[],
     metadata: (opts.passInMetadata ? { first_name: 'Alex', access_pass: TEST_PASS } : {}) as Row,
     signUpBody: null as Row | null,
@@ -301,6 +303,13 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
 
     // ---- Auth ----
     if (path === '/auth/v1/token') {
+      if (url.searchParams.get('grant_type') === 'pkce') {
+        // The emailed link, after Supabase's verify page: ?code= on our callback, exchanged with this browser's verifier.
+        state.pkceExchanges.push(body)
+        if (body.auth_code !== 'pkce-good' || !body.code_verifier) return json(route, { code: 400, error_code: 'flow_state_not_found', msg: 'invalid flow state, no valid flow state found' }, 400)
+        state.aal = 'aal2'
+        return json(route, session())
+      }
       if (url.searchParams.get('grant_type') === 'password') {
         if (body.email !== EMAIL || body.password !== PASSWORD) return json(route, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' }, 400)
         state.aal = 'aal1'
@@ -326,7 +335,14 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       if (opts.emailRateLimited) return json(route, { code: 429, error_code: 'over_email_send_rate_limit', msg: 'email rate limit exceeded' }, 429)
       return json(route, {})
     }
+    if (path === '/auth/v1/verify' && body.type === 'email' && body.token_hash) {
+      state.verifyCalls += 1
+      if (body.token_hash !== 'link-hash-good') return json(route, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' }, 403)
+      state.aal = 'aal2'
+      return json(route, session())
+    }
     if (path === '/auth/v1/verify' && body.type === 'email') {
+      state.verifyCalls += 1
       if (body.email !== EMAIL || body.token !== EMAIL_CODE) return json(route, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' }, 403)
       state.aal = 'aal2'
       return json(route, session())
