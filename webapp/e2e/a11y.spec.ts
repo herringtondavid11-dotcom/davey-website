@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
-import { PASSWORD, mockBackend } from './mock'
+import { EMAIL_2FA_ENABLED, PASSWORD, mockBackend } from './mock'
 import { PAGES } from './pages'
 
 const SCREENS = ['/app/', '/app/transactions', '/app/connect', '/app/settings', ...PAGES.filter((p) => !p.phoneOnly).map((p) => p.path)]
@@ -65,6 +65,7 @@ for (const scheme of ['light', 'dark'] as const) {
 
 for (const scheme of ['light', 'dark'] as const) {
   test(`axe: "Check your email" sign-in code screen (${scheme})`, async ({ page }) => {
+    test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
     await page.emulateMedia({ colorScheme: scheme })
     await mockBackend(page)
     await page.goto('/app/login')

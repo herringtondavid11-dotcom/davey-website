@@ -1,6 +1,8 @@
 // David's sign-in, end to end (2026-10-22): password → "Check your email" → 6-digit code OR the emailed link.
 import { expect, test, type Page } from '@playwright/test'
-import { EMAIL, EMAIL_CODE, PASSWORD, TEST_PIN, mockBackend, watchConsole } from './mock'
+import { EMAIL, EMAIL_2FA_ENABLED, EMAIL_CODE, PASSWORD, TEST_PIN, mockBackend, watchConsole } from './mock'
+
+test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false); see signin-direct.spec.ts')
 
 async function passwordStep(page: Page, state: { otpSends: unknown[] }) {
   await page.goto('/app/login')

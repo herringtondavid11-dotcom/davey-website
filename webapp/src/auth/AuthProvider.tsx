@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { IDLE_TIMEOUT_MS } from '../config'
+import { EMAIL_2FA_ENABLED, IDLE_TIMEOUT_MS } from '../config'
 import { ACTIVITY_EVENTS, idleState, readLastActive, writeLastActive, type IdleState } from '../lib/idle'
 import { clearPendingLink } from '../lib/plaid'
 import { supabase } from '../lib/supabase'
@@ -46,6 +46,7 @@ export function isEmailVerifiedSession(accessToken: string): boolean {
 
 async function computeStatus(session: Session | null): Promise<AuthStatus> {
   if (!session) return 'signedOut'
+  if (!EMAIL_2FA_ENABLED) return 'ready'
   return isEmailVerifiedSession(session.access_token) ? 'ready' : 'needsEmailCode'
 }
 

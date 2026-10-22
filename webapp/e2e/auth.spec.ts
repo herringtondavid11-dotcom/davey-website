@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { EMAIL, EMAIL_CODE, PASSWORD, mockBackend, watchConsole } from './mock'
+import { EMAIL, EMAIL_2FA_ENABLED, EMAIL_CODE, PASSWORD, mockBackend, watchConsole } from './mock'
 
 async function signIn(page: import('@playwright/test').Page) {
   await page.goto('/app/')
@@ -19,6 +19,7 @@ test('wrong password shows an error', async ({ page }) => {
 })
 
 test('sign in: password, then the code emailed to the account (no QR code, no authenticator app)', async ({ page }) => {
+  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
   const problems = watchConsole(page)
   const state = await mockBackend(page, { mfa: 'none' })
   await signIn(page)
@@ -38,6 +39,7 @@ test('sign in: password, then the code emailed to the account (no QR code, no au
 })
 
 test('email code: exactly 6 digits, clear wording, and the email never relies on the link (David, 11:55 PT)', async ({ page }) => {
+  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
   const state = await mockBackend(page)
   await signIn(page)
   await expect(page.getByText('Enter the 6-digit code we emailed you at')).toBeVisible()
@@ -57,6 +59,7 @@ test('email code: exactly 6 digits, clear wording, and the email never relies on
 })
 
 test('an old sign-in link that lands on the home page goes to the code screen, not the start', async ({ page }) => {
+  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
   await mockBackend(page)
   await signIn(page)
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
@@ -74,6 +77,7 @@ test('the home page itself is not redirected', async ({ page }) => {
 })
 
 test('email code: reload does not send a second code; resend waits 60 seconds', async ({ page }) => {
+  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
   const state = await mockBackend(page)
   await signIn(page)
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
@@ -85,12 +89,14 @@ test('email code: reload does not send a second code; resend waits 60 seconds', 
 })
 
 test('email code: the email limit gets a clear message', async ({ page }) => {
+  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
   await mockBackend(page, { emailRateLimited: true })
   await signIn(page)
   await expect(page.getByRole('alert')).toHaveText('Too many emails, try again in a few minutes.')
 })
 
 test('Settings shows 2-step as an emailed code (no recovery key, no authenticator)', async ({ page }) => {
+  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
   await mockBackend(page, { signedIn: true })
   await page.goto('/app/settings')
   await expect(page.getByText(/a code is emailed to alex@example.com at each sign-in/)).toBeVisible()

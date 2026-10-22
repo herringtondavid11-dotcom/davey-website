@@ -15,3 +15,5 @@ export const IDLE_WARNING_MS = 2 * 60 * 1000
 
 /** Plaid convention: positive amount = money leaving the account. Flip if the app stores the opposite. */
 export const AMOUNT_POSITIVE_IS_OUTFLOW = true
+
+export { EMAIL_2FA_ENABLED } from './flags'

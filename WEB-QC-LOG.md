@@ -197,3 +197,13 @@ the GitHub Pages run instead.
 ## Loop 24 — 2026-10-22 23:10 UTC (hourly check)
 - Pages: 22f38da deployed (success). No new commits from other sessions. No issues found.
 - Counts: Vitest 112/112, Playwright Chromium 119/119.
+
+## Loop 25 — 2026-10-22 23:28 UTC (David 4:22 PM PT: disable the emailed 2nd step on the web)
+- He got another "Your sign-in link" email (Supabase template still the default; AUTH-EMAIL-FIX.md not run yet).
+- Done: webapp/src/flags.ts EMAIL_2FA_ENABLED = false. Access code (still required) → email + password → Overview.
+  The code screen never renders, so signInWithOtp is never called and no sign-in email is sent. Settings says 2-step
+  is off on the web for now. The email-code code and its tests stay in the codebase (tests skip while the flag is off).
+- New tests: e2e/signin-direct.spec.ts (password → Overview with zero /otp or /verify calls; access code still
+  enforced on /app, /login, /signup, /forgot; wrong password; refresh; old link email; Settings wording).
+- Counts: Vitest 112/112; Playwright Chromium 108 passed, 17 skipped (email-code tests), 0 failed.
+- Turn back on: set EMAIL_2FA_ENABLED = true after scripts/auth-email-fix.sh has run (6-digit code emails).

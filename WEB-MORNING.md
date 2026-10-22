@@ -3,7 +3,7 @@
 ## What's live
 - https://daveypersonalfinance.com/app (GitHub Pages, `main`), now behind a **Company access code** screen before
   Sign in, Create account and Forgot password. A device that enters the right code stays approved for 30 days.
-- Your existing email + password are the same as on iPhone; the web then emails you a sign-in code (no QR code or authenticator app): same Supabase project, user and
+- Your existing email + password are the same as on iPhone; web 2-step is off for now (EMAIL_2FA_ENABLED=false): access code + password: same Supabase project, user and
   household data. Nothing here creates accounts, sets passwords or signs in as you.
 - `/app/oauth` (Plaid OAuth return) is served as before.
 - **The code screen won't accept any code until you run the Mac paste below** (the server pieces aren't deployed yet).
@@ -21,7 +21,7 @@
 - Screens checked at 360 / 768 / 1280 / 1920 in light and dark; axe on every screen including the new ones.
 
 ## Tests
-- Vitest: 112/112. Playwright (Chromium): 119/119. Latest counts: WEB-QC-LOG.md.
+- Vitest: 112/112. Playwright (Chromium): 108/108 (17 email-code tests skipped while web 2-step is off). Latest counts: WEB-QC-LOG.md.
 - WebKit/Firefox aren't installed in the cloud container; on the Mac: `cd webapp && npm run e2e`.
 
 ## Your one Claude Code paste (on the Mac)

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { EMAIL_2FA_ENABLED } from '../config'
 import { useAuth } from '../auth/AuthProvider'
 import { ConnectionRow } from '../components/ConnectionStatus'
 import { InstallApp } from '../components/InstallApp'
@@ -143,7 +144,7 @@ export function Settings() {
         <div className="settings-row">
           <div>
             <strong>2-step verification</strong>
-            <p className="muted">On · after your password, a code is emailed to {email ?? 'your account email'} at each sign-in.</p>
+            <p className="muted">{EMAIL_2FA_ENABLED ? `On · after your password, a code is emailed to ${email ?? 'your account email'} at each sign-in.` : 'Off on the web for now. Sign-in is protected by the company access code and your password.'}</p>
           </div>
         </div>
         <div className="settings-row"><div><strong>Password</strong><p className="muted">Changes your password for the Davey app too.</p></div></div>
