@@ -38,3 +38,9 @@ the GitHub Pages run instead.
   `login-activity` is deployed (Mac paste).
 - New test: overflow.spec "sidebar fits a short laptop window".
 - Counts: Vitest 101/101, Playwright Chromium 84/84.
+
+## Loop 4 — 2026-10-22 11:15 UTC
+- Checked empty states for a brand-new account (no household data) on every screen at 360px: headings, $0.00 totals,
+  "No accounts yet" + Connect a Bank, budget guidance. No NaN/undefined/endless spinners. No issues found.
+- New test: sweep.spec "brand-new account" (every screen: heading, no NaN/undefined/Infinity, no stuck spinner).
+- Counts: Vitest 101/101, Playwright Chromium 85/85.

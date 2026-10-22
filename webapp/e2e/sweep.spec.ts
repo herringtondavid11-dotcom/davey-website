@@ -48,3 +48,19 @@ test('every screen: a server error shows a message, never a blank page or a cras
   expect(crashes).toEqual([])
   expect(blank).toEqual([])
 })
+
+test('every screen: a brand-new account (no household data yet) gets a heading and guidance, never a crash', async ({ page }) => {
+  test.setTimeout(120_000)
+  const problems: string[] = []
+  page.on('pageerror', (e) => problems.push(`${page.url()} ${e.message}`))
+  await mockBackend(page, { signedIn: true, activityFunction: true, noHousehold: true })
+  for (const path of SCREENS) {
+    await page.goto(path)
+    await page.waitForLoadState('networkidle')
+    if (!(await page.getByRole('heading', { level: 1 }).isVisible())) problems.push(`${path}: no heading`)
+    const text = (await page.locator('main').innerText()).trim()
+    if (/NaN|undefined|Infinity|\[object/.test(text)) problems.push(`${path}: shows ${text.match(/NaN|undefined|Infinity|\[object/)![0]}`)
+    if (await page.locator('.spinner, [aria-busy="true"]').count()) problems.push(`${path}: still loading`)
+  }
+  expect(problems).toEqual([])
+})
