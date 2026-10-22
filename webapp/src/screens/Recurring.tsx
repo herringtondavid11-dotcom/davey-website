@@ -38,11 +38,11 @@ function Calendar({ month, items, selected, onSelect }: { month: string; items: 
                 type="button"
                 role="gridcell"
                 className={'cal-cell' + (iso === today ? ' today' : '') + (iso === selected ? ' selected' : '') + (list.length ? ' has' : '')}
-                aria-label={label}
                 aria-selected={iso === selected}
                 onClick={() => onSelect(iso)}
               >
-                <span className="cal-day">{d}</span>
+                <span className="visually-hidden">{label}</span>
+                <span className="cal-day" aria-hidden>{d}</span>
                 {list.length > 0 && (
                   <span className="cal-marks" aria-hidden>
                     {list.slice(0, 3).map((r) => <i key={r.key} className={'dot dot-' + r.kind} />)}

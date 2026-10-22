@@ -1,8 +1,10 @@
+import { Suspense } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useData } from '../lib/DataProvider'
 import { hasBusiness } from '../lib/finance'
 import { MoreIcon, PlusIcon, SignOutIcon } from './Icons'
+import { Spinner } from './Spinner'
 import { AskAI } from './AskAI'
 import { IdleWarning } from './IdleWarning'
 import { NAV_GROUPS, TAB_ITEMS } from './nav'
@@ -47,7 +49,9 @@ export function Layout() {
         </button>
       </aside>
       <main className="main" id="main">
-        <Outlet />
+        <Suspense fallback={<Spinner />}>
+          <Outlet />
+        </Suspense>
       </main>
       <nav className="tabbar" aria-label="Main">
         {TAB_ITEMS.map(({ to, label, icon: Icon, end }) => (

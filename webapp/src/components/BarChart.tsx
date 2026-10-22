@@ -90,6 +90,7 @@ export function BarChart({ groups, series, format, height = 240, label }: {
                   onFocus={() => setHover(i)}
                   onBlur={() => setHover(null)}
                   tabIndex={0}
+                  role="img"
                   aria-label={`${g.title}: ${series.map((s) => `${s.name} ${format(g.values[s.key] ?? 0)}`).join(', ')}`}
                 />
               </g>

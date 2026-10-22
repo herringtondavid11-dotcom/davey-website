@@ -22,8 +22,9 @@ export function TransactionRow({ t, account, onSelect, showDate = true }: { t: T
     </>
   )
   return onSelect ? (
-    <button type="button" className="row" onClick={() => onSelect(t)} aria-label={`${t.name}, ${money(t.amount, t.currency)}, edit`}>
+    <button type="button" className="row" onClick={() => onSelect(t)}>
       {content}
+      <span className="visually-hidden">, edit</span>
     </button>
   ) : (
     <div className="row">{content}</div>

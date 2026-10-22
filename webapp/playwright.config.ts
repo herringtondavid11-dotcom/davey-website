@@ -16,7 +16,7 @@ export default defineConfig({
   fullyParallel: true,
   workers: process.env.CI ? 2 : 4,
   reporter: [['list']],
-  use: { baseURL: 'http://localhost:4173', trace: 'off', locale: 'en-US', timezoneId: 'America/Los_Angeles' },
+  use: { baseURL: 'http://localhost:4173', trace: 'off', locale: 'en-US', timezoneId: 'America/Los_Angeles', serviceWorkers: 'block' },
   projects: all.filter((p) => installed(p.name)),
   webServer: { command: 'node e2e/pages-server.mjs', url: 'http://localhost:4173/app/', reuseExistingServer: true },
 })

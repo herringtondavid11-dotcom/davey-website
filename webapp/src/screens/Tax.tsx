@@ -164,8 +164,8 @@ export function Tax() {
                 </span>
                 <span className="deduction-actions">
                   <span className="num row-amount">{money(-g.total)}</span>
-                  <button className="btn btn-secondary btn-sm" onClick={() => markBusiness(g)} aria-label={`Mark ${g.name} (${g.items.length}) as Business`}>
-                    {g.items.length === 1 ? 'Mark Business' : 'Mark all Business'}
+                  <button className="btn btn-secondary btn-sm" onClick={() => markBusiness(g)}>
+                    {g.items.length === 1 ? 'Mark ' : 'Mark all '}<span className="visually-hidden">{g.name} </span>Business
                   </button>
                 </span>
               </li>

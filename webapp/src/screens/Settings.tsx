@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { createBackupKey, listFactors, type FactorSummary } from '../auth/mfa'
 import { ConnectionRow } from '../components/ConnectionStatus'
+import { InstallApp } from '../components/InstallApp'
 import { ACTION_LABEL, describeAgent, fetchLoginActivity, type LoginEvent } from '../lib/activity'
 import { shortDateTime } from '../lib/format'
 import { supabase } from '../lib/supabase'
@@ -182,6 +183,10 @@ export function Settings() {
 
       <section className="card" aria-labelledby="look-title">
         <div className="card-head"><h2 id="look-title">Appearance</h2></div>
+        <div className="settings-row">
+          <div><strong>Install as an app</strong><p className="muted small">Opens in its own window, from your Dock or home screen.</p></div>
+          <InstallApp />
+        </div>
         <div className="settings-row">
           <span id="theme-label">Theme</span>
           <div className="segmented" role="group" aria-labelledby="theme-label">

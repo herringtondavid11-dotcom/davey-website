@@ -1,23 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { Layout } from './components/Layout'
 import { FullPageSpinner } from './components/Spinner'
 import { DataProvider } from './lib/DataProvider'
 import { supabase } from './lib/supabase'
-import { Accounts } from './screens/Accounts'
-import { Budget } from './screens/Budget'
-import { CashFlow } from './screens/CashFlow'
-import { CreditCards } from './screens/CreditCards'
-import { Exports } from './screens/Exports'
-import { Household } from './screens/Household'
-import { Tax } from './screens/Tax'
-import { Investments } from './screens/Investments'
-import { Loans } from './screens/Loans'
-import { RecurringScreen } from './screens/Recurring'
 import { Connect, OAuthReturn } from './screens/Connect'
-import { ConnectionHelp } from './screens/ConnectionHelp'
-import { More } from './screens/More'
 import { ForgotPassword } from './screens/ForgotPassword'
 import { Login } from './screens/Login'
 import { MfaChallenge } from './screens/MfaChallenge'
@@ -25,8 +13,22 @@ import { MfaEnroll } from './screens/MfaEnroll'
 import { Overview } from './screens/Overview'
 import { ResetLinkExpired, ResetPassword } from './screens/ResetPassword'
 import { RotateBackup } from './screens/RotateBackup'
-import { Settings } from './screens/Settings'
 import { Transactions } from './screens/Transactions'
+
+// Less-used screens load on demand; Overview, Transactions and Connect stay in the main bundle.
+const Accounts = lazy(() => import('./screens/Accounts').then((m) => ({ default: m.Accounts })))
+const Budget = lazy(() => import('./screens/Budget').then((m) => ({ default: m.Budget })))
+const CashFlow = lazy(() => import('./screens/CashFlow').then((m) => ({ default: m.CashFlow })))
+const CreditCards = lazy(() => import('./screens/CreditCards').then((m) => ({ default: m.CreditCards })))
+const Exports = lazy(() => import('./screens/Exports').then((m) => ({ default: m.Exports })))
+const Household = lazy(() => import('./screens/Household').then((m) => ({ default: m.Household })))
+const Tax = lazy(() => import('./screens/Tax').then((m) => ({ default: m.Tax })))
+const Investments = lazy(() => import('./screens/Investments').then((m) => ({ default: m.Investments })))
+const Loans = lazy(() => import('./screens/Loans').then((m) => ({ default: m.Loans })))
+const RecurringScreen = lazy(() => import('./screens/Recurring').then((m) => ({ default: m.RecurringScreen })))
+const ConnectionHelp = lazy(() => import('./screens/ConnectionHelp').then((m) => ({ default: m.ConnectionHelp })))
+const More = lazy(() => import('./screens/More').then((m) => ({ default: m.More })))
+const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })))
 
 /** Signed in + 2-step verified (aal2), or the right step to get there. */
 function Gate({ children, signedOut }: { children: ReactNode; signedOut?: ReactNode }) {

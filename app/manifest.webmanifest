@@ -1,0 +1,23 @@
+{
+  "name": "Davey – Personal Finance",
+  "short_name": "Davey",
+  "description": "Your accounts, budgets, transactions and banks.",
+  "id": "/app/",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1C2838",
+  "theme_color": "#1C2838",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Transactions", "url": "/app/transactions" },
+    { "name": "Budget", "url": "/app/budget" },
+    { "name": "Connect a Bank", "url": "/app/connect" }
+  ]
+}
