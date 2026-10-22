@@ -50,3 +50,15 @@ for (const scheme of ['light', 'dark'] as const) {
     expect(report).toEqual([])
   })
 }
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`axe: Accounts with a goal editor open (${scheme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme })
+    await mockBackend(page, { signedIn: true })
+    await page.goto('/app/accounts')
+    await page.getByRole('button', { name: /Set goal/ }).first().click()
+    await expect(page.getByRole('button', { name: 'Save goal' })).toBeVisible()
+    const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+    expect(r.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id}: ${v.nodes.slice(0, 2).map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([])
+  })
+}

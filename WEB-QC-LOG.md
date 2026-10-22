@@ -108,3 +108,10 @@ the GitHub Pages run instead.
 - Fixed: one "$" (sign first: "-$5k"); net worth and portfolio trends scale to their range.
 - New tests: compact.test (labels, range ticks), sweep.spec (no "$$" on chart screens; net worth axis not from $0).
 - Counts: Vitest 115/115, Playwright Chromium 102/102.
+
+## Loop 12 — 2026-10-22 13:32 UTC (hourly check)
+- Pages: ddc73b7 deployed (success). No new commits on main.
+- Checked: Accounts goal editor open at 360 light/dark (layout, axe), Lighthouse access/login 96/94 performance,
+  100 accessibility, 100 best practices. No issues found.
+- New test: a11y.spec "Accounts with a goal editor open" (light + dark).
+- Counts: Vitest 115/115, Playwright Chromium 104/104.
