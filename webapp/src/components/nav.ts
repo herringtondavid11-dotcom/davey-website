@@ -10,6 +10,7 @@ import {
   OverviewIcon,
   ReceiptIcon,
   RecurringIcon,
+  ProfileIcon,
   SettingsIcon,
   TransactionsIcon,
   TrendIcon,
@@ -48,6 +49,7 @@ export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     label: 'More',
     items: [
       { to: '/household', label: 'Household', icon: UsersIcon },
+      { to: '/profile', label: 'Profile', icon: ProfileIcon },
       { to: '/exports', label: 'Exports', icon: DownloadIcon },
       { to: '/help', label: 'Connection help', icon: HelpIcon },
       { to: '/settings', label: 'Settings', icon: SettingsIcon },

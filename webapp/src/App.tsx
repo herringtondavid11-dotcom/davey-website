@@ -29,6 +29,7 @@ const RecurringScreen = lazy(() => import('./screens/Recurring').then((m) => ({ 
 const ConnectionHelp = lazy(() => import('./screens/ConnectionHelp').then((m) => ({ default: m.ConnectionHelp })))
 const More = lazy(() => import('./screens/More').then((m) => ({ default: m.More })))
 const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })))
+const ProfilePage = lazy(() => import('./screens/Settings').then((m) => ({ default: m.ProfilePage })))
 
 /** Signed in + 2-step verified (aal2), or the right step to get there. */
 function Gate({ children, signedOut }: { children: ReactNode; signedOut?: ReactNode }) {
@@ -118,6 +119,7 @@ export function AppRoutes() {
         <Route path="/connect" element={<Connect />} />
         <Route path="/oauth" element={<OAuthReturn />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/accounts" element={<Accounts />} />
         <Route path="/help" element={<ConnectionHelp />} />
         <Route path="/more" element={<More />} />

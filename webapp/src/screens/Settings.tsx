@@ -13,7 +13,7 @@ import { applyTheme, readTheme, type ThemePref } from '../lib/theme'
 import { useTable } from '../lib/useTable'
 import { RecoveryKeyPanel } from './RecoveryKey'
 
-function Profile() {
+export function Profile() {
   const { session } = useAuth()
   const [first, setFirst] = useState('')
   const [last, setLast] = useState('')
@@ -222,6 +222,16 @@ export function Settings() {
           </div>
         </div>
       </section>
+    </div>
+  )
+}
+
+/** Settings › Profile: name, email and phone (the app's Profile screen). Everything else stays in Settings. */
+export function ProfilePage() {
+  return (
+    <div className="page">
+      <div className="page-head"><div><h1>Profile</h1><p>Your name, email and phone. Password and 2-step verification are in <Link to="/settings">Settings</Link>.</p></div></div>
+      <Profile />
     </div>
   )
 }

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const out = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'app')
 export const ROUTES = [
-  'oauth', 'transactions', 'connect', 'settings', 'login', 'forgot', 'reset', 'security', 'accounts', 'help', 'more',
+  'oauth', 'transactions', 'connect', 'settings', 'profile', 'login', 'forgot', 'reset', 'security', 'accounts', 'help', 'more',
   'budget', 'cash-flow', 'recurring', 'credit-cards', 'loans', 'investments', 'household', 'exports', 'tax',
 ]
 

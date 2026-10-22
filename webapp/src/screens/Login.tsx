@@ -19,7 +19,7 @@ export function Login() {
   async function apple() {
     setError('')
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: `${window.location.origin}/app/` } })
-    if (error) setError(/not enabled|unsupported provider/i.test(error.message) ? 'Sign in with Apple on the web is coming soon. For now, sign in with email in the Davey app (Settings › Account) to set a password.' : error.message)
+    if (error) setError(/not enabled|unsupported provider/i.test(error.message) ? 'Sign in with Apple on the web is coming soon. For now, sign in with email in the Davey app (Settings › Profile) to set a password.' : error.message)
   }
 
   if (status !== 'signedOut' && status !== 'loading') return <Navigate to={next.startsWith('/') ? next : '/'} replace />

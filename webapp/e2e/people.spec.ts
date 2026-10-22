@@ -57,3 +57,18 @@ test('settings: sign out everywhere uses global scope after confirming', async (
   await expect(page).toHaveURL(/\/app\/login/)
   expect(state.calls.some((c) => c.path.startsWith('/auth/v1/logout') && c.path.includes('scope=global'))).toBe(true)
 })
+
+test('Profile: nav item below Household opens the Profile page (name, email, phone)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await mockBackend(page, { signedIn: true })
+  await page.goto('/app/')
+  const links = page.locator('.sidebar').getByRole('link')
+  const names = await links.allInnerTexts()
+  expect(names.indexOf('Profile')).toBe(names.indexOf('Household') + 1)
+  await page.locator('.sidebar').getByRole('link', { name: 'Profile' }).click()
+  await expect(page).toHaveURL(/\/app\/profile$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Profile' })).toBeVisible()
+  const profile = page.getByRole('region', { name: 'Profile' })
+  await expect(profile.getByLabel('First name')).toHaveValue('Alex')
+  await expect(profile.getByLabel('Email')).toHaveValue('alex@example.com')
+})
