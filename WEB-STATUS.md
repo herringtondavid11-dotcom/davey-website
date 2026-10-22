@@ -30,11 +30,12 @@ GitHub access works since 05:21 UTC; `main` deploys to https://daveypersonalfina
 | Settings | Profile name (auth metadata), password change, 2-step + recovery key, sign out / sign out everywhere (confirm), login activity (`login-activity` function, else this browser + last sign-in), connection issues, theme. Account names moved to Accounts. |
 | Exports | Date range (this/last month, YTD, last year, custom), account, All/Personal/Business. CSV (Excel-safe, formula-injection-safe), PDF statement (summary, accounts, categories, transactions), ZIP of all three. Generated in the browser (own PDF/ZIP writers, no third parties). |
 | Tax (Business only) | This/last year: business income, expenses, net profit, P&L by category; estimated tax (SE 15.3% × 92.35% + federal bracket + state, editable, remembered); IRS quarterly periods with due dates and amounts to set aside; deduction finder (personal spending that looks like business, grouped by merchant, one-tap "Mark Business"); CPA package ZIP (P&L PDF + business CSV + category totals). |
+| Ask AI | Floating "Ask AI" button → side panel (full screen on phones): suggested questions per screen, chat history (last 8 turns sent), answers rendered as plain text/lists (never HTML), Esc to close. Sends a small view context (screen, month totals, top categories, net worth — no account numbers or merchants). Explains when `ask-ai` isn't web-enabled yet or the monthly limit is reached. |
 | Connection Help + Report to Plaid | Troubleshooting topics; report form sends to `plaid-report-issue` with Link session/request IDs from the last failed Link; falls back to a pre-filled email if the function isn't deployed. |
 
 ## In progress / next
 
-Recurring + calendar → Ask AI → PWA + polish.
+Recurring + calendar → PWA + polish.
 
 ## Blocked / needs David
 
@@ -52,6 +53,7 @@ Recurring + calendar → Ask AI → PWA + polish.
 | `functions/plaid-report-issue` + `migrations/20261022_plaid_issue_reports.sql` | Report to Plaid in-app | Optional; falls back to email. |
 | `functions/login-activity` | Settings › Login activity across devices | Optional. |
 | `household-invite` (contract in supabase-changes/README.md) | Household › invite from the web | Optional; needs your household schema. |
+| `functions/ask-ai/PATCH.md` (CORS + accept `context`/`history`) | Ask AI on the web | Optional; panel explains it's app-only until then. |
 
 ## Tests
 

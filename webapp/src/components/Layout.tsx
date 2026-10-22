@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useData } from '../lib/DataProvider'
 import { hasBusiness } from '../lib/finance'
 import { MoreIcon, PlusIcon, SignOutIcon } from './Icons'
+import { AskAI } from './AskAI'
 import { IdleWarning } from './IdleWarning'
 import { NAV_GROUPS, TAB_ITEMS } from './nav'
 
@@ -60,6 +61,7 @@ export function Layout() {
           More
         </NavLink>
       </nav>
+      <AskAI />
       <IdleWarning />
     </div>
   )

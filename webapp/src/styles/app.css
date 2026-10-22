@@ -164,7 +164,7 @@ textarea.input { min-height: 88px; resize: vertical; }
 .sidebar .who { padding: 10px 12px; font-size: .8125rem; color: var(--sidebar-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar .nav-link.signout { background: none; border: 0; width: 100%; cursor: pointer; font: inherit; font-weight: 600; }
 
-.main { min-width: 0; padding: 32px clamp(16px, 3vw, 40px) 48px; }
+.main { min-width: 0; padding: 32px clamp(16px, 3vw, 40px) 104px; }
 .page { width: min(100%, 1080px); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .page > * { min-width: 0; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -471,3 +471,46 @@ button.row:hover { background: var(--surface-2); }
 .tips h3 { font-size: .9375rem; margin-bottom: 8px; }
 .tips ul { margin: 0; padding-left: 20px; color: var(--muted); display: grid; gap: 4px; }
 .data-table td.wrap { white-space: normal; }
+
+/* ---------- Ask AI ---------- */
+.ai-fab {
+  position: fixed; right: 24px; bottom: 24px; z-index: 30; display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px; border-radius: 999px; border: 0; cursor: pointer; font-weight: 700;
+  background: var(--navy); color: #fff; box-shadow: 0 10px 30px rgba(19, 28, 40, .3);
+}
+.ai-fab svg { color: var(--gold); }
+:root[data-theme="dark"] .ai-fab { background: var(--gold); color: var(--navy); }
+:root[data-theme="dark"] .ai-fab svg { color: var(--navy); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ai-fab { background: var(--gold); color: var(--navy); } :root:not([data-theme="light"]) .ai-fab svg { color: var(--navy); } }
+.ai-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 45; width: min(420px, 100%);
+  background: var(--surface); color: var(--text); border-left: 1px solid var(--border); box-shadow: -12px 0 40px rgba(19, 28, 40, .18);
+  display: grid; grid-template-rows: auto 1fr auto auto;
+}
+.ai-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 10px 20px; border-bottom: 1px solid var(--border); }
+.ai-head h2 { display: flex; gap: 8px; align-items: center; }
+.ai-head h2 svg { color: var(--gold); }
+.ai-log { overflow-y: auto; padding: 16px 20px; display: grid; gap: 12px; align-content: start; }
+.ai-intro { display: grid; gap: 14px; color: var(--muted); }
+.ai-suggest { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-btn { border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: 8px 12px; font-size: .875rem; cursor: pointer; text-align: left; }
+.chip-btn:hover { border-color: var(--gold); }
+.bubble { max-width: 92%; padding: 10px 14px; border-radius: 16px; display: grid; gap: 8px; font-size: .9375rem; overflow-wrap: anywhere; }
+.bubble.user { justify-self: end; background: var(--navy); color: #fff; border-bottom-right-radius: 4px; }
+:root[data-theme="dark"] .bubble.user { background: var(--gold); color: var(--navy); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bubble.user { background: var(--gold); color: var(--navy); } }
+.bubble.assistant { justify-self: start; background: var(--surface-2); border-bottom-left-radius: 4px; }
+.bubble ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.typing { display: flex; gap: 4px; }
+.typing span:not(.visually-hidden) { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: blink 1s infinite; }
+.typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 50% { opacity: .3; } }
+.ai-form { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); align-items: flex-end; }
+.ai-form textarea { min-height: 44px; resize: none; }
+.ai-foot { font-size: .75rem; color: var(--muted); padding: 0 16px 12px; }
+@media (max-width: 899px) {
+  .ai-fab { bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom)); right: 16px; padding: 12px; }
+  .ai-fab span { display: none; }
+  .ai-panel { width: 100%; padding-bottom: env(safe-area-inset-bottom); }
+}
+@media (prefers-reduced-motion: reduce) { .typing span { animation: none; } }

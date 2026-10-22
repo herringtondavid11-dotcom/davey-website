@@ -116,6 +116,8 @@ export interface MockOptions {
   updateMode?: boolean
   /** household-invite Edge Function is deployed. */
   inviteFunction?: boolean
+  /** ask-ai answers (true), returns the monthly limit (limit), or isn't web-enabled (undefined). */
+  aiFunction?: boolean | 'limit'
   /** login-activity Edge Function is deployed. */
   activityFunction?: boolean
   /** plaid-report-issue Edge Function is deployed. */
@@ -136,6 +138,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     extra: extraTables() as Record<string, Row[]>,
     reportBody: null as unknown,
     inviteBody: null as unknown,
+    aiBody: null as Record<string, unknown> | null,
     exchangeBody: null as unknown,
   }
   const now = new Date().toISOString()
@@ -275,6 +278,12 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       if (!opts.inviteFunction) return json(route, { message: 'Function not found' }, 404)
       state.inviteBody = body
       return json(route, { token: 'tok-new-123' })
+    }
+    if (path === '/functions/v1/ask-ai') {
+      if (!opts.aiFunction) return json(route, { message: 'Function not found' }, 404)
+      state.aiBody = body
+      if (opts.aiFunction === 'limit') return json(route, { error: 'limit' }, 429)
+      return json(route, { answer: 'You could cancel:\n- Spotify ($11.99)\n- Equinox ($49)\n\nThat saves about **$61** a month.' })
     }
     if (path === '/functions/v1/login-activity') {
       if (!opts.activityFunction) return json(route, { message: 'Function not found' }, 404)

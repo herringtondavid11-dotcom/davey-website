@@ -77,6 +77,10 @@ for (const vp of VIEWPORTS) {
         await page.waitForLoadState('networkidle')
         await shot(p.name)
       }
+      await page.goto('/app/')
+      await page.getByRole('button', { name: 'Ask AI' }).click()
+      await expect(page.getByRole('dialog', { name: 'Davey AI' })).toBeVisible()
+      await page.screenshot({ path: `screenshots/${browserName}-${vp.width}-${theme}-22-ask-ai.png`, animations: 'disabled' })
       info.annotations.push({ type: 'screenshots', description: `${browserName}-${vp.width}-${theme}` })
     })
   }

@@ -40,7 +40,7 @@ export function Overview() {
           </section>
 
           <section className="card" aria-labelledby="accts">
-            <div className="card-head"><h2 id="accts">Accounts</h2><Link to="/settings#accounts">Rename</Link></div>
+            <div className="card-head"><h2 id="accts">Accounts</h2><Link to="/accounts">Manage</Link></div>
             {groups.length === 0 ? (
               <div className="empty">
                 <p>No accounts yet.</p>
