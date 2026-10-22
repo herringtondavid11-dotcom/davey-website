@@ -25,23 +25,25 @@ export interface NavItem {
   businessOnly?: boolean
 }
 
+// The five tabs, in the app's order: Overview · Budget · Accounts · Investments · Ask (Ask opens the Davey AI panel, so
+// it's a button in Layout rather than a route).
+export const TAB_ITEMS: NavItem[] = [
+  { to: '/', label: 'Overview', icon: OverviewIcon, end: true },
+  { to: '/budget', label: 'Budget', icon: BudgetIcon },
+  { to: '/accounts', label: 'Accounts', icon: AccountsIcon },
+  { to: '/investments', label: 'Investments', icon: TrendIcon },
+]
+
 export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
+  { items: TAB_ITEMS },
   {
+    label: 'Money',
     items: [
-      { to: '/', label: 'Overview', icon: OverviewIcon, end: true },
       { to: '/transactions', label: 'Transactions', icon: TransactionsIcon },
-      { to: '/budget', label: 'Budget', icon: BudgetIcon },
       { to: '/cash-flow', label: 'Cash flow', icon: CashFlowIcon },
       { to: '/recurring', label: 'Recurring', icon: RecurringIcon },
-    ],
-  },
-  {
-    label: 'Accounts',
-    items: [
-      { to: '/accounts', label: 'Accounts', icon: AccountsIcon },
       { to: '/credit-cards', label: 'Credit cards', icon: CardIcon },
       { to: '/loans', label: 'Mortgages & loans', icon: HomeIcon },
-      { to: '/investments', label: 'Investments', icon: TrendIcon },
     ],
   },
   { label: 'Business', items: [{ to: '/tax', label: 'Tax', icon: ReceiptIcon, businessOnly: true }] },
@@ -57,9 +59,5 @@ export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   },
 ]
 
-export const TAB_ITEMS: NavItem[] = [
-  { to: '/', label: 'Overview', icon: OverviewIcon, end: true },
-  { to: '/transactions', label: 'Activity', icon: TransactionsIcon },
-  { to: '/budget', label: 'Budget', icon: BudgetIcon },
-  { to: '/accounts', label: 'Accounts', icon: AccountsIcon },
-]
+/** Opens the Davey AI panel (AskAI listens). */
+export const openAsk = () => window.dispatchEvent(new Event('davey:ask'))

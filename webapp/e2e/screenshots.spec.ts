@@ -34,7 +34,7 @@ for (const vp of VIEWPORTS) {
       await shot('00-access-code')
       await page.getByLabel('Access code').fill(TEST_PIN)
       await page.getByRole('button', { name: 'Continue' }).click()
-      // Wait for the pass to be saved (the code screen moves on to sign-in) before leaving the page.
+      // Wait for the pass to be saved before leaving the page.
       await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
       await page.goto('/app/signup')
       await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible()
@@ -57,7 +57,8 @@ for (const vp of VIEWPORTS) {
       await shot('03-overview')
 
       // Transactions + edit sheet
-      await page.getByRole('link', { name: phone ? 'Activity' : 'Transactions' }).first().click()
+      if (phone) await page.getByRole('link', { name: 'More' }).click()
+      await page.getByRole('link', { name: 'Transactions' }).first().click()
       await expect(page.getByRole('heading', { name: 'Transactions' })).toBeVisible()
       await shot('04-transactions')
       await page.getByRole('button', { name: /Adobe/ }).first().click()
@@ -88,8 +89,24 @@ for (const vp of VIEWPORTS) {
         await page.waitForLoadState('networkidle')
         await shot(p.name)
       }
+      // Accounts with goals set (savings 50% funded, a card's payoff goal).
+      await page.goto('/app/accounts')
+      const saving = page.locator('.goal-row').filter({ hasText: 'Plaid Saving' })
+      await saving.getByTestId('goal-set').click()
+      await saving.getByTestId('goal-amount').fill('50000')
+      await saving.getByTestId('goal-save').click()
+      await expect(saving.getByText('50% funded')).toBeVisible()
+      const card = page.getByRole('region', { name: 'Credit Cards' }).locator('.goal-row').first()
+      await card.getByTestId('goal-set').click()
+      await shot('10b-accounts-goal-editor')
+      await card.getByTestId('goal-save').click()
+      await expect(page.getByTestId('goals-funded')).toBeVisible()
+      await shot('10c-accounts-goals')
       await page.goto('/app/')
-      await page.getByRole('button', { name: 'Ask AI' }).click()
+      await expect(page.getByRole('heading', { name: 'Goals', exact: true })).toBeVisible()
+      await shot('03b-overview-goals')
+      if (phone) await page.locator('.tabbar').getByRole('button', { name: 'Ask' }).click()
+      else await page.getByRole('button', { name: 'Ask AI' }).click()
       await expect(page.getByRole('dialog', { name: 'Davey AI' })).toBeVisible()
       await page.screenshot({ path: `screenshots/${browserName}-${vp.width}-${theme}-22-ask-ai.png`, animations: 'disabled' })
       info.annotations.push({ type: 'screenshots', description: `${browserName}-${vp.width}-${theme}` })

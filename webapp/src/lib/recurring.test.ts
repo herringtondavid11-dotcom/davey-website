@@ -8,7 +8,7 @@ const list = [
   ...['2026-05-09', '2026-06-09', '2026-07-09', '2026-08-09', '2026-09-09', '2026-10-09'].map((d, i) => tx(`n${i}`, d, 'Netflix', 15.49, 'Subscriptions')),
   ...['2026-07-03', '2026-08-03', '2026-09-03', '2026-10-03'].map((d, i) => tx(`r${i}`, d, 'Greystar Rent #123', 2400, 'Home')),
   ...['2026-08-01', '2026-08-15', '2026-08-29', '2026-09-12', '2026-09-26', '2026-10-10'].map((d, i) => tx(`p${i}`, d, 'Payroll', -2100, 'Income')),
-  ...['2026-08-20', '2026-09-20', '2026-10-20'].map((d, i) => tx(`e${i}`, d, 'PG&E', [120, 160, 142.88][i], 'Bills & Utilities')),
+  ...['2026-08-20', '2026-09-20', '2026-10-20'].map((d, i) => tx(`e${i}`, d, 'Springfield Electric', [120, 160, 142.88][i], 'Bills & Utilities')),
   tx('x1', '2026-10-01', 'Blue Bottle', 6.5), tx('x2', '2026-10-02', 'Blue Bottle', 6.5), tx('x3', '2026-10-03', 'Blue Bottle', 6.5),
   ...['2026-02-01', '2026-03-01', '2026-04-01'].map((d, i) => tx(`old${i}`, d, 'Old Gym', 30)),
 ]
@@ -23,7 +23,7 @@ describe('recurring detection', () => {
     expect(by('Payroll')!.monthly).toBeCloseTo(2100 * 26 / 12)
   })
   it('flags variable bills', () => {
-    expect(by('PG&E')).toMatchObject({ kind: 'bill', variable: true })
+    expect(by('Springfield Electric')).toMatchObject({ kind: 'bill', variable: true })
   })
   it('ignores daily habits and stale streams', () => {
     expect(by('Blue Bottle')).toBeUndefined()

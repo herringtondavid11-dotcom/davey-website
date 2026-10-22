@@ -35,7 +35,7 @@ export function fixtures() {
     ['Adobe', 59.99, 'Subscriptions', 'acc-3', true],
     ['Payroll – Acme Corp', -4200, 'Income', 'acc-1'],
     ['Blue Bottle Coffee', 6.5, 'Dining', 'acc-3'],
-    ['PG&E', 142.88, 'Bills & Utilities', 'acc-1'],
+    ['Springfield Electric', 142.88, 'Bills & Utilities', 'acc-1'],
     ['Delta Air Lines', 412.3, 'Travel', 'acc-3', true],
     ['Shell', 58.12, 'Gas & Transport', 'acc-3'],
     ['Trader Joe’s', 63.45, 'Groceries', 'acc-1'],
@@ -166,6 +166,7 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
       nextPaymentAmount: type === 'creditCard' && a.minimum_payment !== undefined ? cents(a.minimum_payment) : null,
       nextPaymentDueDate: a.next_payment_due_date ? localMidnight(String(a.next_payment_due_date)) : null,
       linkedPropertyID: a.property_value !== undefined ? `${a.id}-home` : null,
+      goalTarget: a.goal_target ?? null, goalStart: a.goal_start ?? null, goalTargetDate: a.goal_target_date ?? null,
     })
     // Davey keeps a mortgage's home as its own (real estate) account.
     if (a.property_value !== undefined) {
@@ -363,7 +364,10 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
         const tx = r.entity === 'transaction' ? state.transactions.find((t) => t.id === r.id) : undefined
         const budget = r.entity === 'budget' ? (state.extra.budgets ?? []).find((b) => b.id === r.id) : undefined
         if (budget) Object.assign(budget, { amount: Number(r.payload.limit) / 100 })
-        else if (account) Object.assign(account, { nickname: r.payload.nickname ?? null, is_business: r.payload.isBusiness === true })
+        else if (account) Object.assign(account, {
+          nickname: r.payload.nickname ?? null, is_business: r.payload.isBusiness === true,
+          goal_target: r.payload.goalTarget ?? null, goal_start: r.payload.goalStart ?? null, goal_target_date: r.payload.goalTargetDate ?? null,
+        })
         else if (tx) {
           const category = householdRecords(state).find((c) => c.entity === 'category' && c.id === r.payload.categoryID)
           Object.assign(tx, { notes: r.payload.note || null, category: category ? category.payload.name : null })

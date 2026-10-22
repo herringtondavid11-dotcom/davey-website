@@ -34,7 +34,7 @@ const BANDS: [Frequency, number, number, number][] = [
 ]
 const PER_MONTH: Record<Frequency, number> = { weekly: 52 / 12, biweekly: 26 / 12, monthly: 1, quarterly: 1 / 3, yearly: 1 / 12 }
 const SUBSCRIPTION_HINT = /subscription|streaming|software|netflix|spotify|hulu|disney|apple|google|youtube|adobe|microsoft|amazon prime|icloud|dropbox|patreon|gym|equinox|peloton|nytimes|audible/i
-const BILL_HINT = /rent|mortgage|utilit|electric|gas co|water|internet|comcast|xfinity|verizon|at&t|t-mobile|insurance|pg&e|loan/i
+const BILL_HINT = /rent|mortgage|utilit|electric|gas co|water|internet|comcast|xfinity|verizon|at&t|t-mobile|insurance|loan/i
 
 export function merchantKey(name: string): string {
   return name

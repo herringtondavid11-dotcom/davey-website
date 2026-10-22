@@ -138,6 +138,9 @@ export function toRows(input: {
       property_value: propertyValue(text(p.linkedPropertyID)),
       next_payment_due_date: localDay(p.nextPaymentDueDate),
       last_synced_at: text(bank?.lastSyncedAt),
+      goal_target: optMinor(p.goalTarget),
+      goal_start: optMinor(p.goalStart),
+      goal_target_date: localDay(p.goalTargetDate),
       household_id: a.household_id,
     } as Row
   })
@@ -216,6 +219,32 @@ export async function pushChange(entity: string, id: string, changes: Row): Prom
   if (error) throw new Error(error.code === '42501' ? 'Your household is read-only right now.' : error.message)
   if (applied === 0) throw new Error('This record was changed on another device. Reload and try again.')
   record.payload = payload
+}
+
+/**
+ * Adds a manual account the way the app's Add Account does (source manual, starting balance = today's balance; debts
+ * are stored negative). It appears in the iPhone/Mac app on their next sync.
+ */
+export async function createManualAccount(input: { name: string; type: string; balance: number }): Promise<string> {
+  const data = await loadDaveyData()
+  const household = [...data.records.values()][0]?.household_id
+  if (!household) throw new Error('Accounts are shared through your household. Turn on Household Sharing in the Davey app.')
+  const id = crypto.randomUUID()
+  const cents = Math.round(Math.abs(input.balance) * 100)
+  const payload = {
+    name: input.name.trim(), nickname: null, type: input.type,
+    startingBalance: LIABILITY_TYPES.has(input.type) ? -cents : Math.round(input.balance * 100),
+    source: 'manual', externalID: null, mask: null, bankConnectionID: null, isArchived: false, isBusiness: false,
+    businessName: '', createdAt: new Date().toISOString(), notes: '', goalTarget: null, goalTargetDate: null, goalStart: null,
+  }
+  const updated = new Date().toISOString()
+  const { error } = await supabase.rpc('push_household_records', {
+    p_household: household,
+    p_records: [{ entity: 'account', id, payload, updated_at: updated, deleted: false }],
+  })
+  if (error) throw new Error(error.code === '42501' ? 'Your household is read-only right now.' : error.message)
+  data.records.set(`account:${id}`, { household_id: household, entity: 'account', id, payload, updated_at: updated })
+  return id
 }
 
 /** Davey's All Accounts View (Lens.allAccountsID): budgets made on the web belong to it. */

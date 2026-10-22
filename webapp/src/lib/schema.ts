@@ -92,6 +92,11 @@ export interface Account {
   nextPaymentDue?: string
   propertyValue?: number
   lastSynced?: string
+  /** Account goal (dollars): savings → the goal balance; card or loan → the balance to get down to (0 = paid off). */
+  goalTarget?: number
+  /** Debt goals: what was owed when the goal was set. */
+  goalStart?: number
+  goalTargetDate?: string
   raw: Row
 }
 
@@ -149,6 +154,9 @@ export function normalizeAccount(row: Row): Account {
     nextPaymentDue: str(pick(row, c.nextPaymentDue))?.slice(0, 10),
     propertyValue: optNum(pick(row, c.propertyValue)),
     lastSynced: str(pick(row, c.lastSynced)),
+    goalTarget: optNum(row.goal_target),
+    goalStart: optNum(row.goal_start),
+    goalTargetDate: str(row.goal_target_date)?.slice(0, 10),
     raw: row,
   }
 }

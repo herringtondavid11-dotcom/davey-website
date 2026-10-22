@@ -8,7 +8,9 @@ test('accounts: nickname and Business toggle on every account, connection issues
   await expect(page.getByRole('heading', { name: '1 connection needs attention' })).toBeVisible()
   await expect(page.getByText('Needs you to sign in again').first()).toBeVisible()
 
-  const saving = page.getByRole('region', { name: 'Chase' }).locator('.account-editor').filter({ hasText: 'Plaid Saving' })
+  const row = page.getByRole('region', { name: 'Savings' }).locator('.goal-row').filter({ hasText: 'Plaid Saving' })
+  await row.locator('.goal-row-head').click()
+  const saving = row.locator('.account-editor')
   await saving.getByRole('textbox').fill('Rainy day')
   await saving.getByRole('button', { name: 'Save' }).click()
   await expect(saving.getByRole('status')).toHaveText('Saved')
@@ -69,12 +71,77 @@ test('connection help: falls back to email while link-support is not web-enabled
   expect(decodeURIComponent(mailto)).toContain('Institution: Ally')
 })
 
-test('phone: More tab lists every section', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+test('phone: five tabs in the app order, Ask opens Davey AI, More lists every other section', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 })
   await mockBackend(page, { signedIn: true })
   await page.goto('/app/')
-  await page.locator('.tabbar').getByRole('link', { name: 'More' }).click()
-  for (const name of ['Cash flow', 'Recurring', 'Credit cards', 'Mortgages & loans', 'Investments', 'Tax', 'Household', 'Exports', 'Connection help', 'Settings']) {
+  const bar = page.locator('.tabbar')
+  await expect(bar.locator('.tab')).toHaveText(['Overview', 'Budget', 'Accounts', 'Investments', 'Ask'])
+  for (const tab of await bar.locator('.tab').all()) {
+    const box = (await tab.boundingBox())!
+    expect(box.width).toBeGreaterThan(60)
+    // The label fits its tab (no clipping at 360px).
+    expect(await tab.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
+  }
+  await bar.getByRole('link', { name: 'Accounts' }).click()
+  await expect(page.getByRole('heading', { name: 'Accounts', level: 1 })).toBeVisible()
+  await bar.getByRole('button', { name: 'Ask' }).click()
+  await expect(page.locator('#ask-ai')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.getByRole('link', { name: 'More' }).click()
+  for (const name of ['Transactions', 'Cash flow', 'Recurring', 'Credit cards', 'Mortgages & loans', 'Tax', 'Household', 'Exports', 'Connection help', 'Settings']) {
     await expect(page.getByRole('link', { name, exact: true })).toBeVisible()
   }
+})
+
+test('desktop sidebar: Overview, Budget, Accounts, Investments, Ask first', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await mockBackend(page, { signedIn: true })
+  await page.goto('/app/')
+  await expect(page.locator('.sidebar .nav-group').first().locator('.nav-link')).toHaveText(['Overview', 'Budget', 'Accounts', 'Investments', 'Ask'])
+})
+
+test('goals: set a savings goal and a payoff goal inline; header totals % funded; synced as the app stores them', async ({ page }) => {
+  const problems = watchConsole(page)
+  const state = await mockBackend(page, { signedIn: true })
+  await page.goto('/app/accounts')
+  await expect(page.getByText('Set a goal on any account')).toBeVisible()
+  for (const g of ['Cash', 'Savings', 'Credit Cards', 'Loans & Mortgages', 'Investments']) await expect(page.getByRole('region', { name: g, exact: true })).toBeVisible()
+
+  // Plaid Saving: 25,000 toward a 50,000 goal → 50% funded (Gold band).
+  const saving = page.getByRole('region', { name: 'Savings' }).locator('.goal-row').filter({ hasText: 'Plaid Saving' })
+  await saving.getByTestId('goal-set').click()
+  await saving.getByTestId('goal-amount').fill('50,000')
+  await saving.getByTestId('goal-save').click()
+  await expect(saving.getByText('50% funded')).toBeVisible()
+  await expect(saving.getByRole('progressbar')).toHaveClass(/band-mid/)
+  await expect(page.getByTestId('goals-funded')).toHaveText('50% funded across 1 goal')
+
+  // A card: payoff goal (0) starts at 0% paid off and remembers what's owed now.
+  const card = page.getByRole('region', { name: 'Credit Cards' }).locator('.goal-row').first()
+  await card.getByTestId('goal-set').click()
+  await card.getByTestId('goal-save').click()
+  await expect(card.getByText('0% paid off')).toBeVisible()
+  await expect(card.getByTestId('goal-edit')).toHaveText('Goal: pay off')
+
+  const pushes = pushedPayloads(state, 'account', (id) => id === 'acc-2')
+  expect(pushes.at(-1)).toMatchObject({ goalTarget: 5_000_000, goalStart: null, goalTargetDate: null, name: 'Plaid Saving' })
+  const cardPush = state.pushes.flatMap((p) => p.p_records as { entity: string; id: string; payload: Record<string, unknown> }[]).filter((r) => r.entity === 'account' && r.id !== 'acc-2').at(-1)!
+  expect(cardPush.payload.goalTarget).toBe(0)
+  expect(Number(cardPush.payload.goalStart)).toBeGreaterThan(0)
+
+  // Remove the savings goal again.
+  await saving.getByTestId('goal-edit').click()
+  await saving.getByRole('button', { name: 'Remove goal' }).click()
+  await expect(saving.getByTestId('goal-set')).toBeVisible()
+  expect(problems).toEqual([])
+})
+
+test('accounts: sort and search', async ({ page }) => {
+  await mockBackend(page, { signedIn: true })
+  await page.goto('/app/accounts')
+  await page.getByRole('group', { name: 'Sort' }).getByRole('button', { name: 'Name' }).click()
+  await page.getByLabel('Search accounts').fill('saving')
+  await expect(page.locator('.goal-row')).toHaveCount(1)
+  await expect(page.locator('.goal-row')).toContainText('Plaid Saving')
 })

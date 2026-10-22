@@ -1,15 +1,28 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ConnectionRow } from '../components/ConnectionStatus'
-import { PlusIcon } from '../components/Icons'
+import { GoalBar } from '../components/GoalBar'
+import { ChevronIcon, PlusIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
+import { GROUPS, fraction, goalRow, groupOf, signedCents, sortAccounts, summary, type GoalSort } from '../lib/accountGoals'
 import { useData } from '../lib/DataProvider'
-import { updateAccountNickname, updateAccountUsage } from '../lib/data'
+import { refreshData, updateAccountGoal, updateAccountNickname, updateAccountUsage } from '../lib/data'
 import { isLiability } from '../lib/finance'
-import { displayName, maskLabel, money, typeLabel } from '../lib/format'
+import { displayName, maskLabel, money, percentText, typeLabel } from '../lib/format'
 import type { Account, Usage } from '../lib/schema'
+import { createManualAccount } from '../lib/serverData'
 import { normalizeItem } from '../lib/tables'
 import { useTable } from '../lib/useTable'
+
+// The Accounts tab (same as the app's AccountsTabView): every account with its goal. The header totals the balances
+// and the goals (cumulative % funded, accounts with a goal only); rows are grouped Cash, Savings, Credit Cards, Loans &
+// Mortgages, Investments, Other. Debts have payoff goals ("paid off"). Goals sync with the app through household data.
+
+const SORTS: { key: GoalSort; label: string }[] = [
+  { key: 'funded', label: '% Funded' },
+  { key: 'balance', label: 'Balance' },
+  { key: 'name', label: 'Name' },
+]
 
 function AccountEditor({ a }: { a: Account }) {
   const { replaceAccount } = useData()
@@ -32,13 +45,7 @@ function AccountEditor({ a }: { a: Account }) {
 
   return (
     <div className="account-editor">
-      <div className="account-editor-head">
-        <div style={{ minWidth: 0 }}>
-          <div className="row-title">{displayName(a)}</div>
-          <div className="row-sub">{[a.name !== displayName(a) ? a.name : null, maskLabel(a.mask), typeLabel(a.type)].filter(Boolean).join(' · ')}</div>
-        </div>
-        <div className={'row-amount ' + (isLiability(a) ? 'negative' : '')}>{money(isLiability(a) ? -Math.abs(a.balance) : a.balance, a.currency)}</div>
-      </div>
+      <div className="row-sub">{[a.name !== displayName(a) ? a.name : null, a.institution, maskLabel(a.mask), typeLabel(a.type)].filter(Boolean).join(' · ')}</div>
       <form
         className="account-editor-fields"
         onSubmit={async (e) => {
@@ -73,49 +80,227 @@ function AccountEditor({ a }: { a: Account }) {
   )
 }
 
+/** Set or edit a goal: an amount (for debts, the balance to get down to; 0 = paid off) and an optional date. */
+function GoalEditor({ a, onDone }: { a: Account; onDone: () => void }) {
+  const { replaceAccount } = useData()
+  const debt = isLiability(a)
+  const [amount, setAmount] = useState(a.goalTarget !== undefined ? String(a.goalTarget) : '')
+  const [date, setDate] = useState(a.goalTargetDate ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const value = amount.trim() === '' ? (debt ? 0 : NaN) : Number(amount.replace(/[$,\s]/g, ''))
+  const valid = Number.isFinite(value) && (debt ? value >= 0 : value > 0)
+
+  async function save(target: number | undefined) {
+    setBusy(true)
+    setError('')
+    try {
+      replaceAccount(await updateAccountGoal(a, target, date || undefined))
+      onDone()
+    } catch (e) {
+      setError((e as Error).message || "Couldn't save the goal.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    if (valid) void save(value)
+  }
+
+  return (
+    <form className="goal-editor" onSubmit={submit} aria-label={`Goal for ${displayName(a)}`}>
+      <label className="field">
+        <span>{debt ? 'Target balance (0 = paid off)' : 'Goal amount'}</span>
+        <input className="input" inputMode="decimal" autoFocus value={amount} placeholder={debt ? '0' : '10,000'} onChange={(e) => setAmount(e.target.value)} data-testid="goal-amount" />
+      </label>
+      <label className="field">
+        <span>Target date (optional)</span>
+        <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </label>
+      <p className="muted small">{debt ? "Payoff goals track what you've paid down from today's balance." : 'Progress is the balance divided by the goal.'}</p>
+      {error && <p className="error small" role="alert">{error}</p>}
+      <div className="row-actions">
+        <button className="btn btn-primary btn-sm" disabled={!valid || busy} data-testid="goal-save">{busy ? 'Saving…' : 'Save goal'}</button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onDone}>Cancel</button>
+        {a.goalTarget !== undefined && <button type="button" className="link-btn" disabled={busy} onClick={() => save(undefined)}>Remove goal</button>}
+      </div>
+    </form>
+  )
+}
+
+function AccountGoalRow({ a }: { a: Account }) {
+  const [editing, setEditing] = useState(false)
+  const [open, setOpen] = useState(false)
+  const row = goalRow(a)
+  const f = fraction(row)
+  const debt = isLiability(a)
+  return (
+    <li className="goal-row">
+      <button type="button" className="goal-row-head" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <span className="row-title">{displayName(a)}</span>
+        <span className={'row-amount ' + (debt ? 'negative' : '')}>{money(debt ? -Math.abs(a.balance) : a.balance, a.currency)}</span>
+        <ChevronIcon className={open ? 'chev open' : 'chev'} />
+      </button>
+      {f !== undefined && row.goal !== undefined ? (
+        <>
+          <GoalBar fraction={f} label={`${displayName(a)} goal progress`} />
+          <div className="goal-meta">
+            <button type="button" className="link-btn small" onClick={() => setEditing((v) => !v)} data-testid="goal-edit">
+              {debt ? (row.goal === 0 ? 'Goal: pay off' : `Goal: ${money(row.goal / 100)} owed`) : `Goal: ${money(row.goal / 100)}`}
+              {a.goalTargetDate && ` by ${new Date(`${a.goalTargetDate}T12:00:00`).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`}
+            </button>
+            <strong className="small num">{percentText(f * 100)} {debt ? 'paid off' : 'funded'}</strong>
+          </div>
+        </>
+      ) : (
+        !editing && <button type="button" className="link-btn small goal-set" onClick={() => setEditing(true)} data-testid="goal-set">Set goal</button>
+      )}
+      {editing && <GoalEditor a={a} onDone={() => setEditing(false)} />}
+      {open && <AccountEditor a={a} />}
+    </li>
+  )
+}
+
+const MANUAL_TYPES = [
+  ['checking', 'Checking'], ['savings', 'Savings'], ['cash', 'Cash'], ['creditCard', 'Credit card'], ['loan', 'Loan'],
+  ['investment', 'Investment'], ['property', 'Real estate'], ['vehicle', 'Vehicle'], ['crypto', 'Crypto'],
+  ['otherAsset', 'Other asset'], ['otherLiability', 'Other liability'],
+] as const
+
+function AddAccount({ onClose }: { onClose: () => void }) {
+  const { reload } = useData()
+  const [name, setName] = useState('')
+  const [type, setType] = useState<string>('checking')
+  const [balance, setBalance] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const amount = Number(balance.replace(/[$,\s]/g, '') || '0')
+  return (
+    <section className="card card-pad" aria-labelledby="add-title">
+      <form
+        className="add-account"
+        onSubmit={async (e) => {
+          e.preventDefault()
+          if (!name.trim() || !Number.isFinite(amount)) return
+          setBusy(true)
+          setError('')
+          try {
+            await createManualAccount({ name, type, balance: amount })
+            await refreshData()
+            await reload()
+            onClose()
+          } catch (err) {
+            setError((err as Error).message || "Couldn't add the account.")
+          } finally {
+            setBusy(false)
+          }
+        }}
+      >
+        <h2 id="add-title">Add an account</h2>
+        <div className="field-row">
+          <label className="field"><span>Name</span><input className="input" required maxLength={40} value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <label className="field"><span>Type</span>
+            <select className="input" value={type} onChange={(e) => setType(e.target.value)}>
+              {MANUAL_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
+        </div>
+        <label className="field"><span>{type === 'creditCard' || type === 'loan' || type === 'otherLiability' ? 'Amount owed' : 'Balance'}</span>
+          <input className="input" inputMode="decimal" value={balance} placeholder="0.00" onChange={(e) => setBalance(e.target.value)} />
+        </label>
+        {error && <p className="error small" role="alert">{error}</p>}
+        <div className="row-actions">
+          <button className="btn btn-primary" disabled={busy || !name.trim()}>{busy ? 'Adding…' : 'Add Account'}</button>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </form>
+    </section>
+  )
+}
+
 export function Accounts() {
   const { accounts, error } = useData()
   const items = useTable('items')
   const connections = useMemo(() => (items.result?.rows ?? []).map(normalizeItem), [items.result])
   const [showHidden, setShowHidden] = useState(false)
+  const [sort, setSort] = useState<GoalSort>('funded')
+  const [query, setQuery] = useState('')
+  const [adding, setAdding] = useState(false)
 
   if (!accounts) return <Spinner label="Loading accounts" />
-  const byInstitution = new Map<string, Account[]>()
-  for (const a of accounts) {
-    if (a.hidden && !showHidden) continue
-    const key = a.institution ?? 'Other accounts'
-    byInstitution.set(key, [...(byInstitution.get(key) ?? []), a])
-  }
+  const shown = accounts.filter((a) => showHidden || !a.hidden)
+  const visible = accounts.filter((a) => !a.hidden)
+  const totals = summary(visible.map(goalRow), visible.reduce((s, a) => s + signedCents(a), 0))
+  const q = query.trim().toLowerCase()
+  const filtered = q ? shown.filter((a) => `${displayName(a)} ${a.name} ${a.institution ?? ''}`.toLowerCase().includes(q)) : shown
   const issues = connections.filter((c) => c.health !== 'ok')
   const hiddenCount = accounts.filter((a) => a.hidden).length
 
   return (
     <div className="page">
       <div className="page-head">
-        <div><h1>Accounts</h1><p>Nicknames and Business/Personal sync with the Davey app.</p></div>
-        <Link className="btn btn-primary" to="/connect"><PlusIcon size={18} />Connect a Bank</Link>
+        <div><h1>Accounts</h1><p>Balances and goals for every account. Goals sync with the Davey app.</p></div>
+        <div className="row-actions">
+          <Link className="btn btn-primary" to="/connect"><PlusIcon size={18} />Connect a Bank</Link>
+          <button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}>Add Account</button>
+        </div>
       </div>
       {error && <p className="error" role="alert">{error}</p>}
+
+      <section className="card networth goals-head" aria-labelledby="goals-total">
+        <div className="goals-head-top">
+          <div>
+            <div className="label" id="goals-total">Total balance</div>
+            <div className="value num" data-testid="accounts-total">{money(totals.totalBalance / 100)}</div>
+          </div>
+          <div className="goals-head-goals">
+            <div className="label">Goals</div>
+            <strong className="num">{money(totals.totalGoals / 100)}</strong>
+          </div>
+        </div>
+        {totals.fraction !== undefined ? (
+          <>
+            <GoalBar fraction={totals.fraction} big label="All goals" />
+            <strong data-testid="goals-funded">{percentText(totals.fraction * 100)} funded across {totals.goalCount} {totals.goalCount === 1 ? 'goal' : 'goals'}</strong>
+          </>
+        ) : (
+          <p className="goals-hint">Set a goal on any account to track your progress here.</p>
+        )}
+      </section>
+
+      {adding && <AddAccount onClose={() => setAdding(false)} />}
+
       {issues.length > 0 && (
         <section className="card alert-card" aria-labelledby="issues-title">
           <div className="card-head"><h2 id="issues-title">{issues.length === 1 ? '1 connection needs attention' : `${issues.length} connections need attention`}</h2></div>
           {issues.map((c) => <ConnectionRow key={c.id} c={c} />)}
         </section>
       )}
-      {[...byInstitution.entries()].map(([institution, list]) => {
-        const conn = connections.find((c) => c.institution === institution)
+
+      {accounts.length > 0 && (
+        <div className="goals-tools">
+          <input className="input" type="search" placeholder="Search accounts" aria-label="Search accounts" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <div className="segmented compact" role="group" aria-label="Sort">
+            {SORTS.map((s) => <button key={s.key} type="button" aria-pressed={sort === s.key} onClick={() => setSort(s.key)}>{s.label}</button>)}
+          </div>
+        </div>
+      )}
+
+      {GROUPS.map((g) => {
+        const list = sortAccounts(filtered.filter((a) => groupOf(a) === g.key), sort, displayName)
+        if (!list.length) return null
         return (
-          <section className="card" key={institution} aria-label={institution}>
-            <div className="card-head">
-              <h2>{institution}</h2>
-              {conn && conn.health === 'ok' && <span className="status status-ok">Connected</span>}
-            </div>
-            {list.map((a) => <AccountEditor key={a.id} a={a} />)}
+          <section className="card" key={g.key} aria-label={g.title}>
+            <div className="group-label"><span>{g.title}</span></div>
+            <ul className="list">{list.map((a) => <AccountGoalRow key={a.id} a={a} />)}</ul>
           </section>
         )
       })}
+      {accounts.length > 0 && filtered.length === 0 && <p className="muted">No accounts match “{query}”.</p>}
       {accounts.length === 0 && (
-        <section className="card"><div className="empty"><p>No accounts yet.</p><Link className="btn btn-primary" to="/connect">Connect a Bank</Link></div></section>
+        <section className="card"><div className="empty"><p>No accounts yet. Connect a bank or add an account to track balances and goals.</p><Link className="btn btn-primary" to="/connect">Connect a Bank</Link></div></section>
       )}
       {connections.length > 0 && (
         <section className="card" aria-labelledby="conn-title">

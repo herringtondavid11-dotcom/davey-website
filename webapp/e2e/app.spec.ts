@@ -1,18 +1,26 @@
 import { expect, test } from '@playwright/test'
 import { pushedPayloads, mockBackend, watchConsole } from './mock'
 
-test('overview shows net worth, accounts with nickname and last 4, recent transactions', async ({ page }) => {
+test('overview: net worth trend, this week, cash flow, categories, budget, goals and the 5 latest transactions', async ({ page }) => {
   const problems = watchConsole(page)
   await mockBackend(page, { signedIn: true })
   await page.goto('/app/')
   // Assets 8,420.17 + 25,000 + 512,640.55 + 12,800 + the home 690,000 (its own Real Estate account in Davey);
   // debts 1,875.42 + 3,400 + 412,300 + 18,250.
   await expect(page.getByTestId('net-worth')).toHaveText('$813,035.30')
-  await expect(page.getByText('Joint checking', { exact: true })).toBeVisible()
-  await expect(page.getByText('Chase · •••• 0000')).toBeVisible()
-  await expect(page.getByText('Plaid Saving', { exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Recent transactions' })).toBeVisible()
-  await expect(page.getByText('Whole Foods Market').first()).toBeVisible()
+  for (const h of ['This week', 'Cash flow', 'Spending by category', 'Monthly budget', 'Goals', 'Recent transactions']) {
+    await expect(page.getByRole('heading', { name: h, exact: true })).toBeVisible()
+  }
+  await expect(page.getByTestId('net-worth-change')).toContainText('6M')
+  await page.getByRole('group', { name: 'Net worth range' }).getByRole('button', { name: '1Y' }).click()
+  await expect(page.getByTestId('net-worth-change')).toContainText('1Y')
+  await expect(page.getByRole('img', { name: /Net worth, 1Y/ }).first()).toBeVisible()
+  await expect(page.getByTestId('net-savings')).toContainText('Net savings, 6 months')
+  await expect(page.locator('.recent-card .list > li')).toHaveCount(5)
+  // The account list moved to the Accounts tab.
+  await expect(page.getByText('Chase · •••• 0000')).toHaveCount(0)
+  await page.getByTestId('goals-open').click()
+  await expect(page).toHaveURL(/\/app\/accounts$/)
   expect(problems).toEqual([])
 })
 
@@ -61,6 +69,8 @@ test('connect a bank: web link token, Plaid Link, exchange, then Name Your Accou
   await page.getByLabel(/Platypus Checking/).fill('Emergency fund')
   await page.getByRole('button', { name: 'Done' }).click()
   await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
+  // Accounts are listed on the Accounts tab.
+  await page.locator('.sidebar').getByRole('link', { name: 'Accounts' }).click()
   await expect(page.getByText('Emergency fund', { exact: true })).toBeVisible()
   expect(pushedPayloads(state, 'account', (_, p) => p.externalID === 'p-new-1').at(-1)).toMatchObject({ nickname: 'Emergency fund' })
   expect(problems).toEqual([])

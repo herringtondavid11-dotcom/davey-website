@@ -1,4 +1,5 @@
 import { categoryID, loadDaveyData, pushChange, reloadDaveyData, saveMonthlyBudget } from './serverData'
+import { isLiability } from './finance'
 import {
   TRANSACTION_COLUMNS,
   normalizeAccount,
@@ -19,6 +20,11 @@ export async function fetchAccounts(): Promise<Account[]> {
 export async function fetchTransactions(page = 0, pageSize = TRANSACTION_PAGE): Promise<Transaction[]> {
   const from = page * pageSize
   return (await loadDaveyData()).transactions.slice(from, from + pageSize).map(normalizeTransaction)
+}
+
+/** Every loaded transaction (not just the first page): the Overview's history and trends need all of them. */
+export async function fetchAllTransactions(): Promise<Transaction[]> {
+  return (await loadDaveyData()).transactions.map(normalizeTransaction)
 }
 
 /** After connecting a bank: the app imports it and shares it with the household; reload what's on the server. */
@@ -71,6 +77,24 @@ export async function updateAccountNickname(a: Account, nickname: string): Promi
 export async function updateAccountUsage(a: Account, usage: Usage): Promise<Account> {
   await pushChange('account', a.id, { isBusiness: usage === 'business' })
   return { ...a, usage }
+}
+
+/**
+ * Sets (or clears, with `target` undefined) an account's goal, as the app's Account.setGoal does: for a card or loan it
+ * remembers what's owed now, so progress is what's paid down from here.
+ */
+export async function updateAccountGoal(a: Account, target: number | undefined, date?: string): Promise<Account> {
+  const owed = isLiability(a) ? Math.abs(a.balance) : undefined
+  const goalStart = target !== undefined ? owed : undefined
+  await pushChange('account', a.id, {
+    goalTarget: target === undefined ? null : Math.round(Math.abs(target) * 100),
+    goalTargetDate: target === undefined || !date ? null : new Date(`${date}T12:00:00`).toISOString(),
+    goalStart: goalStart === undefined ? null : Math.round(goalStart * 100),
+  })
+  // Keep the session's rows in step so a reload shows the new goal before the next full fetch.
+  const row = (await loadDaveyData()).accounts.find((r) => r.id === a.id)
+  if (row) Object.assign(row, { goal_target: target === undefined ? undefined : Math.abs(target), goal_start: goalStart, goal_target_date: target === undefined ? undefined : date || undefined })
+  return { ...a, goalTarget: target === undefined ? undefined : Math.abs(target), goalStart, goalTargetDate: target === undefined ? undefined : date || undefined }
 }
 
 /** This month's budget for a category, saved to the household's shared records (the app's Budget tab shows it). */

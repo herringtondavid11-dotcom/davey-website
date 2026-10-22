@@ -3,11 +3,11 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useData } from '../lib/DataProvider'
 import { hasBusiness } from '../lib/finance'
-import { MoreIcon, PlusIcon, SignOutIcon } from './Icons'
+import { MoreIcon, PlusIcon, SignOutIcon, SparkleIcon } from './Icons'
 import { Spinner } from './Spinner'
 import { AskAI } from './AskAI'
 import { IdleWarning } from './IdleWarning'
-import { NAV_GROUPS, TAB_ITEMS } from './nav'
+import { NAV_GROUPS, TAB_ITEMS, openAsk } from './nav'
 
 export function Layout() {
   const { email, signOut } = useAuth()
@@ -37,6 +37,12 @@ export function Layout() {
                     {label}
                   </NavLink>
                 ))}
+                {i === 0 && (
+                  <button type="button" className="nav-link nav-button" onClick={openAsk}>
+                    <SparkleIcon size={20} />
+                    Ask
+                  </button>
+                )}
               </div>
             )
           })}
@@ -48,6 +54,15 @@ export function Layout() {
           Sign out
         </button>
       </aside>
+      <header className="mobile-bar">
+        <a className="brand" href={import.meta.env.BASE_URL}>
+          <img src={`${import.meta.env.BASE_URL}icon-96.png`} alt="" width="28" height="28" />
+          Davey
+        </a>
+        <NavLink to="/more" className={() => 'mobile-more' + (inMore ? ' active' : '')} aria-label="More">
+          <MoreIcon />
+        </NavLink>
+      </header>
       <main className="main" id="main">
         <Suspense fallback={<Spinner />}>
           <Outlet />
@@ -60,10 +75,10 @@ export function Layout() {
             {label}
           </NavLink>
         ))}
-        <NavLink to="/more" className={() => 'tab' + (inMore ? ' active' : '')}>
-          <MoreIcon />
-          More
-        </NavLink>
+        <button type="button" className="tab" onClick={openAsk}>
+          <SparkleIcon />
+          Ask
+        </button>
       </nav>
       <AskAI />
       <IdleWarning />

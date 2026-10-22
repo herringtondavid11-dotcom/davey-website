@@ -40,6 +40,12 @@ export function AskAI() {
   const log = useRef<HTMLDivElement>(null)
   const opener = useRef<HTMLButtonElement>(null)
 
+  // The Ask tab (phone) and the sidebar's Ask open the panel too.
+  useEffect(() => {
+    const show = () => setOpen(true)
+    window.addEventListener('davey:ask', show)
+    return () => window.removeEventListener('davey:ask', show)
+  }, [])
   useEffect(() => {
     if (!open) return
     inputRef.current?.focus()

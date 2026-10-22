@@ -27,12 +27,14 @@ async function focusContrast(page: Page): Promise<number> {
 }
 
 for (const scheme of ['light', 'dark'] as const) {
-  test(`keyboard focus is visible at 3:1 or more (${scheme})`, async ({ page }) => {
+  test(`keyboard focus is visible at 3:1 or more (${scheme})`, async ({ page, browserName }) => {
     await page.emulateMedia({ colorScheme: scheme })
     await mockBackend(page, { accessPass: false })
     await page.goto('/app/access')
     await page.getByLabel('Access code').focus()
     expect(await focusContrast(page), 'access code field').toBeGreaterThanOrEqual(3)
+    // WebKit's Tab only stops at text fields (links and buttons need Option-Tab), so the rest runs elsewhere.
+    if (browserName === 'webkit') return
     const results: string[] = []
     // Signed in: a sidebar link (navy) and a page button (card).
     await mockBackend(page, { signedIn: true })
