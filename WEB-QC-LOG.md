@@ -124,3 +124,12 @@ the GitHub Pages run instead.
   Try again button.
 - New tests: auth.spec "leftover unfinished 2-step setup never blocks setup", mfaNames.test.
 - Counts: Vitest 117/117, Playwright Chromium 105/105.
+
+## Loop 14 — 2026-10-22 14:56 UTC (David: replace the QR setup with a code by text; chose email, free)
+- Web 2-step is now: password → "Check your email" → enter the code from Davey's sign-in email. QR/authenticator
+  enrollment, recovery keys and the TOTP challenge are removed from the web. Settings › Security says so.
+- One code per sign-in (a reload doesn't send another), "Send a new code" after 60 s, clear email-limit message,
+  "Use a different account". Password-reset links count as verified (they already prove the email).
+- Tests: auth.spec rewritten (email code sign-in, no QR, one send, resend wait, rate limit, Settings wording, reset
+  links); access.spec/screenshots use the email code; emailCode.test.
+- Counts: Vitest 112/112, Playwright Chromium 105/105.

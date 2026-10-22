@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
-import { createBackupKey, listFactors, type FactorSummary } from '../auth/mfa'
 import { ConnectionRow } from '../components/ConnectionStatus'
 import { InstallApp } from '../components/InstallApp'
 import { ACTION_LABEL, describeAgent, fetchLoginActivity, type LoginEvent } from '../lib/activity'
@@ -11,7 +10,6 @@ import { supabase } from '../lib/supabase'
 import { normalizeItem } from '../lib/tables'
 import { applyTheme, readTheme, type ThemePref } from '../lib/theme'
 import { useTable } from '../lib/useTable'
-import { RecoveryKeyPanel } from './RecoveryKey'
 
 export function Profile() {
   const { session } = useAuth()
@@ -124,18 +122,10 @@ function LoginActivity() {
 }
 
 export function Settings() {
-  const { signOut } = useAuth()
+  const { signOut, email } = useAuth()
   const [theme, setTheme] = useState<ThemePref>(readTheme)
-  const [factors, setFactors] = useState<FactorSummary | null>(null)
-  const [newKey, setNewKey] = useState<string | null>(null)
-  const [keyError, setKeyError] = useState('')
-  const [busy, setBusy] = useState(false)
   const items = useTable('items')
   const issues = useMemo(() => (items.result?.rows ?? []).map(normalizeItem).filter((c) => c.health !== 'ok'), [items.result])
-
-  useEffect(() => {
-    listFactors().then(setFactors, () => undefined)
-  }, [newKey])
 
   async function signOutEverywhere() {
     if (!window.confirm('Sign out on every device, including the Davey app on your iPhone and Mac?')) return
@@ -153,36 +143,9 @@ export function Settings() {
         <div className="settings-row">
           <div>
             <strong>2-step verification</strong>
-            <p className="muted">{factors?.primary ? 'On · authenticator app' : 'Checking…'}</p>
+            <p className="muted">On · after your password, a code is emailed to {email ?? 'your account email'} at each sign-in.</p>
           </div>
         </div>
-        <div className="settings-row">
-          <div>
-            <strong>Recovery key</strong>
-            <p className="muted">{factors ? (factors.backup ? 'Saved. Make a new one if you lost it; the old one stops working.' : 'Not set up. Make one so you can sign in without your phone.') : 'Checking…'}</p>
-          </div>
-          {!newKey && (
-            <button
-              className="btn btn-secondary"
-              disabled={!factors || busy}
-              onClick={async () => {
-                setBusy(true)
-                setKeyError('')
-                try {
-                  setNewKey(await createBackupKey(factors?.backup))
-                } catch (e) {
-                  setKeyError((e as Error).message)
-                } finally {
-                  setBusy(false)
-                }
-              }}
-            >
-              {factors?.backup ? 'New recovery key' : 'Create recovery key'}
-            </button>
-          )}
-        </div>
-        {keyError && <p className="error card-pad" role="alert">{keyError}</p>}
-        {newKey && <div className="card-pad"><RecoveryKeyPanel secret={newKey} onDone={() => setNewKey(null)} doneLabel="Done" /></div>}
         <div className="settings-row"><div><strong>Password</strong><p className="muted">Changes your password for the Davey app too.</p></div></div>
         <Password />
         <div className="settings-row">

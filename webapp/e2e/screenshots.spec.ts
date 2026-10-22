@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { EMAIL, PASSWORD, TEST_PIN, mockBackend } from './mock'
+import { EMAIL, EMAIL_CODE, PASSWORD, TEST_PIN, mockBackend } from './mock'
 import { PAGES } from './pages'
 
 const VIEWPORTS = [
@@ -45,10 +45,10 @@ for (const vp of VIEWPORTS) {
       await page.getByLabel('Email').fill(EMAIL)
       await page.getByLabel('Password').fill(PASSWORD)
       await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-      await expect(page.getByRole('heading', { name: '2-step verification' })).toBeVisible()
-      await page.getByLabel('Code').fill('123456')
+      await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
+      await page.getByLabel('Code from the email').fill(EMAIL_CODE)
       await shot('02-two-step')
-      await page.getByRole('button', { name: 'Verify' }).click()
+      await page.getByRole('button', { name: 'Continue' }).click()
 
       // Overview
       await expect(page.getByTestId('net-worth')).toBeVisible()

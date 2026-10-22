@@ -81,7 +81,7 @@ export function AccessCode() {
           {busy ? 'Checking…' : 'Continue'}
         </button>
       </form>
-      <p className="muted small">This device stays approved for 30 days. You'll still sign in with your Davey account and 2-step verification.</p>
+      <p className="muted small">This device stays approved for 30 days. You'll still sign in with your Davey account and a code we email you.</p>
     </AuthCard>
   )
 }

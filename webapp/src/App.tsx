@@ -8,15 +8,13 @@ import { hashSession, supabase } from './lib/supabase'
 import { AccessCode, AccessGate } from './screens/AccessCode'
 import { ForgotPassword } from './screens/ForgotPassword'
 import { Login } from './screens/Login'
-import { MfaChallenge } from './screens/MfaChallenge'
+import { EmailCode } from './screens/EmailCode'
 import { ResetLinkExpired, ResetPassword } from './screens/ResetPassword'
-import { RotateBackup } from './screens/RotateBackup'
 import { SignUp } from './screens/SignUp'
 
 // Screens load on demand, so the sign-in screens (the first visit) download only what they need.
 const Transactions = lazy(() => import('./screens/Transactions').then((m) => ({ default: m.Transactions })))
 const Overview = lazy(() => import('./screens/Overview').then((m) => ({ default: m.Overview })))
-const MfaEnroll = lazy(() => import('./screens/MfaEnroll').then((m) => ({ default: m.MfaEnroll })))
 const Connect = lazy(() => import('./screens/Connect').then((m) => ({ default: m.Connect })))
 const OAuthReturn = lazy(() => import('./screens/Connect').then((m) => ({ default: m.OAuthReturn })))
 const Accounts = lazy(() => import('./screens/Accounts').then((m) => ({ default: m.Accounts })))
@@ -34,9 +32,9 @@ const More = lazy(() => import('./screens/More').then((m) => ({ default: m.More 
 const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })))
 const ProfilePage = lazy(() => import('./screens/Settings').then((m) => ({ default: m.ProfilePage })))
 
-/** Signed in + 2-step verified (aal2), or the right step to get there. */
+/** Signed in + 2-step verified (password, then a code emailed to the account), or the right step to get there. */
 function Gate({ children, signedOut }: { children: ReactNode; signedOut?: ReactNode }) {
-  const { status, mustRotateBackup, enrolling } = useAuth()
+  const { status } = useAuth()
   const location = useLocation()
   if (status === 'loading') return <FullPageSpinner />
   if (status === 'signedOut') {
@@ -44,9 +42,7 @@ function Gate({ children, signedOut }: { children: ReactNode; signedOut?: ReactN
     const next = location.pathname + location.search
     return <Navigate to={next === '/' ? '/login' : `/login?next=${encodeURIComponent(next)}`} replace />
   }
-  if (status === 'needsMfa') return <MfaChallenge />
-  if (status === 'needsEnroll' || enrolling) return <MfaEnroll />
-  if (mustRotateBackup) return <RotateBackup />
+  if (status !== 'ready') return <EmailCode />
   return <>{children}</>
 }
 

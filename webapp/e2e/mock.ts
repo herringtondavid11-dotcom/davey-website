@@ -4,6 +4,8 @@ export const SUPABASE = 'https://zvyargbnvccdqgmtytck.supabase.co'
 export const EMAIL = 'alex@example.com'
 export const PASSWORD = 'correct horse battery'
 export const GOOD_CODE = '123456'
+/** The sign-in code in the email (Supabase sends 8 digits for this project). */
+export const EMAIL_CODE = '48213957'
 
 type Row = Record<string, unknown>
 type Factor = { id: string; friendly_name: string; factor_type: 'totp'; status: 'verified' | 'unverified'; created_at: string; updated_at: string }
@@ -241,6 +243,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     syncBodies: [] as Row[],
     investmentsBodies: [] as Row[],
     pinFailures: 0,
+    recovery: false,
+    otpSends: [] as Row[],
     metadata: (opts.passInMetadata ? { first_name: 'Alex', access_pass: TEST_PASS } : {}) as Row,
     signUpBody: null as Row | null,
   }
@@ -257,7 +261,9 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
   })
   const session = () => {
     const exp = Math.floor(Date.now() / 1000) + 3600
-    const amr = [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) }, ...(state.aal === 'aal2' ? [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }] : [])]
+    const t = Math.floor(Date.now() / 1000)
+    // aal2 here means "verified by the emailed code" (amr otp); a password-reset link gives a recovery session.
+    const amr = state.recovery ? [{ method: 'recovery', timestamp: t }] : [{ method: 'password', timestamp: t }, ...(state.aal === 'aal2' ? [{ method: 'otp', timestamp: t }] : [])]
     const token = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({ sub: 'user-1', email: EMAIL, role: 'authenticated', aal: state.aal, amr, exp, session_id: 'sess-1' })}.sig`
     return { access_token: token, refresh_token: 'refresh-1', token_type: 'bearer', expires_in: 3600, expires_at: exp, user: user() }
   }
@@ -315,7 +321,18 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       if (opts.emailRateLimited) return json(route, { code: 429, error_code: 'over_email_send_rate_limit', msg: 'email rate limit exceeded' }, 429)
       return json(route, {})
     }
+    if (path === '/auth/v1/otp') {
+      state.otpSends.push(body)
+      if (opts.emailRateLimited) return json(route, { code: 429, error_code: 'over_email_send_rate_limit', msg: 'email rate limit exceeded' }, 429)
+      return json(route, {})
+    }
+    if (path === '/auth/v1/verify' && body.type === 'email') {
+      if (body.email !== EMAIL || body.token !== EMAIL_CODE) return json(route, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' }, 403)
+      state.aal = 'aal2'
+      return json(route, session())
+    }
     if (path === '/auth/v1/verify') {
+      state.recovery = body.token_hash === 'good-hash'
       if (body.token_hash !== 'good-hash') return json(route, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' }, 403)
       state.aal = 'aal1'
       return json(route, session())

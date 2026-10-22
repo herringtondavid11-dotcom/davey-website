@@ -7,18 +7,12 @@ import { supabase } from '../lib/supabase'
 import { resetResolvedTables } from '../lib/tables'
 import { clearTableCache } from '../lib/useTable'
 
-export type AuthStatus = 'loading' | 'signedOut' | 'needsMfa' | 'needsEnroll' | 'ready'
+export type AuthStatus = 'loading' | 'signedOut' | 'needsEmailCode' | 'ready'
 
 interface AuthContextValue {
   status: AuthStatus
   session: Session | null
   email?: string
-  /** Set after a recovery key was used: the key must be replaced before continuing. */
-  mustRotateBackup: boolean
-  /** True from the moment enrollment is required until the recovery key has been shown. */
-  enrolling: boolean
-  finishEnroll: () => void
-  setMustRotateBackup: (v: boolean) => void
   recovery: boolean
   clearRecovery: () => void
   idle: IdleState
@@ -30,14 +24,29 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-// 2-step verification is required for every web sign-in (a superset of "owners"; see DECISIONS.md).
+// 2-step verification on the web: after the password, a code emailed to the account's address (David, 2026-10-22: email
+// code instead of an authenticator app / QR code). A session counts as verified when it was signed in with an emailed
+// code or link (otp / magiclink), a password-reset link (recovery), or an authenticator code (totp, older sessions).
+const VERIFIED_METHODS = new Set(['otp', 'magiclink', 'recovery', 'totp', 'email/signup', 'invite'])
+
+/** The sign-in methods recorded in the access token (`amr`). */
+export function sessionMethods(accessToken: string): string[] {
+  try {
+    const part = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const claims = JSON.parse(atob(part.padEnd(part.length + ((4 - (part.length % 4)) % 4), '='))) as { amr?: { method?: string }[] }
+    return (claims.amr ?? []).map((a) => String(a.method ?? ''))
+  } catch {
+    return []
+  }
+}
+
+export function isEmailVerifiedSession(accessToken: string): boolean {
+  return sessionMethods(accessToken).some((m) => VERIFIED_METHODS.has(m))
+}
+
 async function computeStatus(session: Session | null): Promise<AuthStatus> {
   if (!session) return 'signedOut'
-  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (error || !data) return 'needsMfa'
-  if (data.currentLevel === 'aal2') return 'ready'
-  if (data.nextLevel === 'aal2') return 'needsMfa'
-  return 'needsEnroll'
+  return isEmailVerifiedSession(session.access_token) ? 'ready' : 'needsEmailCode'
 }
 
 const storage = () => (typeof window === 'undefined' ? undefined : window.localStorage)
@@ -45,9 +54,7 @@ const storage = () => (typeof window === 'undefined' ? undefined : window.localS
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [status, setStatus] = useState<AuthStatus>('loading')
-  const [mustRotateBackup, setMustRotateBackup] = useState(false)
   const [recovery, setRecovery] = useState(false)
-  const [enrolling, setEnrolling] = useState(false)
   const [idle, setIdle] = useState<IdleState>('active')
   const [signOutReason, setSignOutReason] = useState<'idle' | null>(null)
   const lastActive = useRef(Date.now())
@@ -55,8 +62,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const apply = useCallback(async (s: Session | null) => {
     setSession(s)
     const next = await computeStatus(s)
-    if (next === 'needsEnroll') setEnrolling(true)
-    if (next === 'signedOut') setEnrolling(false)
     setStatus(next)
   }, [])
 
@@ -77,7 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    setMustRotateBackup(false)
     setRecovery(false)
     setSignOutReason(reason ?? null)
     setIdle('active')
@@ -159,10 +163,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       session,
       email: session?.user.email,
-      mustRotateBackup,
-      setMustRotateBackup,
-      enrolling,
-      finishEnroll: () => setEnrolling(false),
       recovery,
       clearRecovery: () => setRecovery(false),
       idle,
@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       stayActive,
     }),
-    [status, session, mustRotateBackup, enrolling, recovery, idle, signOutReason, refresh, signOut, stayActive],
+    [status, session, recovery, idle, signOutReason, refresh, signOut, stayActive],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

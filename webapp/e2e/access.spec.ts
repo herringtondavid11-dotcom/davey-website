@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { EMAIL, GOOD_CODE, PASSWORD, TEST_PASS, TEST_PIN, mockBackend, watchConsole } from './mock'
+import { EMAIL, EMAIL_CODE, PASSWORD, TEST_PASS, TEST_PIN, mockBackend, watchConsole } from './mock'
 
 test('sign-in, sign-up and forgot password all need the company access code first', async ({ page }) => {
   await mockBackend(page, { accessPass: false })
@@ -81,7 +81,7 @@ test('an existing account signs in with its password and 2-step code (no sign-up
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: '2-step verification' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
   expect(state.calls.some((c) => c.path.startsWith('/auth/v1/signup'))).toBe(false)
 })
 
@@ -95,8 +95,8 @@ test('a deep link survives the access code, sign-in and 2-step code', async ({ p
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await page.getByLabel('Code').fill(GOOD_CODE)
-  await page.getByRole('button', { name: 'Verify' }).click()
+  await page.getByLabel('Code from the email').fill(EMAIL_CODE)
+  await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page).toHaveURL(/\/app\/budget$/)
   await expect(page.getByRole('heading', { name: 'Budget', level: 1 })).toBeVisible()
 })
@@ -133,8 +133,8 @@ test('a Plaid OAuth return keeps its full query through the access code, sign-in
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await page.getByLabel('Code').fill(GOOD_CODE)
-  await page.getByRole('button', { name: 'Verify' }).click()
+  await page.getByLabel('Code from the email').fill(EMAIL_CODE)
+  await page.getByRole('button', { name: 'Continue' }).click()
 
   await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
   const creates = await page.evaluate(() => (window as unknown as { __plaidCreates: unknown[] }).__plaidCreates)
@@ -157,8 +157,8 @@ test('signed out for inactivity while at the bank: after signing back in, the OA
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await page.getByLabel('Code').fill(GOOD_CODE)
-  await page.getByRole('button', { name: 'Verify' }).click()
+  await page.getByLabel('Code from the email').fill(EMAIL_CODE)
+  await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
   const creates = await page.evaluate(() => (window as unknown as { __plaidCreates: unknown[] }).__plaidCreates)
   expect(creates).toEqual([{ token: 'link-production-web-123', receivedRedirectUri: 'http://localhost:4173/app/oauth?oauth_state_id=state-88' }])

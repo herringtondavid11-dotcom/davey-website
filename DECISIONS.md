@@ -110,3 +110,14 @@ Autonomous run; David unavailable. Defaults chosen and logged here. Marketing-si
   "Too many attempts. Wait a few minutes, then try again."
 - Only Chromium is installed in the cloud container (no WebKit/Firefox; `playwright install` isn't allowed here).
 - Tables at 600–899px use tighter cell padding (Investments holdings scrolled 20px sideways at 768px).
+
+## 2026-10-22: web 2-step is an emailed code (David)
+- David asked to remove the QR / authenticator-app setup. Text messages need paid services (Supabase phone MFA add-on
+  on the Pro plan + an SMS provider such as Twilio), so he chose a free emailed code.
+- After the password, the web calls Supabase `signInWithOtp` (shouldCreateUser false), which sends Davey's branded
+  "sign-in" email with the code (`{{ .Token }}`; 8 digits for this project, the same setting as the app's sign-up codes).
+  `verifyOtp(type email)` finishes sign-in. A session counts as verified when its `amr` has otp/magiclink/recovery
+  (a reset link already proves the email) or totp (older sessions).
+- Removed from the web: authenticator enrollment, QR codes, recovery keys (screens, mfa.ts, totp.ts). Supabase TOTP
+  factors already on accounts are left alone (not used by the web any more).
+- Note: like the authenticator before it, this step is enforced by the web app; the database rules don't require it.
