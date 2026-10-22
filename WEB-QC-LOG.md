@@ -44,3 +44,10 @@ the GitHub Pages run instead.
   "No accounts yet" + Connect a Bank, budget guidance. No NaN/undefined/endless spinners. No issues found.
 - New test: sweep.spec "brand-new account" (every screen: heading, no NaN/undefined/Infinity, no stuck spinner).
 - Counts: Vitest 101/101, Playwright Chromium 85/85.
+
+## Loop 5 — 2026-10-22 11:25 UTC
+- Public pages (/, /help, /terms, /cancel, /join, /auth/callback, /auth/reset, /app/access) served like GitHub Pages:
+  no script errors, every internal link and asset resolves. No issues found. (Live site: container has no DNS for
+  daveypersonalfinance.com; GitHub Pages deploys for every push tonight are checked instead.)
+- New test: public.spec.
+- Counts: Vitest 101/101, Playwright Chromium 86/86.
