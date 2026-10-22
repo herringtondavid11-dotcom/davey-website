@@ -22,6 +22,7 @@ See the log at the bottom (updated by the loop). Backup bundle of all unpushed c
 | Connection issues + Reconnect | Reads `plaid_items` (if present); "needs attention" card; Reconnect uses Plaid update mode **only** if the server answers `mode:'update'` (otherwise stops safely — no duplicate connections). |
 | Budget | Month picker, All/Personal/Business, income vs spent meter, budgets vs actual (over-budget first, terracotta + "$x over" text), not-budgeted categories, edit/set budget when a `budgets` table exists (otherwise read-only note). Transfers/card payments excluded. |
 | Cash flow | 6/12 months, All/Personal/Business, averages + savings rate, income vs spending bar chart (hover/focus tooltip, legend), month table. |
+| Recurring + calendar | Detects subscriptions, bills and income from transactions (weekly → yearly, variable amounts marked "~", stale streams dropped), merged with a stored `recurring_transactions` table if present. Month calendar: real past charges + projections, day detail, legend. Monthly totals + due in 7 days. |
 | Connection Help + Report to Plaid | Troubleshooting topics; report form sends to `plaid-report-issue` with Link session/request IDs from the last failed Link; falls back to a pre-filled email if the function isn't deployed. |
 
 ## In progress / next
