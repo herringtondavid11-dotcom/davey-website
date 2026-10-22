@@ -105,7 +105,7 @@ export function Budget() {
       </section>
 
       <section className="card" aria-labelledby="bva">
-        <div className="card-head">
+        <div className="card-head wrap">
           <h2 id="bva">Budgets vs actual</h2>
           {rows.length > 0 && <span className="muted small num">{money(budgetedSpent)} of {money(totalBudget)}</span>}
         </div>

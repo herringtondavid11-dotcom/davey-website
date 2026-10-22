@@ -30,6 +30,10 @@ test('loans: payoff with extra payments, refinance, equity and LTV', async ({ pa
   await expect(mortgage).toContainText('no PMI needed')
   await mortgage.getByLabel('New rate').fill('5.25')
   await expect(mortgage.getByText('Break-even')).toBeVisible()
+  // A longer new term costs more interest overall: shown as "$X more", never "-$X more".
+  const lifetime = mortgage.locator('.stat').filter({ hasText: 'Lifetime interest' })
+  await expect(lifetime).toContainText('more after costs')
+  await expect(lifetime).not.toContainText('-$')
   await mortgage.getByRole('button', { name: 'Show amortization by year' }).click()
   await expect(mortgage.locator('.data-table tbody tr').first()).toBeVisible()
   // Auto loan has no equity block.

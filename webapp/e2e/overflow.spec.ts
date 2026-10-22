@@ -36,3 +36,13 @@ for (const width of [360, 768, 1280, 1920]) {
     }
   })
 }
+
+test('card titles stay on one line at 360px (Budgets vs actual)', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 })
+  await mockBackend(page, { signedIn: true })
+  await page.goto('/app/budget')
+  const title = page.locator('#bva')
+  await expect(title).toBeVisible()
+  const lines = await title.evaluate((e) => Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight || '24')))
+  expect(lines).toBe(1)
+})

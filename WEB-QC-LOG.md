@@ -18,3 +18,14 @@ the GitHub Pages run instead.
   sweep.spec (every screen: no console errors or 4xx/5xx, no broken in-app links; server error → message, no crash).
 - Lighthouse (sign-in, access code): performance 94/98, accessibility 100, best practices 100.
 - Counts: Vitest 101/101, Playwright Chromium 82/82.
+
+## Loop 2 — 2026-10-22 10:45 UTC
+- Visual audit of all 180 screenshots (360/768/1280/1920, light + dark): palette and layout match the app (navy, gold
+  fills, sage gains, terracotta overspend).
+- Found: Mortgages & loans refinance card showed "-$32,206 more after costs" (minus and "more" together); the
+  "Budgets vs actual" title broke onto two cramped lines at 360px; Recurring's subtitle said everything was "found in
+  your transactions" (it now includes the app's own rules).
+- Fixed: lifetime interest shows the amount without a sign ("$32,206 more after costs"); the budget total drops
+  below the title on narrow screens; subtitle reworded.
+- New tests: debt.spec refinance wording; overflow.spec one-line card title at 360px.
+- Counts: Vitest 101/101, Playwright Chromium 83/83.

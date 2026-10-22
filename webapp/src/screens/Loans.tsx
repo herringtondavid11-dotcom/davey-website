@@ -93,7 +93,7 @@ function LoanCard({ a }: { a: Account }) {
           <div className="stats">
             <Stat label="New payment" value={money(refi.newPayment)} sub={`${refi.monthlySavings >= 0 ? 'saves' : 'costs'} ${money(Math.abs(refi.monthlySavings))}/mo`} tone={refi.monthlySavings >= 0 ? 'positive' : 'negative'} />
             <Stat label="Break-even" value={refi.breakEvenMonths === Infinity ? 'Never' : fmtMonths(refi.breakEvenMonths)} />
-            <Stat label="Lifetime interest" value={moneyWhole(refi.lifetimeSavings)} tone={refi.lifetimeSavings >= 0 ? 'positive' : 'negative'} sub={refi.lifetimeSavings >= 0 ? 'saved after costs' : 'more after costs'} />
+            <Stat label="Lifetime interest" value={moneyWhole(Math.abs(refi.lifetimeSavings))} tone={refi.lifetimeSavings >= 0 ? 'positive' : 'negative'} sub={refi.lifetimeSavings >= 0 ? 'saved after costs' : 'more after costs'} />
           </div>
         </div>
 

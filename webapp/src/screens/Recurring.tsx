@@ -106,7 +106,7 @@ export function RecurringScreen() {
 
   return (
     <div className="page">
-      <div className="page-head"><div><h1>Recurring</h1><p>Subscriptions, bills and paychecks Davey found in your transactions.</p></div></div>
+      <div className="page-head"><div><h1>Recurring</h1><p>Subscriptions, bills and paychecks from your transactions and the Davey app.</p></div></div>
       <section className="card card-pad">
         <div className="stats">
           <Stat label="Subscriptions / month" value={money(subs.reduce((s, r) => s + r.monthly, 0))} sub={`${subs.length} active`} />
