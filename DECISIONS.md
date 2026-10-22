@@ -73,3 +73,19 @@ Autonomous run; David unavailable. Defaults chosen and logged here. Marketing-si
   round grounded in the `context` numbers (validated as data: view, month, net_worth, month_income, month_spending,
   account_count, top 8 categories), JSON `{answer, follow_ups}`, CORS for Davey's origins, same plan limits (HTTP 402
   `plan_limit` when the month's questions are used up; the web shows the limit message for 402 and 429).
+
+## 2026-10-22 — cloud session, after reconciling with the Mac session
+
+- **Merged instead of overwritten.** My parallel rework (commit ec9834b: Plaid-sync data layer + browser-only edits +
+  browser-run AI tools) is superseded by the Mac session's `household_records` data layer and deployed `ask-ai` web
+  mode, which use the app's real shared data and write back to it. Kept from mine: Sign in with Apple button,
+  Report to Plaid via `link-support`, Household and Profile on the real tables, Transactions `?q=` / `?category=` /
+  `?ids=` filters.
+- **Household on the web reads the database directly** (`household_members`, `household_invites`, own `profiles`;
+  all allowed by RLS) and writes the profile directly (RLS allows first/last/display name and phone). Invite, remove
+  partner and leave call the app's functions; they need `davey-ios/web-cors.patch` deployed.
+- **Server changes to davey-ios are delivered as a patch** (`supabase-changes/davey-ios/web-cors.patch`, checked with
+  `git apply --check`): editing the davey-ios backend from this session was blocked as a shared-resource change.
+- **Sign in with Apple on the web** needs the Apple provider in Supabase to accept a web Services ID (QUESTION for
+  David: set up a Services ID + return URL `https://zvyargbnvccdqgmtytck.supabase.co/auth/v1/callback`, add it to the
+  Apple provider's client IDs next to the bundle ID). Until then the button explains it's coming soon.

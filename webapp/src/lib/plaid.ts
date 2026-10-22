@@ -149,9 +149,22 @@ export interface IssueReport {
   issue?: LinkIssue | null
 }
 
-/** Sends to the plaid-report-issue Edge Function; if it isn't deployed, returns a mailto: link instead. */
+/** link-support (action "report"): identifiers only; Davey support files it with Plaid. Falls back to email. */
 export async function reportIssue(report: IssueReport): Promise<{ sent: true } | { sent: false; mailto: string }> {
-  const { data, error } = await supabase.functions.invoke('plaid-report-issue', { body: { platform: 'web', ...report } })
+  const { data, error } = await supabase.functions.invoke('link-support', {
+    body: {
+      action: 'report',
+      institution_id: report.issue?.institutionId,
+      institution_name: report.institution,
+      error_code: report.issue?.errorCode,
+      link_session_id: report.issue?.linkSessionId,
+      request_id: report.issue?.requestId,
+      issue: `${report.kind}${report.details ? `: ${report.details}` : ''}`.slice(0, 500),
+      app_version: 'web',
+      device: navigator.userAgent.slice(0, 120),
+      occurred_at: report.issue?.at,
+    },
+  })
   if (!error && data?.ok !== false) return { sent: true }
   const lines = [
     `Institution: ${report.institution}`,

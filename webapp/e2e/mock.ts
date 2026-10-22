@@ -88,10 +88,11 @@ export function extraTables(): Record<string, Row[]> {
       { id: 'b4', category: 'Travel', amount: 300 },
     ],
     household_members: [
-      { id: 'm1', user_id: 'user-1', display_name: 'Alex', email: 'alex@example.com', role: 'owner', joined_at: '2026-01-02T00:00:00Z' },
-      { id: 'm2', user_id: 'user-2', display_name: 'Jordan', email: 'jordan@example.com', role: 'member', joined_at: '2026-03-14T00:00:00Z' },
+      { id: 'm1', household_id: 'hh-1', user_id: 'user-1', display_name: 'Alex', role: 'owner', joined_at: '2026-01-02T00:00:00Z' },
+      { id: 'm2', household_id: 'hh-1', user_id: 'user-2', display_name: 'Jordan', role: 'member', joined_at: '2026-03-14T00:00:00Z' },
     ],
-    household_invites: [{ id: 'i1', invitee_first_name: 'Sam', status: 'pending', expires_at: new Date(Date.now() + 5 * 86400_000).toISOString(), token: 'tok-sam' }],
+    household_invites: [],
+    profiles: [{ id: 'user-1', first_name: 'Alex', last_name: 'Rivera', display_name: 'Alex', phone: '', email: 'alex@example.com' }],
     holdings: [
       { id: 'h1', account_id: 'acc-4', security_id: 's1', quantity: 820, institution_price: 287.4, institution_value: 235668, cost_basis: 180000 },
       { id: 'h2', account_id: 'acc-4', security_id: 's2', quantity: 410, institution_price: 451.2, institution_value: 184992, cost_basis: 150000 },
@@ -179,8 +180,10 @@ export interface MockOptions {
   aiFunction?: boolean | 'limit'
   /** login-activity Edge Function is deployed. */
   activityFunction?: boolean
-  /** plaid-report-issue Edge Function is deployed. */
-  reportFunction?: boolean
+  /** link-support isn't web-enabled yet (CORS): the browser can't reach it. */
+  reportDown?: boolean
+  /** household-invite / -remove-member / -leave aren't web-enabled yet. */
+  householdActionsDown?: boolean
   /** 'verified' = user already has an authenticator; 'none' = must enroll. */
   mfa?: 'verified' | 'none'
   backup?: boolean
@@ -359,10 +362,30 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       if (body.mode === 'update' && !opts.updateMode) return json(route, { link_token: 'link-production-web-123', expiration: now })
       return json(route, { link_token: 'link-production-web-123', expiration: now, ...(body.mode === 'update' ? { mode: 'update' } : {}) })
     }
-    if (path === '/functions/v1/plaid-report-issue') {
-      if (!opts.reportFunction) return json(route, { message: 'Function not found' }, 404)
+    if (path === '/functions/v1/link-support') {
+      if (opts.reportDown) return route.abort('failed')
       state.reportBody = body
-      return json(route, { ok: true })
+      return json(route, { reported: true })
+    }
+    if (path === '/functions/v1/household-invite' || path === '/functions/v1/household-remove-member' || path === '/functions/v1/household-leave') {
+      if (opts.householdActionsDown) return route.abort('failed')
+      state.inviteBody = body
+      const invites = state.extra.household_invites
+      if (path.endsWith('remove-member')) {
+        state.extra.household_members = state.extra.household_members.filter((m) => m.user_id === 'user-1')
+        return json(route, { removed: true })
+      }
+      if (path.endsWith('household-leave')) return json(route, { left: true })
+      if (body.action === 'create') {
+        invites.push({ id: 'inv-1', kind: 'link', household_id: 'hh-1', invitee_first_name: body.first_name, invitee_last_name: body.last_name ?? null, invitee_email: body.email ?? null, relationship: body.relationship, expires_at: new Date(Date.now() + 7 * 86400_000).toISOString(), used_at: null, revoked: false })
+        return json(route, { invite: invites.at(-1), link: 'https://daveypersonalfinance.com/join?t=tok-new-123', email: body.send_email ? 'sent' : 'skipped' })
+      }
+      if (body.action === 'cancel') {
+        const inv = invites.find((i) => i.id === body.invite_id)
+        if (inv) inv.revoked = true
+        return json(route, { cancelled: true })
+      }
+      return json(route, { link: 'https://daveypersonalfinance.com/join?t=tok-again-456' })
     }
     if (path === '/functions/v1/plaid-exchange') {
       state.exchangeBody = body

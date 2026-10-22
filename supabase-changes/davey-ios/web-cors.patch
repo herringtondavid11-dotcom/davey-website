@@ -1,0 +1,54 @@
+diff -ruN a/supabase/functions/household-invite/index.ts b/supabase/functions/household-invite/index.ts
+--- a/supabase/functions/household-invite/index.ts	2026-10-22 06:13:38.518178298 +0000
++++ b/supabase/functions/household-invite/index.ts	2026-10-22 06:13:38.532832173 +0000
+@@ -156,4 +156,4 @@
+     return await respond(userId, inviteId, token, email);
+   }
+   throw new HttpError(400, "invalid_request", "Unknown action.");
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/household-leave/index.ts b/supabase/functions/household-leave/index.ts
+--- a/supabase/functions/household-leave/index.ts	2026-10-22 06:13:38.557549396 +0000
++++ b/supabase/functions/household-leave/index.ts	2026-10-22 06:13:38.571606222 +0000
+@@ -23,4 +23,4 @@
+     console.error("Left notice failed");
+   }
+   return json({ left: true });
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/household-remove-member/index.ts b/supabase/functions/household-remove-member/index.ts
+--- a/supabase/functions/household-remove-member/index.ts	2026-10-22 06:13:38.537934504 +0000
++++ b/supabase/functions/household-remove-member/index.ts	2026-10-22 06:13:38.551835320 +0000
+@@ -19,4 +19,4 @@
+     console.error("Removed notice failed");
+   }
+   return json({ removed: true });
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/link-support/index.ts b/supabase/functions/link-support/index.ts
+--- a/supabase/functions/link-support/index.ts	2026-10-22 06:13:38.578845569 +0000
++++ b/supabase/functions/link-support/index.ts	2026-10-22 06:13:38.594867032 +0000
+@@ -71,4 +71,4 @@
+   if (action === "report") return await report(userId, body);
+   if (action === "issues") return await issues(userId);
+   throw new HttpError(400, "invalid_request", "Unknown action.");
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/plaid-item-remove/index.ts b/supabase/functions/plaid-item-remove/index.ts
+--- a/supabase/functions/plaid-item-remove/index.ts	2026-10-22 06:13:38.600084313 +0000
++++ b/supabase/functions/plaid-item-remove/index.ts	2026-10-22 06:13:38.612419255 +0000
+@@ -22,4 +22,4 @@
+   }
+   await deleteItem(item.user_id, itemId);
+   return json({ removed: true });
+-}));
++}, { cors: "app" }));
+diff -ruN a/supabase/functions/plaid-link-session/index.ts b/supabase/functions/plaid-link-session/index.ts
+--- a/supabase/functions/plaid-link-session/index.ts	2026-10-22 06:13:38.618027092 +0000
++++ b/supabase/functions/plaid-link-session/index.ts	2026-10-22 06:13:38.635057898 +0000
+@@ -92,4 +92,4 @@
+   }
+   if (sessions.length === 0) console.log(`Link token has no session data (request_id=${result.request_id ?? "none"})`);
+   return json({ sessions });
+-}));
++}, { cors: "app" }));

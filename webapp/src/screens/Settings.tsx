@@ -6,6 +6,7 @@ import { ConnectionRow } from '../components/ConnectionStatus'
 import { InstallApp } from '../components/InstallApp'
 import { ACTION_LABEL, describeAgent, fetchLoginActivity, type LoginEvent } from '../lib/activity'
 import { shortDateTime } from '../lib/format'
+import { householdStatus, updateProfile } from '../lib/household'
 import { supabase } from '../lib/supabase'
 import { normalizeItem } from '../lib/tables'
 import { applyTheme, readTheme, type ThemePref } from '../lib/theme'
@@ -13,31 +14,54 @@ import { useTable } from '../lib/useTable'
 import { RecoveryKeyPanel } from './RecoveryKey'
 
 function Profile() {
-  const { session, refresh } = useAuth()
-  const meta = (session?.user.user_metadata ?? {}) as Record<string, unknown>
-  const initial = String(meta.full_name ?? meta.name ?? meta.first_name ?? '')
-  const [name, setName] = useState(initial)
-  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const { session } = useAuth()
+  const [first, setFirst] = useState('')
+  const [last, setLast] = useState('')
+  const [phone, setPhone] = useState('')
+  const [initial, setInitial] = useState('')
+  const [state, setState] = useState<'loading' | 'idle' | 'saving' | 'saved' | 'error' | 'unavailable'>('loading')
+  const [message, setMessage] = useState('')
+  useEffect(() => {
+    householdStatus().then(
+      (h) => {
+        setFirst(h.profile.first_name)
+        setLast(h.profile.last_name)
+        setPhone(h.profile.phone)
+        setInitial(JSON.stringify([h.profile.first_name, h.profile.last_name, h.profile.phone]))
+        setState('idle')
+      },
+      () => setState('unavailable'),
+    )
+  }, [])
   async function save(e: FormEvent) {
     e.preventDefault()
     setState('saving')
-    const { error } = await supabase.auth.updateUser({ data: { full_name: name.trim() } })
-    setState(error ? 'error' : 'saved')
-    if (!error) await refresh()
+    try {
+      await updateProfile({ firstName: first.trim(), lastName: last.trim(), phone: phone.trim() })
+      setInitial(JSON.stringify([first.trim(), last.trim(), phone.trim()]))
+      setState('saved')
+    } catch (err) {
+      setMessage((err as Error).message)
+      setState('error')
+    }
   }
+  const dirty = JSON.stringify([first.trim(), last.trim(), phone.trim()]) !== initial
   return (
     <section className="card card-pad" aria-labelledby="profile-title">
       <h2 id="profile-title">Profile</h2>
+      {state === 'unavailable' && <p className="muted small" style={{ marginTop: 8 }}>Your name and phone are edited in the Davey app for now.</p>}
       <form className="form" onSubmit={save} style={{ marginTop: 14 }}>
         <div className="form-grid">
-          <label className="field"><span>Name</span><input className="input" value={name} autoComplete="name" onChange={(e) => { setName(e.target.value); setState('idle') }} /></label>
+          <label className="field"><span>First name</span><input className="input" value={first} autoComplete="given-name" disabled={state === 'unavailable' || state === 'loading'} onChange={(e) => { setFirst(e.target.value); setState('idle') }} /></label>
+          <label className="field"><span>Last name</span><input className="input" value={last} autoComplete="family-name" disabled={state === 'unavailable' || state === 'loading'} onChange={(e) => { setLast(e.target.value); setState('idle') }} /></label>
+          <label className="field"><span>Phone</span><input className="input" type="tel" value={phone} autoComplete="tel" disabled={state === 'unavailable' || state === 'loading'} onChange={(e) => { setPhone(e.target.value); setState('idle') }} /></label>
           <label className="field"><span>Email</span><input className="input" value={session?.user.email ?? ''} readOnly aria-describedby="email-help" /></label>
         </div>
-        <p id="email-help" className="muted small">To change your sign-in email, use the Davey app (Settings › Account).</p>
+        <p id="email-help" className="muted small">Your household partner sees your first name. To change your sign-in email, use the Davey app.</p>
         <div className="row-actions">
-          <button className="btn btn-secondary" disabled={state === 'saving' || name.trim() === initial}>{state === 'saving' ? 'Saving…' : 'Save name'}</button>
+          <button className="btn btn-secondary" disabled={state === 'saving' || !dirty || !first.trim()}>{state === 'saving' ? 'Saving…' : 'Save profile'}</button>
           {state === 'saved' && <span className="success" role="status">Saved</span>}
-          {state === 'error' && <span className="error" role="alert">Couldn't save.</span>}
+          {state === 'error' && <span className="error" role="alert">{message || "Couldn't save."}</span>}
         </div>
       </form>
     </section>

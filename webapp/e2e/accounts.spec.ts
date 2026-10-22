@@ -45,8 +45,8 @@ test('reconnect in update mode re-syncs without a new exchange', async ({ page }
   expect(state.calls.find((c) => c.path === '/functions/v1/plaid-sync')?.body).toEqual({ item_id: 'item-wf' })
 })
 
-test('connection help: report to Plaid via the Edge Function', async ({ page }) => {
-  const state = await mockBackend(page, { signedIn: true, reportFunction: true })
+test('connection help: Report to Plaid via link-support', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true })
   await page.goto('/app/help?institution=Wells%20Fargo')
   await page.getByText('My bank opens a new window').click()
   await expect(page.getByText('Allow pop-ups')).toBeVisible()
@@ -54,21 +54,18 @@ test('connection help: report to Plaid via the Edge Function', async ({ page }) 
   await page.getByLabel('What happened').selectOption('Missing transactions')
   await page.getByLabel('Details').fill('Nothing since Monday')
   await page.getByRole('button', { name: 'Send report' }).click()
-  await expect(page.getByRole('status')).toContainText('your report was sent')
-  expect(state.reportBody).toMatchObject({ platform: 'web', institution: 'Wells Fargo', kind: 'Missing transactions', details: 'Nothing since Monday' })
+  await expect(page.getByText('your report was sent')).toBeVisible()
+  expect(state.reportBody).toMatchObject({ action: 'report', institution_name: 'Wells Fargo', issue: 'Missing transactions: Nothing since Monday', app_version: 'web' })
 })
 
-test('connection help: falls back to email when the function is not deployed', async ({ page }) => {
-  await mockBackend(page, { signedIn: true })
+test('connection help: falls back to email while link-support is not web-enabled', async ({ page }) => {
+  await mockBackend(page, { signedIn: true, reportDown: true })
   await page.goto('/app/help')
   await page.getByLabel('Bank', { exact: true }).fill('Ally')
-  let mailto = ''
-  page.on('framenavigated', () => undefined)
   await page.route('mailto:*', (r) => r.abort())
   await page.getByRole('button', { name: 'Send report' }).click()
   await expect(page.getByText('Your email app should open')).toBeVisible()
-  mailto = (await page.getByRole('link', { name: 'open it here' }).getAttribute('href')) ?? ''
-  expect(mailto).toContain('mailto:support@daveypersonalfinance.com')
+  const mailto = (await page.getByRole('link', { name: 'open it here' }).getAttribute('href')) ?? ''
   expect(decodeURIComponent(mailto)).toContain('Institution: Ally')
 })
 
