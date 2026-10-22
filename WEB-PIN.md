@@ -34,8 +34,11 @@ supabase link --project-ref zvyargbnvccdqgmtytck
 supabase db query --linked -f /tmp/access_pin.sql
 supabase migration repair --status applied 20261025000000
 
-# 3. The function
-supabase functions deploy access-pin --project-ref zvyargbnvccdqgmtytck --use-api
+# 3. The functions (login-activity: Settings › Login activity on the web)
+{ echo 'begin;'; cat supabase/migrations/20261025010000_login_activity.sql; echo 'commit;'; } > /tmp/login_activity.sql
+supabase db query --linked -f /tmp/login_activity.sql
+supabase migration repair --status applied 20261025010000
+supabase functions deploy access-pin login-activity --project-ref zvyargbnvccdqgmtytck --use-api
 
 # 4. Turn on the sign-up hook
 #    Dashboard: Authentication › Auth Hooks › Add hook › Before User Created › Postgres

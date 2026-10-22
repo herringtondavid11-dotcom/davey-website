@@ -18,7 +18,7 @@
 - Screens checked at 360 / 768 / 1280 / 1920 in light and dark; axe on every screen including the new ones.
 
 ## Tests
-- Vitest: 96/96. Playwright (Chromium): all passing (see the latest count in WEB-STATUS.md).
+- Vitest: 101/101. Playwright (Chromium): 82/82. Latest counts: WEB-QC-LOG.md.
 - WebKit/Firefox aren't installed in the cloud container; on the Mac: `cd webapp && npm run e2e`.
 
 ## Your one Claude Code paste (on the Mac)
@@ -26,7 +26,7 @@
 In ~/Developer/davey-ios (branch release-candidate, git pull first), follow davey-website/WEB-PIN.md "Mac steps":
 set ACCESS_PIN (ask me for the code with a hidden prompt; never write it to a file or log), apply migration
 20261025000000_access_pin.sql with `supabase db query --linked -f` inside begin/commit and then
-`supabase migration repair --status applied 20261025000000` (never db push), deploy access-pin with --use-api,
+`supabase migration repair --status applied 20261025000000` (never db push), apply 20261025010000_login_activity.sql the same way, deploy access-pin and login-activity with --use-api,
 enable the Before User Created hook (public.access_gate_before_user_created), then run the wrong-code curl check and
 confirm https://daveypersonalfinance.com/app shows the code screen and accepts my code.
 ```

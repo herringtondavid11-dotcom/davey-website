@@ -263,3 +263,40 @@ export function categoryID(data: DaveyData, name: string): string | undefined {
 export function resetDaveyData() {
   cache = null
 }
+
+/** The app's recurring rules (entity "recurring") in the columns `normalizeRecurring` reads. Paused or ended rules
+ * are left out; `next_date` is the first occurrence on or after `today`, counted from the start date like the app. */
+export function recurringRows(records: HouseholdRecord[], today = localDay(new Date().toISOString())!): Row[] {
+  const rows: Row[] = []
+  for (const r of records) {
+    const p = r.payload
+    const start = localDay(p.startDate)
+    if (p.isPaused === true || !start) continue
+    const frequency = text(p.frequency) ?? 'monthly'
+    const end = localDay(p.endDate)
+    let next: string | undefined
+    for (let n = 0; n < 2000; n++) {
+      const d = occurrence(start, frequency, n)
+      if (end && d > end) break
+      if (d >= today) { next = d; break }
+    }
+    if (!next) continue
+    rows.push({ id: r.id, name: text(p.payee) ?? 'Recurring', amount: Math.abs(minor(p.amount)), frequency, next_date: next, category_id: text(p.categoryID) })
+  }
+  return rows
+}
+
+/** Occurrence n of a schedule starting on `start` (yyyy-mm-dd). Months clamp to the last day, without drift. */
+function occurrence(start: string, frequency: string, n: number): string {
+  const [y, m, d] = start.split('-').map(Number)
+  const pad = (v: number) => String(v).padStart(2, '0')
+  if (frequency === 'weekly' || frequency === 'biweekly') {
+    const date = new Date(Date.UTC(y, m - 1, d + n * (frequency === 'weekly' ? 7 : 14)))
+    return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`
+  }
+  const months = (m - 1) + n * (frequency === 'yearly' ? 12 : frequency === 'quarterly' ? 3 : 1)
+  const year = y + Math.floor(months / 12)
+  const month = months % 12
+  const last = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  return `${year}-${pad(month + 1)}-${pad(Math.min(d, last))}`
+}

@@ -7,7 +7,7 @@ import { groupAccounts, isLiability, netWorth } from '../lib/finance'
 import { displayName, maskLabel, money, typeLabel } from '../lib/format'
 
 export function Overview() {
-  const { accounts, transactions, error } = useData()
+  const { accounts, transactions, error, reload } = useData()
   const byId = useMemo(() => new Map((accounts ?? []).map((a) => [a.id, a])), [accounts])
   const byPlaidId = useMemo(() => new Map((accounts ?? []).map((a) => [a.plaidAccountId ?? a.id, a])), [accounts])
 
@@ -25,7 +25,12 @@ export function Overview() {
         </div>
         <Link className="btn btn-primary" to="/connect">Connect a Bank</Link>
       </div>
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && (
+        <div className="error-row">
+          <p className="error" role="alert">{error}</p>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void reload()}>Try again</button>
+        </div>
+      )}
       <div className="overview-grid">
         <div style={{ display: 'grid', gap: 24 }}>
           <section className="card networth" aria-labelledby="nw">

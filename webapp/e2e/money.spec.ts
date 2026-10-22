@@ -59,6 +59,9 @@ test('recurring: subscriptions, bills, income and a calendar', async ({ page }) 
   await expect(list.getByText('Spotify')).toBeVisible()
   await page.getByRole('button', { name: 'Bills' }).click()
   await expect(list.getByText('Greystar Rent')).toBeVisible()
+  // A rule entered in the app shows too (household_records entity "recurring"); a paused one doesn't.
+  await expect(list.getByText('Summit Home Insurance')).toBeVisible()
+  await expect(page.getByText('Paused Gym')).toHaveCount(0)
   await page.getByRole('button', { name: 'Income', exact: true }).click()
   await expect(list.getByText('Payroll – Acme Corp')).toBeVisible()
   // Next month's calendar shows the projected Netflix charge on the 9th.

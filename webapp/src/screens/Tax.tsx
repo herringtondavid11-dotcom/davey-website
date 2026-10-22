@@ -1,3 +1,4 @@
+import { loadErrorMessage } from '../lib/loadError'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { NumberField, Stat } from '../components/Controls'
@@ -27,6 +28,7 @@ export function Tax() {
   const [year, setYear] = useState(thisYear)
   const [list, setList] = useState<Transaction[] | null>(null)
   const [error, setError] = useState('')
+  const [retry, setRetry] = useState(0)
   const [ratesPct, setRatesPct] = useState(loadRates)
   const [marked, setMarked] = useState<Set<string>>(new Set())
 
@@ -35,12 +37,12 @@ export function Tax() {
     setList(null)
     fetchTransactionsBetween(`${year}-01-01`, `${year}-12-31`).then(
       (l) => live && setList(l),
-      (e) => live && setError(e.message),
+      (e) => live && setError(loadErrorMessage(e)),
     )
     return () => {
       live = false
     }
-  }, [year])
+  }, [year, retry])
   useEffect(() => {
     try {
       localStorage.setItem(RATE_KEY, JSON.stringify(ratesPct))
@@ -58,7 +60,15 @@ export function Tax() {
   const names = useMemo(() => accountNameMap(accounts ?? []), [accounts])
   const today = new Date().toISOString().slice(0, 10)
 
-  if (error) return <div className="page"><p className="error" role="alert">{error}</p></div>
+  if (error) {
+    return (
+      <div className="page">
+        <div className="page-head"><div><h1>Tax</h1></div></div>
+        <p className="error" role="alert">{error}</p>
+        <button type="button" className="btn btn-secondary" onClick={() => { setError(''); setRetry((n) => n + 1) }}>Try again</button>
+      </div>
+    )
+  }
   if (!list || !accounts) return <Spinner label="Loading tax" />
 
   const input = { year, pnl: report, estimate: est, rates, quarters: qs, business, names }

@@ -1,3 +1,4 @@
+import { loadErrorMessage } from './loadError'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { TRANSACTION_PAGE, fetchAccounts, fetchTransactions } from './data'
 import type { Account, Transaction } from './schema'
@@ -31,7 +32,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setPage(0)
       setHasMore(t.length === TRANSACTION_PAGE)
     } catch (e) {
-      setError((e as Error).message || "Couldn't load your data.")
+      setError(loadErrorMessage(e))
       setAccounts((prev) => prev ?? [])
       setTransactions((prev) => prev ?? [])
     }

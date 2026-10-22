@@ -124,6 +124,7 @@ textarea.input { min-height: 88px; resize: vertical; }
 .field-hint { margin-top: -10px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 400px) { .field-row { grid-template-columns: 1fr; } }
+.error-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .error { color: var(--over-ink); font-weight: 600; font-size: .9375rem; }
 .notice { background: var(--cream); color: var(--navy); border-radius: var(--radius-sm); padding: 12px 14px; font-size: .9375rem; }
 .success { color: var(--positive-ink); font-weight: 600; }

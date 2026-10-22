@@ -97,13 +97,13 @@ export function extraTables(): Record<string, Row[]> {
     ],
     household_invites: [],
     profiles: [{ id: 'user-1', first_name: 'Alex', last_name: 'Rivera', display_name: 'Alex', phone: '', email: 'alex@example.com' }],
-    holdings: [
+    investment_holdings: [
       { id: 'h1', account_id: 'acc-4', security_id: 's1', quantity: 820, institution_price: 287.4, institution_value: 235668, cost_basis: 180000 },
       { id: 'h2', account_id: 'acc-4', security_id: 's2', quantity: 410, institution_price: 451.2, institution_value: 184992, cost_basis: 150000 },
       { id: 'h3', account_id: 'acc-4', security_id: 's3', quantity: 900, institution_price: 72.1, institution_value: 64890, cost_basis: 70000 },
       { id: 'h4', account_id: 'acc-4', security_id: 's4', quantity: 27090.55, institution_price: 1, institution_value: 27090.55, cost_basis: 27090.55 },
     ],
-    securities: [
+    investment_securities: [
       { security_id: 's1', name: 'Vanguard Total Stock Market ETF', ticker_symbol: 'VTI', type: 'etf' },
       { security_id: 's2', name: 'Apple Inc.', ticker_symbol: 'AAPL', type: 'equity' },
       { security_id: 's3', name: 'Vanguard Total Bond Market ETF', ticker_symbol: 'BND', type: 'fixed income' },
@@ -180,6 +180,9 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
   }
   const month = new Date().getFullYear() * 100 + new Date().getMonth() + 1
   for (const b of state.extra.budgets ?? []) add('budget', String(b.id), { categoryID: categoryId(String(b.category)), limit: cents(b.amount), monthKey: month })
+  // Recurring rules entered in the app (not detected from transactions); a paused one stays hidden.
+  add('recurring', 'rec-insurance', { payee: 'Summit Home Insurance', amount: -12000, frequency: 'monthly', startDate: localMidnight('2026-01-15'), isPaused: false, postedCount: 0 })
+  add('recurring', 'rec-paused', { payee: 'Paused Gym', amount: -4500, frequency: 'monthly', startDate: localMidnight('2026-01-03'), isPaused: true })
   return records
 }
 

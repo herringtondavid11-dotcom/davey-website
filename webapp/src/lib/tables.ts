@@ -2,7 +2,7 @@
 // (PostgREST PGRST205 / 42P01 / 404) is reported as `available: false` so screens can explain instead of failing.
 // Candidate names are tried in order and the first that exists is remembered. Assumptions: WEB-STATUS.md.
 import { optNum, pick } from './schema'
-import { loadDaveyData, monthKey } from './serverData'
+import { fetchRecords, loadDaveyData, monthKey, recurringRows } from './serverData'
 import { supabase } from './supabase'
 
 type Row = Record<string, unknown>
@@ -16,7 +16,7 @@ export const OPTIONAL_TABLES = {
   households: ['households'],
   members: ['household_members'],
   invites: ['household_invites'],
-  recurring: ['recurring_transactions', 'subscriptions', 'recurring'],
+  recurring: ['household_records'],
   profiles: ['profiles', 'user_profiles'],
 } as const
 
@@ -45,6 +45,13 @@ export async function fetchOptional(name: OptionalTable): Promise<TableResult> {
     const rows = name === 'items' ? data.connections : data.budgets.filter((b) => b.month_key === key)
     // Without a household there's nothing on the server to read or write.
     return { rows: rows as Row[], available: data.records.size > 0, table: 'household_records' }
+  }
+  // Recurring rules are the app's own (entity "recurring"); there is no recurring table on the server.
+  if (name === 'recurring') {
+    const data = await loadDaveyData()
+    const rows = recurringRows(await fetchRecords('recurring'))
+    resolved.set(name, 'household_records')
+    return { rows, available: data.records.size > 0, table: 'household_records' }
   }
   const known = resolved.get(name)
   if (known === null) return { rows: [], available: false }

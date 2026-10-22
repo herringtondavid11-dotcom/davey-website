@@ -1,4 +1,4 @@
-import { lazy, useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { Layout } from './components/Layout'
@@ -6,18 +6,19 @@ import { FullPageSpinner } from './components/Spinner'
 import { DataProvider } from './lib/DataProvider'
 import { hashSession, supabase } from './lib/supabase'
 import { AccessCode, AccessGate } from './screens/AccessCode'
-import { Connect, OAuthReturn } from './screens/Connect'
 import { ForgotPassword } from './screens/ForgotPassword'
 import { Login } from './screens/Login'
 import { MfaChallenge } from './screens/MfaChallenge'
-import { MfaEnroll } from './screens/MfaEnroll'
-import { Overview } from './screens/Overview'
 import { ResetLinkExpired, ResetPassword } from './screens/ResetPassword'
 import { RotateBackup } from './screens/RotateBackup'
 import { SignUp } from './screens/SignUp'
-import { Transactions } from './screens/Transactions'
 
-// Less-used screens load on demand; Overview, Transactions and Connect stay in the main bundle.
+// Screens load on demand, so the sign-in screens (the first visit) download only what they need.
+const Transactions = lazy(() => import('./screens/Transactions').then((m) => ({ default: m.Transactions })))
+const Overview = lazy(() => import('./screens/Overview').then((m) => ({ default: m.Overview })))
+const MfaEnroll = lazy(() => import('./screens/MfaEnroll').then((m) => ({ default: m.MfaEnroll })))
+const Connect = lazy(() => import('./screens/Connect').then((m) => ({ default: m.Connect })))
+const OAuthReturn = lazy(() => import('./screens/Connect').then((m) => ({ default: m.OAuthReturn })))
 const Accounts = lazy(() => import('./screens/Accounts').then((m) => ({ default: m.Accounts })))
 const Budget = lazy(() => import('./screens/Budget').then((m) => ({ default: m.Budget })))
 const CashFlow = lazy(() => import('./screens/CashFlow').then((m) => ({ default: m.CashFlow })))
@@ -155,7 +156,9 @@ export function App() {
   return (
     <BrowserRouter basename="/app">
       <AuthProvider>
-        <AppRoutes />
+        <Suspense fallback={<FullPageSpinner />}>
+          <AppRoutes />
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
   )
