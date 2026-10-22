@@ -11,6 +11,7 @@ import {
   loadPlaid,
   isFallbackExit,
   logLinkEvent,
+  pendingLinkFor,
   readPendingLink,
   type LinkMode,
   saveLinkIssue,
@@ -21,6 +22,12 @@ import {
   type PlaidLinkMetadata,
 } from '../lib/plaid'
 import type { Account } from '../lib/schema'
+import { supabase } from '../lib/supabase'
+
+async function currentUserId(): Promise<string | undefined> {
+  const { data } = await supabase.auth.getSession()
+  return data.session?.user.id
+}
 
 export type FlowState =
   | { step: 'idle' }
@@ -141,7 +148,7 @@ export function usePlaidFlow() {
     setState({ step: 'starting' })
     try {
       const token = await createLinkToken({ mode: mode.current, fallback: true, institutionId })
-      savePendingLink({ linkToken: token, startedAt: new Date().toISOString() })
+      savePendingLink({ linkToken: token, startedAt: new Date().toISOString(), userId: await currentUserId() })
       await openRef.current?.({ token })
     } catch (e) {
       setState({ step: 'error', message: (e as Error).message })
@@ -160,7 +167,7 @@ export function usePlaidFlow() {
       // A bank connected here is shared through the household; without one it would reach no device.
       if (!updateItemId && !(await householdID(await loadDaveyData()))) throw new Error(NO_HOUSEHOLD)
       const [token] = await Promise.all([createLinkToken({ itemId: updateItemId, mode: mode.current, consentInvestments: consentInvestments.current }), loadPlaid()])
-      savePendingLink({ linkToken: token, startedAt: new Date().toISOString(), updateItemId })
+      savePendingLink({ linkToken: token, startedAt: new Date().toISOString(), updateItemId, userId: await currentUserId() })
       await open({ token, updateItemId })
     } catch (e) {
       setState({ step: 'error', message: (e as Error).message })
@@ -170,7 +177,7 @@ export function usePlaidFlow() {
   /** Called once by /oauth after an OAuth bank redirects back. */
   const resume = useCallback(
     async (receivedRedirectUri: string) => {
-      const pending = readPendingLink()
+      const pending = pendingLinkFor(await currentUserId())
       if (!pending) {
         setState({ step: 'error', message: 'This bank connection session expired. Start again from Connect a Bank.' })
         return

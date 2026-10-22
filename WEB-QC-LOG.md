@@ -86,3 +86,16 @@ the GitHub Pages run instead.
 - Fixed: after the first full sign-in (2-step done) the web clears `access_pass` from the metadata (other fields kept).
 - New test: access.spec "access pass is cleared from the account metadata".
 - Counts: Vitest 102/102, Playwright Chromium 94/94.
+
+## Loop 10 — 2026-10-22 11:00 UTC (David: OAuth return through the PIN and login)
+- Checked: /app/oauth?oauth_state_id=…&extra=… with no pass and no session → /app/access?next=/login?next=/oauth?… →
+  code → /login?next=/oauth?… → password + 2-step → /oauth with the full original query → Link resumes with that exact
+  receivedRedirectUri. Worked already; now covered by a test.
+- Found: the realistic way to land there signed out is the 30-minute idle sign-out while at the bank, and that
+  sign-out deleted the pending Link session; the pending session also expired after 30 minutes (Plaid's link token
+  lasts 4 hours; 30 minutes is the public token's lifetime). Either way Link couldn't resume.
+- Fixed: an idle sign-out keeps the pending Link session (an explicit sign-out still clears it); it lasts 4 hours; it
+  records who started it and only that user can resume it (another user's is discarded).
+- New tests: access.spec ×3 (full query through code + login + 2-step; idle sign-out then resume; never another
+  user's), pendingLink.test ×2; idle.test updated for the 4-hour lifetime. Both new e2e tests fail on the old code.
+- Counts: Vitest 104/104, Playwright Chromium 97/97.

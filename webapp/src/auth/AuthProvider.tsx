@@ -69,7 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // scope 'local': signing out on the web must not sign the iPhone or Mac out.
     await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined)
     try {
-      clearPendingLink()
+      // An idle sign-out keeps a bank connection that's mid-OAuth (resumable only by the same user).
+      if (reason !== 'idle') clearPendingLink()
       clearTableCache()
       resetResolvedTables()
       sessionStorage.clear()

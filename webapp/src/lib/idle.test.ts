@@ -32,10 +32,10 @@ describe('Plaid OAuth resume', () => {
     clearPendingLink()
     expect(readPendingLink()).toBeNull()
   })
-  it('ignores a pending link older than 30 minutes', () => {
+  it('ignores a pending link older than a link token lives (4 hours)', () => {
     savePendingLink({ linkToken: 'old', startedAt: '2026-10-22T00:00:00Z' })
-    expect(readPendingLink(localStorage, Date.parse('2026-10-22T00:29:00Z'))?.linkToken).toBe('old')
-    expect(readPendingLink(localStorage, Date.parse('2026-10-22T00:31:00Z'))).toBeNull()
+    expect(readPendingLink(localStorage, Date.parse('2026-10-22T03:59:00Z'))?.linkToken).toBe('old')
+    expect(readPendingLink(localStorage, Date.parse('2026-10-22T04:01:00Z'))).toBeNull()
   })
   it('a new Link session can be resumed again', () => {
     localStorage.clear()

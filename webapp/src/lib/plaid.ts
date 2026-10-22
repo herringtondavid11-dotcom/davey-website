@@ -48,10 +48,11 @@ export function loadPlaid(): Promise<void> {
 }
 
 // The link token survives the OAuth round trip in localStorage (a mobile bank app can return in a new tab).
-// It expires with the link token (30 minutes) and is cleared once Link finishes or on sign-out.
+// It lives as long as a Plaid link token (4 hours) and is cleared once Link finishes or on a sign-out the user chose.
+// An idle sign-out keeps it, so a slow bank login can still resume after signing back in, but only for the same user.
 const OAUTH_KEY = 'davey.plaid.oauth'
 const RESUMED_KEY = 'davey.plaid.resumed'
-const PENDING_TTL_MS = 30 * 60 * 1000
+const PENDING_TTL_MS = 4 * 60 * 60 * 1000
 const store = () => window.localStorage
 
 export interface PendingLink {
@@ -59,6 +60,8 @@ export interface PendingLink {
   startedAt: string
   /** Set when re-authenticating an existing connection (update mode). */
   updateItemId?: string
+  /** Who started it: only that user may resume it. */
+  userId?: string
 }
 
 export function savePendingLink(p: PendingLink, storage: Storage = store()) {
@@ -75,6 +78,16 @@ export function readPendingLink(storage: Storage = store(), now = Date.now()): P
   } catch {
     return null
   }
+}
+
+/** The pending link for this user, or null (another user's is discarded). */
+export function pendingLinkFor(userId: string | undefined, storage: Storage = store(), now = Date.now()): PendingLink | null {
+  const p = readPendingLink(storage, now)
+  if (p && p.userId && p.userId !== userId) {
+    clearPendingLink(storage)
+    return null
+  }
+  return p
 }
 
 export function clearPendingLink(storage: Storage = store()) {
