@@ -46,3 +46,15 @@ test('card titles stay on one line at 360px (Budgets vs actual)', async ({ page 
   const lines = await title.evaluate((e) => Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight || '24')))
   expect(lines).toBe(1)
 })
+
+test('sidebar fits a short laptop window: Settings and Sign out visible without scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 700 })
+  await mockBackend(page, { signedIn: true })
+  await page.goto('/app/')
+  const sidebar = page.locator('.sidebar')
+  for (const name of ['Settings', 'Sign out']) {
+    const box = await sidebar.getByRole(name === 'Sign out' ? 'button' : 'link', { name, exact: true }).boundingBox()
+    expect(box, name).not.toBeNull()
+    expect(box!.y + box!.height, `${name} bottom`).toBeLessThanOrEqual(700)
+  }
+})

@@ -29,3 +29,12 @@ the GitHub Pages run instead.
   below the title on narrow screens; subtitle reworded.
 - New tests: debt.spec refinance wording; overflow.spec one-line card title at 360px.
 - Counts: Vitest 101/101, Playwright Chromium 83/83.
+
+## Loop 3 — 2026-10-22 11:05 UTC
+- Found: on laptop windows under ~860px tall, the sidebar pushed Settings and Sign out below the fold (only reachable
+  by scrolling the sidebar, with no hint).
+- Fixed: compact sidebar spacing for short windows (email hidden under 700px); everything fits at 1280×700.
+- Also reviewed: Transactions 360 dark, Settings 1280 light: no further issues. Login activity notice disappears once
+  `login-activity` is deployed (Mac paste).
+- New test: overflow.spec "sidebar fits a short laptop window".
+- Counts: Vitest 101/101, Playwright Chromium 84/84.
