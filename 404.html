@@ -2,6 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <script>
+    // Davey web app (/app) is a single-page app: send unknown /app/* paths to it (GitHub Pages has no rewrites).
+    (function (l) {
+      if (l.pathname.indexOf("/app/") === 0) l.replace("/app/?p=" + encodeURIComponent(l.pathname.slice(4) + l.search) + l.hash);
+    })(window.location);
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Page not found – Davey</title>
   <meta name="robots" content="noindex">
@@ -39,7 +45,7 @@
   <header class="site-header scrolled">
     <div class="container header-bar">
       <a class="logo" href="/" aria-label="Davey home"><picture><source srcset="/assets/img/icon-96.webp" type="image/webp"><img src="/assets/img/icon-96.png" alt="" width="36" height="36"></picture>Davey</a>
-      <nav class="nav-simple" aria-label="Main"><a class="btn btn-primary" href="/#waitlist">Get early access</a></nav>
+      <nav class="nav-simple" aria-label="Main"><a class="nav-login" href="/app/login">Log in</a><a class="btn btn-primary" href="/app/">Get started</a></nav>
     </div>
   </header>
   <main id="main" class="legal">

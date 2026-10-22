@@ -259,7 +259,10 @@ p { margin: 0; }
   .bar { transition: none; }
   * { animation: none !important; }
 }
-.nav-simple { display: flex; }
+.nav-simple { display: flex; align-items: center; gap: var(--s3); }
+.nav-login { font-weight: 600; font-size: .9375rem; text-decoration: none; padding: 12px 4px; }
+.nav-login:hover { text-decoration: underline; text-underline-offset: 6px; }
+@media (max-width: 380px) { .nav-simple { gap: var(--s2); } .nav-simple .btn { padding-inline: 16px; } }
 
 /* Smaller features under the big ones (Household Sharing, Mac, connection help). */
 .feature-extras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s3); margin-top: var(--s4); }

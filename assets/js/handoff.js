@@ -115,7 +115,11 @@
     }
     var path = isReset ? "auth/reset" : "auth/callback";
     openApp("davey://" + path + "?token_hash=" + encodeURIComponent(tokenHash) + "&type=" + encodeURIComponent(type), true);
-    if (isReset) return;
+    if (isReset) {
+      var web = $("reset-web");
+      if (web) web.href = "/app/reset?token_hash=" + encodeURIComponent(tokenHash) + "&type=recovery";
+      return;
+    }
 
     var confirmable = ["signup", "email_change", "email", "invite"];
     if (confirmable.indexOf(type) === -1) return;
