@@ -6,7 +6,7 @@ import { claimOAuthResume } from '../lib/plaid'
 import { NameAccounts } from './NameAccounts'
 import { usePlaidFlow, type FlowState } from './usePlaidFlow'
 
-function FlowView({ state, onStart, onDone }: { state: FlowState; onStart: () => void; onDone: () => void }) {
+function FlowView({ state, onStart, onDone, onLoans }: { state: FlowState; onStart: () => void; onDone: () => void; onLoans?: () => void }) {
   if (state.step === 'naming') return <NameAccounts accounts={state.accounts} institution={state.institution} onDone={onDone} />
   if (state.step === 'reconnected')
     return (
@@ -37,6 +37,11 @@ function FlowView({ state, onStart, onDone }: { state: FlowState; onStart: () =>
         <button className="btn btn-primary" onClick={onStart} disabled={state.step === 'starting' || state.step === 'linking'}>
           {state.step === 'starting' ? 'Starting…' : state.step === 'linking' ? 'Plaid is open…' : state.step === 'error' ? 'Try again' : 'Connect a Bank'}
         </button>
+        {onLoans && (
+          <button className="btn btn-secondary" style={{ marginLeft: 8 }} onClick={onLoans} disabled={state.step === 'starting' || state.step === 'linking'}>
+            Connect a Mortgage or Loan
+          </button>
+        )}
       </div>
     </section>
   )
@@ -57,7 +62,12 @@ export function Connect() {
   return (
     <div className="page">
       <div className="page-head"><div><h1>Connect a Bank</h1><p>Add checking, savings, credit cards, loans and investments.</p></div></div>
-      <FlowView state={flow.state} onStart={() => flow.start(reconnectId)} onDone={() => navigate(reconnectId ? '/accounts' : '/', { replace: true })} />
+      <FlowView
+        state={flow.state}
+        onStart={() => flow.start(reconnectId)}
+        onLoans={reconnectId ? undefined : () => flow.start(undefined, 'loans')}
+        onDone={() => navigate(reconnectId ? '/accounts' : '/', { replace: true })}
+      />
     </div>
   )
 }

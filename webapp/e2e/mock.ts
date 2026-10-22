@@ -173,6 +173,8 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
 }
 
 export interface MockOptions {
+  /** Plaid Link fails the first standard session with API_ERROR (Shellpoint); the fallback token succeeds. */
+  apiErrorFirst?: boolean
   /** plaid-link-token answers mode:'update' for reconnects (the server change is deployed). */
   updateMode?: boolean
   /** household-invite Edge Function is deployed. */
@@ -202,6 +204,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     aal: 'aal1' as 'aal1' | 'aal2',
     calls: [] as { path: string; method: string; body: unknown }[],
     linkTokenBody: null as unknown,
+    linkTokenBodies: [] as Row[],
+    linkEvents: [] as Row[],
     extra: extraTables() as Record<string, Row[]>,
     reportBody: null as unknown,
     inviteBody: null as unknown,
@@ -365,11 +369,18 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     // ---- Edge Functions ----
     if (path === '/functions/v1/plaid-link-token') {
       state.linkTokenBody = body
+      state.linkTokenBodies.push(body)
+      // Shellpoint: Plaid fails the first (standard) session with API_ERROR; the fallback token works.
+      if (opts.apiErrorFirst && !body.item_id) return json(route, { link_token: body.fallback ? 'link-fallback-1' : 'link-api-error', expiration: now, config: body.fallback ? 'fallback' : 'standard' })
       if (body.mode === 'update' && !opts.updateMode) return json(route, { link_token: 'link-production-web-123', expiration: now })
       return json(route, { link_token: 'link-production-web-123', expiration: now, ...(body.mode === 'update' ? { mode: 'update' } : {}) })
     }
     if (path === '/functions/v1/link-support') {
       if (opts.reportDown) return route.abort('failed')
+      if (body.action === 'event') {
+        state.linkEvents.push(body)
+        return json(route, { logged: true })
+      }
       state.reportBody = body
       return json(route, { reported: true })
     }
@@ -438,7 +449,11 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       window.Plaid = { create: function (opts) {
         window.__plaidCreates.push({ token: opts.token, receivedRedirectUri: opts.receivedRedirectUri || null });
         return {
-          open: function () { setTimeout(function () { opts.onSuccess('public-production-abc', {
+          open: function () { setTimeout(function () {
+            if (opts.token === 'link-api-error') return opts.onExit(
+              { error_type: 'API_ERROR', error_code: 'INTERNAL_SERVER_ERROR', error_message: 'an unexpected error occurred', display_message: null },
+              { status: null, link_session_id: 'ls-shellpoint', request_id: 'req-shellpoint', institution: { institution_id: 'ins_119891', name: 'Shellpoint Mortgage Servicing' } });
+            opts.onSuccess('public-production-abc', {
             institution: { institution_id: 'ins_109508', name: 'First Platypus Bank' },
             accounts: [{ id: 'p-new-1', name: 'Plaid Checking', mask: '4321', type: 'depository', subtype: 'checking' }],
             link_session_id: 'ls-1' }); }, 50); },

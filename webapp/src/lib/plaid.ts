@@ -18,8 +18,8 @@ export interface PlaidCreateOptions {
   receivedRedirectUri?: string
   onSuccess: (publicToken: string, metadata: PlaidLinkMetadata) => void
   onExit?: (
-    error: { error_code?: string; error_message?: string; display_message?: string | null } | null,
-    metadata: { institution?: { institution_id?: string; name?: string } | null; link_session_id?: string; request_id?: string },
+    error: { error_type?: string; error_code?: string; error_message?: string; display_message?: string | null } | null,
+    metadata: { institution?: { institution_id?: string; name?: string } | null; link_session_id?: string; request_id?: string; status?: string | null },
   ) => void
   onEvent?: (eventName: string, metadata: unknown) => void
 }
@@ -105,10 +105,37 @@ export const RECONNECT_UNSUPPORTED =
  * New connection, or update mode for an existing Item (re-login). Update mode requires the server to answer with
  * mode:'update'; otherwise we stop, because a plain link token would create a duplicate connection.
  */
-export async function createLinkToken(opts: { itemId?: string } = {}): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('plaid-link-token', {
-    body: { platform: 'web', redirect_uri: PLAID_REDIRECT_URI, ...(opts.itemId ? { item_id: opts.itemId, mode: 'update' } : {}) },
-  })
+export type LinkMode = 'bank' | 'loans' | 'brokerage'
+
+/** The plaid-link-token body for the web (pure, unit-tested). */
+export function linkTokenBody(opts: { itemId?: string; mode?: LinkMode; fallback?: boolean; institutionId?: string } = {}): Record<string, unknown> {
+  if (opts.itemId) return { platform: 'web', redirect_uri: PLAID_REDIRECT_URI, item_id: opts.itemId, mode: 'update' }
+  return {
+    platform: 'web',
+    redirect_uri: PLAID_REDIRECT_URI,
+    ...(opts.mode && opts.mode !== 'bank' ? { mode: opts.mode } : {}),
+    // The simplest token (transactions only, no account filters, Liabilities optional): the one automatic retry.
+    ...(opts.fallback ? { fallback: true } : {}),
+    ...(opts.institutionId && /^ins_[A-Za-z0-9_]+$/.test(opts.institutionId) ? { institution_id: opts.institutionId } : {}),
+  }
+}
+
+/** Plaid failed the session itself: worth one retry with the fallback token (SHELLPOINT-FIX.md in davey-ios). */
+export function isFallbackExit(errorType?: string | null, errorCode?: string | null): boolean {
+  return errorType === 'API_ERROR' || errorCode === 'INTERNAL_SERVER_ERROR'
+}
+
+/** One Link exit or fallback retry for plaid_link_events (link-support "event"; identifiers only). Never throws. */
+export async function logLinkEvent(fields: Record<string, string | boolean | undefined>): Promise<void> {
+  try {
+    await supabase.functions.invoke('link-support', { body: { action: 'event', platform: 'web', app_version: 'web', ...fields } })
+  } catch {
+    /* best effort */
+  }
+}
+
+export async function createLinkToken(opts: { itemId?: string; mode?: LinkMode; fallback?: boolean; institutionId?: string } = {}): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('plaid-link-token', { body: linkTokenBody(opts) })
   if (error) throw new Error(errorMessage(error, "Couldn't start the bank connection."))
   const token = data?.link_token ?? data?.linkToken
   if (typeof token !== 'string') throw new Error("Couldn't start the bank connection.")
