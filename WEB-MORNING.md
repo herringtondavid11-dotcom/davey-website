@@ -15,10 +15,13 @@
 - Clear rate-limit messages ("Too many emails, try again in a few minutes." / "Wait N seconds" / "Too many attempts").
 - Password reset: the emailed token is verified once only (no double verify → no false "link expired").
 - Investments tables no longer scroll sideways at 768px.
+- QC loops since (WEB-QC-LOG.md): Recurring reads the app's own rules; friendly load errors; charts use the app's exact
+  colors; 3:1 focus ring; sidebar fits short laptops; OAuth return survives the access code, sign-in and an idle
+  sign-out; login-activity function (deploy with the Mac paste).
 - Screens checked at 360 / 768 / 1280 / 1920 in light and dark; axe on every screen including the new ones.
 
 ## Tests
-- Vitest: 101/101. Playwright (Chromium): 82/82. Latest counts: WEB-QC-LOG.md.
+- Vitest: 104/104. Playwright (Chromium): 97/97. Latest counts: WEB-QC-LOG.md.
 - WebKit/Firefox aren't installed in the cloud container; on the Mac: `cd webapp && npm run e2e`.
 
 ## Your one Claude Code paste (on the Mac)
