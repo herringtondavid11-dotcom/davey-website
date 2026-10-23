@@ -34,9 +34,10 @@ function FlowView({ state, onStart, onDone, onLoans }: { state: FlowState; onSta
         <li><CheckIcon />Connections are shared with the Davey app on your iPhone and Mac.</li>
       </ul>
       {state.step === 'error' && <p className="error" role="alert">{state.message}</p>}
+      {state.step === 'unfinished' && <p className="notice" role="status">{state.message}</p>}
       <div>
         <button className="btn btn-primary" onClick={onStart} disabled={state.step === 'starting' || state.step === 'linking'}>
-          {state.step === 'starting' ? 'Starting…' : state.step === 'linking' ? 'Plaid is open…' : state.step === 'error' ? 'Try again' : 'Connect a Bank'}
+          {state.step === 'starting' ? 'Starting…' : state.step === 'linking' ? 'Plaid is open…' : state.step === 'error' || state.step === 'unfinished' ? 'Try again' : 'Connect a Bank'}
         </button>
         {onLoans && (
           <button className="btn btn-secondary" style={{ marginLeft: 8 }} onClick={onLoans} disabled={state.step === 'starting' || state.step === 'linking'}>
