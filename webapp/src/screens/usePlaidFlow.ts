@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useData } from '../lib/DataProvider'
 import { fetchAccounts } from '../lib/data'
 import { loadDaveyData, reloadDaveyData } from '../lib/serverData'
@@ -279,9 +279,12 @@ export function usePlaidFlow() {
     }
   }, [])
 
-  // While Link is open its iframe covers the whole screen and the app's bars step aside (styles in app.css).
+  // While Link is open, app.css sizes its iframe in the space beside the sidebar and between the phone bars.
+  // The bars stay up so a Link that never paints (Plaid's overlay starts at opacity 0) cannot freeze navigation.
   const linkOpen = state.step === 'linking'
-  useEffect(() => {
+  // Layout, not passive effect: the class has to come off before the next screen paints, or the iframe
+  // (display:block from Plaid) still covers that screen for a frame and swallows its first taps.
+  useLayoutEffect(() => {
     document.body.classList.toggle('plaid-open', linkOpen)
     return () => document.body.classList.remove('plaid-open')
   }, [linkOpen])
