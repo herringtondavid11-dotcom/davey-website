@@ -30,9 +30,16 @@ test('public pages: page-specific social titles, self-hosted fonts, and a keyboa
     if (/fonts\.(googleapis|gstatic)\.com/.test(r.url())) thirdParty.push(r.url())
   })
   await page.goto('/')
-  await expect(page.getByText('Up to 230 connected banks')).toBeVisible()
+  await expect(page.getByText('Up to 30 connected banks', { exact: true })).toBeVisible()
+  const homeText = await page.locator('body').innerText()
+  for (const price of ['$9.99', '$14.99', '$19.99', '$69.99', '230 connected']) {
+    expect(homeText, price).not.toContain(price)
+  }
+  const ld = await page.locator('script[type="application/ld+json"]').textContent()
+  expect(ld).toContain('FAQPage')
+  expect(ld).toContain('up to 30 connected banks')
+  expect(ld).not.toContain('69.99')
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Davey – Know where every dollar goes')
-  expect(await page.locator('script[type="application/ld+json"]').textContent()).toContain('FAQPage')
   await expect(page.locator('link[href="/assets/fonts/inter-latin-400.woff2"]')).toHaveCount(1)
   expect(thirdParty).toEqual([])
   const may = page.locator('#bars button').first()
@@ -53,8 +60,16 @@ test('public pages: page-specific social titles, self-hosted fonts, and a keyboa
     await page.goto(path)
     await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', title)
     await expect(page.locator('meta[name="description"]')).not.toHaveAttribute('content', /Coming soon/)
+    const text = await page.locator('body').innerText()
+    for (const price of ['$9.99', '$14.99', '$19.99', '$69.99', '230']) {
+      expect(text, `${path} ${price}`).not.toContain(price)
+    }
   }
+  await page.goto('/terms/')
+  await expect(page.getByText('up to 30 bank connections')).toBeVisible()
   await page.goto('/help/')
+  await expect(page.getByRole('heading', { name: 'What does Davey Premium cost?' })).toBeVisible()
+  await expect(page.getByText('Paid plans include up to 30 connected banks.')).toBeVisible()
   const bodyLink = page.locator('main a').first()
   await bodyLink.evaluate((el) => {
     const node = el as HTMLElement & { focus: (opts?: { focusVisible?: boolean }) => void }

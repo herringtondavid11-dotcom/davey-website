@@ -1,14 +1,11 @@
-// Davey marketing site. Edit CONFIG to change prices and the waitlist endpoint.
+// Davey marketing site. The paywall is off, so this page does not publish plan prices.
 const CONFIG = {
-  // Launch prices (USD): App Store Connect products davey.premium.monthly and davey.premium.annual.
-  prices: { monthly: 9.99, annual: 69.99 },
   // Formspree form endpoint, e.g. "https://formspree.io/f/abcdwxyz". Until it's set, the form opens an email instead.
   formspreeEndpoint: "",
   fallbackEmail: "support@daveypersonalfinance.com",
 };
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const money = (n, digits = 2) => n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 // Header: solid with blur after scrolling past the hero top.
 const header = document.querySelector(".site-header");
@@ -42,24 +39,6 @@ if (toggle && nav && header) {
     setMenu(false);
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && nav.classList.contains("open")) { setMenu(false); toggle.focus(); } });
-}
-
-// Pricing. Missing on pages that don't include the toggle.
-const saveTag = document.getElementById("save-tag");
-const pricePremium = document.getElementById("price-premium");
-if (saveTag && pricePremium) {
-  const annualPerMonth = CONFIG.prices.annual / 12;
-  const savePct = Math.round((1 - CONFIG.prices.annual / (CONFIG.prices.monthly * 12)) * 100);
-  saveTag.textContent = `Save ${savePct}%`;
-  const setBilling = (period) => {
-    document.querySelectorAll("[data-billing]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.billing === period)));
-    const annual = period === "annual";
-    pricePremium.textContent = money(annual ? CONFIG.prices.annual : CONFIG.prices.monthly);
-    document.getElementById("price-unit").textContent = annual ? "/ year" : "/ month";
-    document.getElementById("price-note").textContent = annual ? `Just ${money(annualPerMonth)} a month, billed annually` : "Billed monthly. Cancel anytime.";
-  };
-  document.querySelectorAll("[data-billing]").forEach((b) => b.addEventListener("click", () => setBilling(b.dataset.billing)));
-  setBilling("annual");
 }
 
 // FAQ accordion.
@@ -108,7 +87,9 @@ if (form && status) form.addEventListener("submit", async (e) => {
   }
 });
 
-// Sample-data charts (illustrative only).
+// Sample-data charts (illustrative only). Amounts are example spending, not plan prices.
+const money = (n, digits = 2) => n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: digits, maximumFractionDigits: digits });
+
 const categories = [
   { name: "Housing", value: 1650, color: "#2F6DB0" },
   { name: "Groceries", value: 520, color: "#B07A00" },

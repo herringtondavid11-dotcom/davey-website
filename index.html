@@ -54,13 +54,6 @@
         "description": "Davey connects your accounts, tracks every transaction, and turns your spending into clear budgets and trends.",
         "url": "https://daveypersonalfinance.com/",
         "image": "https://daveypersonalfinance.com/assets/og/og-image.png",
-        "offers": {
-          "@type": "AggregateOffer",
-          "lowPrice": "0",
-          "highPrice": "69.99",
-          "priceCurrency": "USD",
-          "offerCount": "2"
-        },
         "publisher": { "@id": "https://daveypersonalfinance.com/#org" }
       },
       {
@@ -69,7 +62,7 @@
           { "@type": "Question", "name": "Is my data safe?", "acceptedAnswer": { "@type": "Answer", "text": "Bank connections go through Plaid, so Davey never sees your bank password. Access keys are encrypted with AES-256, budgets sync through your own iCloud account, and the app locks with Face ID." } },
           { "@type": "Question", "name": "Which banks work with Davey?", "acceptedAnswer": { "@type": "Answer", "text": "Davey uses Plaid, which supports thousands of banks, credit unions and card issuers in the US. You can also add any account manually." } },
           { "@type": "Question", "name": "Does Davey move money?", "acceptedAnswer": { "@type": "Answer", "text": "No. Davey has read-only access. It can see balances and transactions, but it can't make payments or transfers." } },
-          { "@type": "Question", "name": "What does it cost?", "acceptedAnswer": { "@type": "Answer", "text": "Davey has a free plan. Premium is $9.99 a month or $69.99 a year and adds more banks and Views, Davey AI, business and tax tools, and Household Sharing." } },
+          { "@type": "Question", "name": "What does it cost?", "acceptedAnswer": { "@type": "Answer", "text": "There is nothing to pay while subscriptions are off. A free plan includes one connected bank. Paid plans include up to 30 connected banks, more Views, Davey AI, business and tax tools, and Household Sharing." } },
           { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Premium is an App Store subscription. Cancel anytime in your Apple Account subscriptions." } }
         ]
       }
@@ -90,7 +83,7 @@
       <nav class="nav" id="site-nav" aria-label="Main">
         <a href="#features">Features</a>
         <a href="#security">Security</a>
-        <a href="#pricing">Pricing</a>
+        <a href="#pricing">Plans</a>
         <a href="#faq">FAQ</a>
         <a class="nav-login" href="/app/login">Log in</a>
         <a class="btn btn-primary" href="/app/">Get started</a>
@@ -371,17 +364,12 @@
     <section class="section pricing light-surface" id="pricing" aria-labelledby="pricing-title">
       <div class="container">
         <div class="section-head center reveal">
-          <span class="eyebrow">Pricing</span>
-          <h2 id="pricing-title">Start free. Upgrade when you're ready.</h2>
-          <div class="billing-toggle" role="group" aria-label="Billing period">
-            <button type="button" data-billing="monthly" aria-pressed="false">Monthly</button>
-            <button type="button" data-billing="annual" aria-pressed="true">Annual <span class="save-tag" id="save-tag">Save 42%</span></button>
-          </div>
+          <span class="eyebrow">Plans</span>
+          <h2 id="pricing-title">What's included</h2>
         </div>
         <div class="plans reveal">
           <div class="card plan">
             <div><h3>Free</h3><p class="card-sub">Everything you need to get started</p></div>
-            <p class="price"><span id="price-free">$0</span> <small>forever</small></p>
             <ul>
               <li>1 connected bank</li>
               <li>Unlimited manual accounts, cards and loans</li>
@@ -393,10 +381,8 @@
           </div>
           <div class="card plan featured">
             <div><h3>Premium</h3><p class="card-sub">For your whole financial life</p></div>
-            <p class="price"><span id="price-premium">$69.99</span> <small id="price-unit">/ year</small></p>
-            <p class="price-note" id="price-note">Just $5.83 a month, billed annually</p>
             <ul>
-              <li>Up to 230 connected banks</li>
+              <li>Up to 30 connected banks</li>
               <li>Up to 10 Views: Personal, Business, Rentals…</li>
               <li>100 Davey AI questions a month</li>
               <li>Business profit &amp; loss, Schedule C/E and quarterly taxes</li>
@@ -406,7 +392,7 @@
             <a class="btn btn-primary" href="#waitlist">Get early access</a>
           </div>
         </div>
-        <p class="placeholder-note">Launch prices: $9.99 a month or $69.99 a year. Subscriptions are billed through the App Store and renew automatically until cancelled.</p>
+        <p class="placeholder-note">Subscriptions are off for now, so there is nothing to pay. When a paid plan is available, the price is shown in the App Store before you subscribe.</p>
       </div>
     </section>
 
@@ -425,7 +411,7 @@
           <div class="faq-item"><h3><button class="faq-q" aria-expanded="false" aria-controls="faq-3">Does Davey move money?</button></h3>
             <div class="faq-a" id="faq-3" hidden><p>No. Davey has read-only access. It can see balances and transactions, but it can't make payments or transfers.</p></div></div>
           <div class="faq-item"><h3><button class="faq-q" aria-expanded="false" aria-controls="faq-4">What does it cost?</button></h3>
-            <div class="faq-a" id="faq-4" hidden><p>Davey has a free plan. Premium is $9.99 a month or $69.99 a year and adds more banks and Views, 100 Davey AI questions a month, business and tax tools, and Household Sharing. See <a href="#pricing">Pricing</a>.</p></div></div>
+            <div class="faq-a" id="faq-4" hidden><p>There is nothing to pay while subscriptions are off. A free plan includes one connected bank. Paid plans include up to 30 connected banks, more Views, Davey AI, business and tax tools, and Household Sharing. See <a href="#pricing">Plans</a>.</p></div></div>
           <div class="faq-item"><h3><button class="faq-q" aria-expanded="false" aria-controls="faq-5">Can I cancel anytime?</button></h3>
             <div class="faq-a" id="faq-5" hidden><p>Yes. Premium is an App Store subscription, so you can cancel anytime in your iPhone's Settings under your Apple Account › Subscriptions.</p></div></div>
           <div class="faq-item"><h3><button class="faq-q" aria-expanded="false" aria-controls="faq-6">Is there an Android version?</button></h3>
