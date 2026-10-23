@@ -78,6 +78,35 @@ test('connect a bank: web link token, Plaid Link, exchange, then Name Your Accou
   expect(problems).toEqual([])
 })
 
+test('an unfinished bank sign-in explains itself and can be tried again', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true, plaidHold: true })
+  await page.goto('/app/connect')
+  await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
+  await expect(page.getByText('Plaid is open…')).toBeVisible()
+
+  await page.evaluate(() => (window as unknown as { __plaidClose: (status?: string | null, institution?: string) => void }).__plaidClose('requires_oauth', 'Chase'))
+  const notice = page.locator('.connect-hero .notice')
+  await expect(notice).toHaveText("Chase sign-in didn't finish. Make sure pop-ups are allowed for this site, then try again.")
+  await expect(notice).toHaveAttribute('role', 'status')
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+  expect(state.calls.some((c) => c.path === '/functions/v1/plaid-exchange')).toBe(false)
+
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByText('Plaid is open…')).toBeVisible()
+  await expect(page.locator('.connect-hero .notice')).toHaveCount(0)
+
+  // A different unfinished step, still with no error, uses the same explanation.
+  await page.evaluate(() => (window as unknown as { __plaidClose: (status?: string | null) => void }).__plaidClose('requires_credentials'))
+  await expect(page.locator('.connect-hero .notice')).toHaveText("Bank sign-in didn't finish. Make sure pop-ups are allowed for this site, then try again.")
+
+  // Closing Link with no status still returns to the idle screen.
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect(page.getByText('Plaid is open…')).toBeVisible()
+  await page.evaluate(() => (window as unknown as { __plaidClose: (status?: string | null) => void }).__plaidClose(null))
+  await expect(page.getByRole('button', { name: 'Connect a Bank' }).last()).toBeVisible()
+  await expect(page.getByText("sign-in didn't finish")).toHaveCount(0)
+})
+
 test('without a household, Connect a Bank explains instead of creating an unreachable connection', async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true, noHousehold: true })
   await page.goto('/app/connect')

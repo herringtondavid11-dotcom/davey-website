@@ -37,6 +37,26 @@ export type FlowState =
   | { step: 'naming'; accounts: Account[]; institution?: string }
   | { step: 'reconnected'; institution?: string }
   | { step: 'error'; message: string }
+  | { step: 'unfinished'; message: string }
+
+/** Link closed on an OAuth handoff or any other unfinished step, with no error from Plaid. */
+export function unfinishedSignInMessage(institution?: string | null): string {
+  const bank = institution?.trim() || 'Bank'
+  return `${bank} sign-in didn't finish. Make sure pop-ups are allowed for this site, then try again.`
+}
+
+/**
+ * What the Connect screen shows after Link's onExit. An error stays an error. A status with no error
+ * (requires_oauth, or any other non-null status) explains the unfinished sign-in. A plain close stays idle.
+ */
+export function linkExitState(
+  err: { display_message?: string | null } | null | undefined,
+  metadata: { status?: string | null; institution?: { name?: string | null } | null } | null | undefined,
+): FlowState {
+  if (err) return { step: 'error', message: err.display_message || 'The bank connection was interrupted. Try again.' }
+  if (metadata?.status != null) return { step: 'unfinished', message: unfinishedSignInMessage(metadata.institution?.name) }
+  return { step: 'idle' }
+}
 
 /** Davey keeps money data on the iPhone/Mac and in iCloud; the web sees what the household shares. */
 export const NO_HOUSEHOLD =
@@ -135,7 +155,7 @@ export function usePlaidFlow() {
               errorMessage: err.error_message,
             })
           }
-          setState(err ? { step: 'error', message: err.display_message || 'The bank connection was interrupted. Try again.' } : { step: 'idle' })
+          setState(linkExitState(err, metadata))
         },
       })
       setState({ step: 'linking' })
