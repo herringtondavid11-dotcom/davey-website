@@ -103,8 +103,14 @@ svg { display: block; flex: none; }
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 44px; padding: 10px 18px; border-radius: 12px; border: 1px solid transparent;
   font-weight: 700; text-decoration: none; cursor: pointer; white-space: nowrap;
+  background: transparent; appearance: none; -webkit-appearance: none;
   transition: transform .15s, box-shadow .15s, background .15s;
 }
+/* WebKit paints an unstyled button with the light system face. Light text on that face fails contrast in dark mode. */
+.btn-apple { background: #fff; color: var(--navy); border-color: #DCE4EC; }
+.btn-apple svg { color: var(--navy); }
+.divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: .875rem; font-weight: 600; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .btn:disabled { opacity: .55; cursor: default; }
 .btn-primary { background: var(--gold); color: var(--navy); }
 .btn-primary:not(:disabled):hover { box-shadow: 0 6px 18px rgba(232, 184, 74, .35); transform: translateY(-1px); }
