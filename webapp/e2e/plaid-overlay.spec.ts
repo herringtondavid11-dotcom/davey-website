@@ -8,7 +8,7 @@ const { defaultBrowserType: _ipadBrowser, ...iPad } = devices['iPad (gen 7)']
 
 async function openLink(page: Page) {
   await page.goto('/app/connect')
-  await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
+  await page.getByRole('button', { name: 'Connect an account' }).click()
   await expect(page.getByText('Plaid is open…')).toBeVisible()
 }
 
@@ -50,7 +50,7 @@ test('desktop: Plaid Link full screen above the sidebar, hidden before opening',
   await page.goto('/app/connect')
   await page.waitForLoadState('networkidle')
   await expect(page.locator('iframe[id^="plaid-link-iframe"]')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
+  await page.getByRole('button', { name: 'Connect an account' }).click()
   const frame = page.locator('iframe[id^="plaid-link-iframe"]')
   await expect(frame).toBeVisible()
   expect(await frame.boundingBox()).toEqual({ x: 0, y: 0, width: 1280, height: 800 })

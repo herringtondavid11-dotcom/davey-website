@@ -71,12 +71,12 @@ for (const vp of VIEWPORTS) {
       await page.screenshot({ path: `screenshots/${browserName}-${vp.width}-${theme}-05-edit-transaction.png`, animations: 'disabled' })
       await page.getByRole('button', { name: 'Cancel' }).click()
 
-      // Connect a Bank → Name your accounts
-      await page.getByRole('link', { name: phone ? 'More' : 'Connect a Bank' }).first().click()
-      if (phone) await page.getByRole('link', { name: 'Connect a Bank' }).click()
-      await expect(page.getByRole('heading', { name: 'Connect your bank securely' })).toBeVisible()
+      // Connect an account → Name your accounts
+      await page.getByRole('link', { name: phone ? 'More' : 'Connect an account' }).first().click()
+      if (phone) await page.getByRole('link', { name: 'Connect an account' }).click()
+      await expect(page.getByRole('heading', { name: 'Connect an account securely' })).toBeVisible()
       await shot('06-connect')
-      await page.getByRole('button', { name: 'Connect a Bank' }).click()
+      await page.getByRole('button', { name: 'Connect an account' }).click()
       await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
       await shot('07-name-accounts')
 

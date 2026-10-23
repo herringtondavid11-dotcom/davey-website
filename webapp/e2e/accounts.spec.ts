@@ -42,6 +42,7 @@ test('reconnect stops safely when the server has no update mode', async ({ page 
 test('reconnect in update mode re-syncs without a new exchange', async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true, updateMode: true })
   await page.goto('/app/connect?reconnect=item-wf')
+  await page.getByRole('button', { name: 'Reconnect' }).click()
   await expect(page.getByRole('heading', { name: /is reconnected/ })).toBeVisible()
   expect(state.calls.some((c) => c.path === '/functions/v1/plaid-exchange')).toBe(false)
   expect(state.calls.find((c) => c.path === '/functions/v1/plaid-sync')?.body).toEqual({ item_id: 'item-wf' })
@@ -146,14 +147,14 @@ test('accounts: sort and search', async ({ page }) => {
   await expect(page.locator('.goal-row')).toContainText('Plaid Saving')
 })
 
-test('Accounts tab: no Connect a Bank / Add Account card; the sort control is directly under the total (all widths)', async ({ page }) => {
+test('Accounts tab: no Connect an account / Add Account card; the sort control is directly under the total (all widths)', async ({ page }) => {
   await mockBackend(page, { signedIn: true })
   for (const width of [360, 1280]) {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/app/accounts')
     const main = page.locator('main')
     await expect(main.getByRole('heading', { name: 'Accounts', level: 1 })).toBeVisible()
-    await expect(main.getByRole('link', { name: 'Connect a Bank' })).toHaveCount(0)
+    await expect(main.getByRole('link', { name: 'Connect an account' })).toHaveCount(0)
     await expect(main.getByRole('button', { name: 'Add Account' })).toHaveCount(0)
     // The total card is followed immediately by search + the % Funded / Balance / Name sort.
     const next = await page.locator('section.goals-head').evaluate((el) => el.nextElementSibling?.className ?? '')
@@ -162,17 +163,17 @@ test('Accounts tab: no Connect a Bank / Add Account card; the sort control is di
   }
 })
 
-test('connecting and adding stay available elsewhere: sidebar, Overview, phone More, and manual add on Connect a Bank', async ({ page }) => {
+test('connecting and adding stay available elsewhere: sidebar, Overview, phone More, and manual add on Connect an account', async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true })
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto('/app/accounts')
-  await expect(page.locator('nav, aside').getByRole('link', { name: 'Connect a Bank' }).first()).toBeVisible()
+  await expect(page.locator('nav, aside').getByRole('link', { name: 'Connect an account' }).first()).toBeVisible()
   await page.goto('/app/')
-  await expect(page.locator('main').getByRole('link', { name: 'Connect a Bank' })).toBeVisible()
+  await expect(page.locator('main').getByRole('link', { name: 'Connect an account' })).toBeVisible()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/app/more')
-  await expect(page.getByRole('link', { name: 'Connect a Bank' })).toBeVisible()
-  await page.getByRole('link', { name: 'Connect a Bank' }).click()
+  await expect(page.getByRole('link', { name: 'Connect an account' })).toBeVisible()
+  await page.getByRole('link', { name: 'Connect an account' }).click()
   await page.getByRole('button', { name: 'Add a manual account instead' }).click()
   await page.getByLabel('Name').fill('Coin jar')
   await page.getByLabel('Balance').fill('125.50')

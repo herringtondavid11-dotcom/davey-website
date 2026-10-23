@@ -128,17 +128,26 @@ export const RECONNECT_UNSUPPORTED =
  * New connection, or update mode for an existing Item (re-login). Update mode requires the server to answer with
  * mode:'update'; otherwise we stop, because a plain link token would create a duplicate connection.
  */
-export type LinkMode = 'bank' | 'loans' | 'brokerage'
+/**
+ * New connections use `account`: one Link session for checking, savings, cards, loans, and investments.
+ * The live plaid-link-token only special-cases `loans` and `brokerage`; every other mode, including `account`,
+ * is parsed as `bank` (transactions only, with depository, credit, investment, and loan account filters).
+ * It refuses optional_products on that bank token, so investments and liabilities cannot be added until the
+ * server recognizes `mode: 'account'` (see the PR). `loans` and `brokerage` stay available for that server,
+ * and are not separate buttons. `bank` omits the mode field, the historical transactions-only body.
+ */
+export type LinkMode = 'account' | 'bank' | 'loans' | 'brokerage'
 
 /** The plaid-link-token body for the web (pure, unit-tested). */
 export function linkTokenBody(opts: { itemId?: string; mode?: LinkMode; fallback?: boolean; institutionId?: string; consentInvestments?: boolean } = {}): Record<string, unknown> {
   // Update mode; with consentInvestments it also adds Plaid Investments to the same connection (no relink).
   if (opts.itemId) return { platform: 'web', redirect_uri: PLAID_REDIRECT_URI, item_id: opts.itemId, mode: 'update', ...(opts.consentInvestments ? { consent: 'investments' } : {}) }
+  const mode: LinkMode = opts.mode ?? 'account'
   return {
     platform: 'web',
     redirect_uri: PLAID_REDIRECT_URI,
-    ...(opts.mode && opts.mode !== 'bank' ? { mode: opts.mode } : {}),
-    // The simplest token (transactions only, no account filters, Liabilities optional): the one automatic retry.
+    ...(mode !== 'bank' ? { mode } : {}),
+    // Simplest token: the one retry after Plaid fails the session itself (Shellpoint).
     ...(opts.fallback ? { fallback: true } : {}),
     ...(opts.institutionId && /^ins_[A-Za-z0-9_]+$/.test(opts.institutionId) ? { institution_id: opts.institutionId } : {}),
   }

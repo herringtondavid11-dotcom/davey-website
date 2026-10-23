@@ -6,7 +6,7 @@ import { normalizeItem } from '../lib/tables'
 import { useTable } from '../lib/useTable'
 
 const TOPICS: { q: string; a: string }[] = [
-  { q: 'My bank opens a new window or app and never comes back', a: "Some banks (Chase, Wells Fargo, Bank of America, Capital One…) sign you in on their own site. Allow pop-ups for daveypersonalfinance.com, finish signing in, and you'll return to Davey at /app/oauth. If you closed that tab, start again from Connect a Bank." },
+  { q: 'My bank opens a new window or app and never comes back', a: "Some banks (Chase, Wells Fargo, Bank of America, Capital One…) sign you in on their own site. Allow pop-ups for daveypersonalfinance.com, finish signing in, and you'll return to Davey at /app/oauth. If you closed that tab, start again from Connect an account." },
   { q: 'It says my login is required again', a: 'Banks expire access every so often or after a password change. Open Accounts and tap Reconnect next to the bank. Your history and nicknames stay.' },
   { q: "I can't find my bank", a: 'Search by the name on your statement, or the parent company (for example "Navy Federal" rather than "NFCU"). Small credit unions sometimes connect through a different name. If it really is missing, report it below.' },
   { q: 'Some accounts are missing', a: 'When connecting, make sure every account is ticked on the account-selection screen. To add more later, Reconnect the bank and select them.' },

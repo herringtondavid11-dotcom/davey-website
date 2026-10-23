@@ -33,6 +33,7 @@ export type FlowState =
   | { step: 'idle' }
   | { step: 'starting' }
   | { step: 'linking' }
+  | { step: 'retry' }
   | { step: 'saving'; institution?: string }
   | { step: 'naming'; accounts: Account[]; institution?: string }
   | { step: 'reconnected'; institution?: string }
@@ -42,15 +43,36 @@ export type FlowState =
 export const NO_HOUSEHOLD =
   "Davey on the web shows what your household shares. Turn on Household Sharing in the Davey app (Settings › Household), then connect banks here or in the app."
 
+export const SESSION_EXPIRED = 'This bank connection session expired. Start again from Connect an account.'
+
+interface PreparedLink {
+  token: string
+  updateItemId?: string
+}
+
+interface SessionOpts {
+  updateItemId?: string
+  consentInvestments?: boolean
+}
+
+/**
+ * Plaid opens OAuth banks (Chase and others) in a pop-up. Browsers block that pop-up unless `Plaid.create` and
+ * `handler.open()` run inside the click, with no await before them. The token and the Plaid script are fetched
+ * first; the click only creates and opens Link.
+ */
 export function usePlaidFlow() {
   const { reload } = useData()
   const [state, setState] = useState<FlowState>({ step: 'idle' })
+  const [ready, setReady] = useState(false)
   const handler = useRef<PlaidHandler | null>(null)
-  // The connection's mode and its one automatic retry with the fallback token (see isFallbackExit).
-  const mode = useRef<LinkMode>('bank')
+  const prepared = useRef<PreparedLink | null>(null)
+  const mode = useRef<LinkMode>('account')
   const consentInvestments = useRef(false)
   const fallbackRetried = useRef(false)
   const usingFallback = useRef(false)
+  const resumed = useRef(false)
+  const seq = useRef(0)
+  const sessionOpts = useRef<SessionOpts>({})
 
   const finish = useCallback(
     async (publicToken: string, metadata: PlaidLinkMetadata) => {
@@ -91,106 +113,146 @@ export function usePlaidFlow() {
     [reload],
   )
 
-  const open = useCallback(
-    async (opts: { token: string; receivedRedirectUri?: string; updateItemId?: string }) => {
-      await loadPlaid()
-      handler.current?.destroy()
-      handler.current = window.Plaid!.create({
-        token: opts.token,
-        receivedRedirectUri: opts.receivedRedirectUri,
-        onSuccess: (publicToken, metadata) =>
-          void (opts.updateItemId ? finishUpdate(opts.updateItemId, metadata) : finish(publicToken, metadata)),
-        onExit: (err, metadata) => {
-          clearPendingLink()
-          const ids = {
-            mode: mode.current,
-            config: usingFallback.current ? 'fallback' : 'standard',
-            retry: usingFallback.current,
-            link_session_id: metadata?.link_session_id,
-            request_id: metadata?.request_id,
-            institution_id: metadata?.institution?.institution_id,
-            institution_name: metadata?.institution?.name,
-            error_type: err?.error_type,
-            error_code: err?.error_code,
-            exit_status: metadata?.status ?? undefined,
-          }
-          if (err || metadata?.status) void logLinkEvent({ event: 'exit', ...ids })
-          // Plaid failed the session itself (API_ERROR / INTERNAL_SERVER_ERROR): once per connection, Link again with
-          // the simplest token instead of showing the error.
-          if (!opts.updateItemId && !fallbackRetried.current && isFallbackExit(err?.error_type, err?.error_code)) {
-            fallbackRetried.current = true
-            usingFallback.current = true
-            void logLinkEvent({ event: 'fallback_retry', ...ids, config: 'fallback', retry: true })
-            void retryWithFallback(metadata?.institution?.institution_id)
-            return
-          }
-          if (err) {
-            saveLinkIssue({
-              at: new Date().toISOString(),
-              institution: metadata?.institution?.name,
-              institutionId: metadata?.institution?.institution_id,
-              linkSessionId: metadata?.link_session_id,
-              requestId: metadata?.request_id,
-              errorCode: err.error_code,
-              errorMessage: err.error_message,
-            })
-          }
-          setState(err ? { step: 'error', message: err.display_message || 'The bank connection was interrupted. Try again.' } : { step: 'idle' })
-        },
-      })
-      setState({ step: 'linking' })
-      handler.current.open()
-    },
-    [finish, finishUpdate],
-  )
+  const prepareRef = useRef<(opts?: SessionOpts) => Promise<void>>(async () => {})
+  const armFallbackRef = useRef<(institutionId?: string) => Promise<void>>(async () => {})
 
-  async function retryWithFallback(institutionId?: string) {
-    setState({ step: 'starting' })
-    try {
-      const token = await createLinkToken({ mode: mode.current, fallback: true, institutionId })
-      savePendingLink({ linkToken: token, startedAt: new Date().toISOString(), userId: await currentUserId() })
-      await openRef.current?.({ token })
-    } catch (e) {
-      setState({ step: 'error', message: (e as Error).message })
-    }
+  // Assigned each render so Link's callbacks see the latest finishers without an await before open().
+  const mountRef = useRef<(opts: { token: string; receivedRedirectUri?: string; updateItemId?: string }) => void>(() => {})
+  mountRef.current = (opts) => {
+    handler.current?.destroy()
+    handler.current = window.Plaid!.create({
+      token: opts.token,
+      receivedRedirectUri: opts.receivedRedirectUri,
+      onSuccess: (publicToken, metadata) =>
+        void (opts.updateItemId ? finishUpdate(opts.updateItemId, metadata) : finish(publicToken, metadata)),
+      onExit: (err, metadata) => {
+        clearPendingLink()
+        const ids = {
+          mode: mode.current,
+          config: usingFallback.current ? 'fallback' : 'standard',
+          retry: usingFallback.current,
+          link_session_id: metadata?.link_session_id,
+          request_id: metadata?.request_id,
+          institution_id: metadata?.institution?.institution_id,
+          institution_name: metadata?.institution?.name,
+          error_type: err?.error_type,
+          error_code: err?.error_code,
+          exit_status: metadata?.status ?? undefined,
+        }
+        if (err || metadata?.status) void logLinkEvent({ event: 'exit', ...ids })
+        // Plaid failed the session itself. The next open has to be another click: calling open() here is not a user
+        // gesture, and Safari/Chrome would block the bank pop-up.
+        if (!opts.updateItemId && !fallbackRetried.current && isFallbackExit(err?.error_type, err?.error_code)) {
+          fallbackRetried.current = true
+          usingFallback.current = true
+          void logLinkEvent({ event: 'fallback_retry', ...ids, config: 'fallback', retry: true })
+          void armFallbackRef.current(metadata?.institution?.institution_id)
+          return
+        }
+        if (err) {
+          saveLinkIssue({
+            at: new Date().toISOString(),
+            institution: metadata?.institution?.name,
+            institutionId: metadata?.institution?.institution_id,
+            linkSessionId: metadata?.link_session_id,
+            requestId: metadata?.request_id,
+            errorCode: err.error_code,
+            errorMessage: err.error_message,
+          })
+          prepared.current = null
+          setReady(false)
+          setState({ step: 'error', message: err.display_message || 'The bank connection was interrupted. Try again.' })
+          return
+        }
+        // Closed without connecting. A redirect return goes back to Connect; a normal close fetches a fresh token
+        // so the next click can open Link immediately.
+        if (resumed.current) setState({ step: 'idle' })
+        else void prepareRef.current(sessionOpts.current)
+      },
+    })
+    setState({ step: 'linking' })
+    handler.current.open()
   }
-  const openRef = useRef<typeof open | null>(null)
-  openRef.current = open
 
-  const start = useCallback(async (updateItemId?: string, linkMode: LinkMode = 'bank', opts: { consentInvestments?: boolean } = {}) => {
-    mode.current = updateItemId ? 'bank' : linkMode
-    consentInvestments.current = Boolean(updateItemId && opts.consentInvestments)
+  const prepare = useCallback(async (opts: SessionOpts = {}) => {
+    const ticket = ++seq.current
+    sessionOpts.current = opts
+    mode.current = 'account'
+    consentInvestments.current = Boolean(opts.updateItemId && opts.consentInvestments)
     fallbackRetried.current = false
     usingFallback.current = false
+    prepared.current = null
+    setReady(false)
     setState({ step: 'starting' })
     try {
       // A bank connected here is shared through the household; without one it would reach no device.
-      if (!updateItemId && !(await householdID(await loadDaveyData()))) throw new Error(NO_HOUSEHOLD)
-      const [token] = await Promise.all([createLinkToken({ itemId: updateItemId, mode: mode.current, consentInvestments: consentInvestments.current }), loadPlaid()])
-      savePendingLink({ linkToken: token, startedAt: new Date().toISOString(), updateItemId, userId: await currentUserId() })
-      await open({ token, updateItemId })
+      if (!opts.updateItemId && !(await householdID(await loadDaveyData()))) throw new Error(NO_HOUSEHOLD)
+      const [token] = await Promise.all([
+        createLinkToken({ itemId: opts.updateItemId, mode: 'account', consentInvestments: consentInvestments.current }),
+        loadPlaid(),
+      ])
+      if (ticket !== seq.current) return
+      savePendingLink({ linkToken: token, startedAt: new Date().toISOString(), updateItemId: opts.updateItemId, userId: await currentUserId() })
+      if (ticket !== seq.current) return
+      prepared.current = { token, updateItemId: opts.updateItemId }
+      setReady(true)
+      setState({ step: 'idle' })
+    } catch (e) {
+      if (ticket !== seq.current) return
+      prepared.current = null
+      setReady(false)
+      setState({ step: 'error', message: (e as Error).message })
+    }
+  }, [])
+  prepareRef.current = prepare
+
+  const armFallback = useCallback(async (institutionId?: string) => {
+    const ticket = ++seq.current
+    prepared.current = null
+    setReady(false)
+    setState({ step: 'starting' })
+    try {
+      const token = await createLinkToken({ mode: mode.current, fallback: true, institutionId })
+      await loadPlaid()
+      if (ticket !== seq.current) return
+      savePendingLink({ linkToken: token, startedAt: new Date().toISOString(), userId: await currentUserId() })
+      if (ticket !== seq.current) return
+      prepared.current = { token }
+      setReady(true)
+      setState({ step: 'retry' })
+    } catch (e) {
+      if (ticket !== seq.current) return
+      setState({ step: 'error', message: (e as Error).message })
+    }
+  }, [])
+  armFallbackRef.current = armFallback
+
+  /** True when Link opened. False when the token is not ready yet (the caller should prepare, not open later). */
+  const openFromClick = useCallback((): boolean => {
+    const pending = prepared.current
+    if (!pending || !window.Plaid) return false
+    prepared.current = null
+    setReady(false)
+    mountRef.current({ token: pending.token, updateItemId: pending.updateItemId })
+    return true
+  }, [])
+
+  /** Called once by /oauth after an OAuth bank redirects back. The pop-up already happened; this continues it. */
+  const resume = useCallback(async (receivedRedirectUri: string) => {
+    resumed.current = true
+    const pending = pendingLinkFor(await currentUserId())
+    if (!pending) {
+      setState({ step: 'error', message: SESSION_EXPIRED })
+      return
+    }
+    setState({ step: 'starting' })
+    try {
+      await loadPlaid()
+      mountRef.current({ token: pending.linkToken, receivedRedirectUri, updateItemId: pending.updateItemId })
     } catch (e) {
       setState({ step: 'error', message: (e as Error).message })
     }
-  }, [open])
-
-  /** Called once by /oauth after an OAuth bank redirects back. */
-  const resume = useCallback(
-    async (receivedRedirectUri: string) => {
-      const pending = pendingLinkFor(await currentUserId())
-      if (!pending) {
-        setState({ step: 'error', message: 'This bank connection session expired. Start again from Connect a Bank.' })
-        return
-      }
-      setState({ step: 'starting' })
-      try {
-        await open({ token: pending.linkToken, receivedRedirectUri, updateItemId: pending.updateItemId })
-      } catch (e) {
-        setState({ step: 'error', message: (e as Error).message })
-      }
-    },
-    [open],
-  )
+  }, [])
 
   // While Link is open its iframe covers the whole screen and the app's bars step aside (styles in app.css).
   const linkOpen = state.step === 'linking'
@@ -199,5 +261,5 @@ export function usePlaidFlow() {
     return () => document.body.classList.remove('plaid-open')
   }, [linkOpen])
 
-  return { state, setState, start, resume }
+  return { state, setState, ready, prepare, openFromClick, resume }
 }

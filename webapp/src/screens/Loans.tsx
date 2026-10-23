@@ -131,7 +131,7 @@ export function Loans() {
     <div className="page">
       <div className="page-head"><div><h1>Mortgages & loans</h1><p>Payoff dates, extra payments, refinancing and home equity.</p></div>{loans.length > 0 && <Stat label="Total owed" value={money(total)} tone="negative" />}</div>
       {loans.length === 0 ? (
-        <section className="card"><div className="empty"><p>No loans or mortgages connected.</p><Link className="btn btn-primary" to="/connect">Connect a Bank</Link></div></section>
+        <section className="card"><div className="empty"><p>No loans or mortgages connected.</p><Link className="btn btn-primary" to="/connect">Connect an account</Link></div></section>
       ) : (
         loans.map((a) => <LoanCard key={a.id} a={a} />)
       )}

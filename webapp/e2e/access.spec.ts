@@ -170,7 +170,7 @@ test("an OAuth return never resumes another user's bank connection", async ({ pa
     }
   })
   await page.goto('/app/oauth?oauth_state_id=state-99')
-  await expect(page.getByText('This bank connection session expired. Start again from Connect a Bank.')).toBeVisible()
+  await expect(page.getByText('This bank connection session expired. Start again from Connect an account.')).toBeVisible()
   const creates = await page.evaluate(() => (window as unknown as { __plaidCreates?: unknown[] }).__plaidCreates ?? [])
   expect(creates).toEqual([])
 })

@@ -79,10 +79,10 @@ export function Overview() {
           <h1>Overview</h1>
           <p>Everything in one place.</p>
         </div>
-        <Link className="btn btn-primary" to="/connect">Connect a Bank</Link>
+        <Link className="btn btn-primary" to="/connect">Connect an account</Link>
       </div>
       {empty && (
-        <section className="card"><div className="empty"><p>Connect a bank or add an account to see your net worth, cash flow and goals.</p><Link className="btn btn-primary" to="/connect">Connect a Bank</Link></div></section>
+        <section className="card"><div className="empty"><p>Connect an account or add one to see your net worth, cash flow and goals.</p><Link className="btn btn-primary" to="/connect">Connect an account</Link></div></section>
       )}
       <div className="overview-cards">
         <section className="card networth nw-trend" aria-labelledby="nw">

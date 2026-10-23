@@ -554,6 +554,14 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       contentType: 'text/javascript',
       headers: { 'Access-Control-Allow-Origin': '*' },
       body: `window.__plaidCreates = [];
+      window.__plaidOpenGestures = [];
+      if (!window.__daveyGestureInstalled) {
+        window.__daveyGestureInstalled = true;
+        document.addEventListener('click', function () {
+          window.__daveyUserGesture = true;
+          setTimeout(function () { window.__daveyUserGesture = false; }, 0);
+        }, true);
+      }
       window.Plaid = { create: function (opts) {
         window.__plaidCreates.push({ token: opts.token, receivedRedirectUri: opts.receivedRedirectUri || null });
         // Like Plaid: an iframe added to <body> at create time, sized with an inline style attribute (which Davey's
@@ -565,7 +573,9 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
         document.body.appendChild(frame);
         window.__plaidClose = function () { opts.onExit(null, { status: 'requires_credentials', link_session_id: 'ls-held' }); };
         return {
-          open: function () { if (${opts.plaidHold ? 'true' : 'false'}) return; setTimeout(function () {
+          open: function () {
+            window.__plaidOpenGestures.push(window.__daveyUserGesture === true);
+            if (${opts.plaidHold ? 'true' : 'false'}) return; setTimeout(function () {
             if (opts.token === 'link-api-error') return opts.onExit(
               { error_type: 'API_ERROR', error_code: 'INTERNAL_SERVER_ERROR', error_message: 'an unexpected error occurred', display_message: null },
               { status: null, link_session_id: 'ls-shellpoint', request_id: 'req-shellpoint', institution: { institution_id: 'ins_119891', name: 'Shellpoint Mortgage Servicing' } });

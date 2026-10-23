@@ -28,7 +28,7 @@ export function CreditCards() {
     <div className="page">
       <div className="page-head"><div><h1>Credit cards</h1><p>Balances, utilization and a plan to pay them down.</p></div></div>
       {cards.length === 0 ? (
-        <section className="card"><div className="empty"><p>No credit cards connected.</p><Link className="btn btn-primary" to="/connect">Connect a Bank</Link></div></section>
+        <section className="card"><div className="empty"><p>No credit cards connected.</p><Link className="btn btn-primary" to="/connect">Connect an account</Link></div></section>
       ) : (
         <>
           <section className="card card-pad util-hero">

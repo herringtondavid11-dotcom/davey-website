@@ -52,13 +52,17 @@ test('transactions: search, filter, and edit category, notes and Business/Person
   expect(pushed).toMatchObject({ categoryID: 'cat-business-expenses', note: 'Team lunch supplies', payee: 'Whole Foods Market', amount: -8420 })
 })
 
-test('connect a bank: web link token, Plaid Link, exchange, then Name Your Accounts', async ({ page }) => {
+test('connect an account: one web link token, Plaid opened from the click, exchange, then Name Your Accounts', async ({ page }) => {
   const problems = watchConsole(page)
   const state = await mockBackend(page, { signedIn: true })
   await page.goto('/app/connect')
-  await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
+  await expect(page.getByRole('button', { name: 'Connect a Mortgage or Loan' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Connect investments/i })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Add a manual account instead' })).toBeVisible()
+  await page.getByRole('button', { name: 'Connect an account' }).click()
   await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
-  expect(state.linkTokenBody).toEqual({ platform: 'web', redirect_uri: 'https://daveypersonalfinance.com/app/oauth' })
+  expect(state.linkTokenBody).toEqual({ platform: 'web', redirect_uri: 'https://daveypersonalfinance.com/app/oauth', mode: 'account' })
+  expect(await page.evaluate(() => (window as unknown as { __plaidOpenGestures: boolean[] }).__plaidOpenGestures)).toEqual([true])
   expect(state.exchangeBody).toMatchObject({ public_token: 'public-production-abc', platform: 'web' })
   expect(state.syncBodies).toEqual([{ item_id: 'item-new' }])
   // The new bank is shared with the household the way the app imports one, so the iPhone and Mac get it too.
@@ -71,19 +75,20 @@ test('connect a bank: web link token, Plaid Link, exchange, then Name Your Accou
   await page.getByLabel(/Platypus Checking/).fill('Emergency fund')
   await page.getByRole('button', { name: 'Done' }).click()
   await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
-  // Accounts are listed on the Accounts tab.
+  // Accounts are listed on the Accounts tab. Force the desktop sidebar; a phone uses the tab bar.
+  await page.setViewportSize({ width: 1280, height: 900 })
   await page.locator('.sidebar').getByRole('link', { name: 'Accounts' }).click()
   await expect(page.getByText('Emergency fund', { exact: true })).toBeVisible()
   expect(pushedPayloads(state, 'account', (_, p) => p.externalID === 'p-new-1').at(-1)).toMatchObject({ nickname: 'Emergency fund' })
   expect(problems).toEqual([])
 })
 
-test('without a household, Connect a Bank explains instead of creating an unreachable connection', async ({ page }) => {
+test('without a household, Connect an account explains instead of creating an unreachable connection', async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true, noHousehold: true })
   await page.goto('/app/connect')
-  await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
   await expect(page.getByText(/Turn on Household Sharing/)).toBeVisible()
   expect(state.linkTokenBody).toBeNull()
+  await expect(page.getByRole('button', { name: 'Add a manual account instead' })).toBeVisible()
 })
 
 test('/oauth resumes Plaid Link with receivedRedirectUri exactly once', async ({ page }) => {
@@ -133,15 +138,23 @@ test('the app refuses to render inside a frame', async ({ page }) => {
 test("the bank limit is the server's: its message (with the live number) is shown as is, no limit on the web itself", async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true, bankLimit: 230 })
   await page.goto('/app/connect')
-  await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
   await expect(page.getByText("You've connected 230 banks, Davey Premium's fair-use limit. Disconnect one you no longer use, or contact support and we'll help.")).toBeVisible()
   expect(state.linkTokenBodies).toHaveLength(1)
 })
 
-test('the web never caps banks itself: Connect a Bank always asks the server', async ({ page }) => {
+test('the web never caps banks itself: Connect an account always asks the server', async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true })
   await page.goto('/app/connect')
-  await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
+  await page.getByRole('button', { name: 'Connect an account' }).click()
   await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
   expect(state.linkTokenBodies).toHaveLength(1)
+})
+
+test('old connect modes redirect to the one account session', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true })
+  await page.goto('/app/connect?mode=loans')
+  await expect(page).toHaveURL(/\/app\/connect$/)
+  await page.getByRole('button', { name: 'Connect an account' }).click()
+  expect(state.linkTokenBody).toMatchObject({ mode: 'account' })
+  expect(state.linkTokenBody).not.toHaveProperty('mode', 'loans')
 })

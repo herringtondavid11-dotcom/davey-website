@@ -169,7 +169,7 @@ const MANUAL_TYPES = [
   ['otherAsset', 'Other asset'], ['otherLiability', 'Other liability'],
 ] as const
 
-/** Manual account form (used on Connect a Bank: "Add a manual account instead"). */
+/** Manual account form (used on Connect an account: "Add a manual account instead"). */
 export function AddAccount({ onClose }: { onClose: () => void }) {
   const { reload } = useData()
   const [name, setName] = useState('')
@@ -295,7 +295,7 @@ export function Accounts() {
       })}
       {accounts.length > 0 && filtered.length === 0 && <p className="muted">No accounts match “{query}”.</p>}
       {accounts.length === 0 && (
-        <section className="card"><div className="empty"><p>No accounts yet. Connect a bank or add an account to track balances and goals.</p><Link className="btn btn-primary" to="/connect">Connect a Bank</Link></div></section>
+        <section className="card"><div className="empty"><p>No accounts yet. Connect an account or add one to track balances and goals.</p><Link className="btn btn-primary" to="/connect">Connect an account</Link></div></section>
       )}
       {connections.length > 0 && (
         <section className="card" aria-labelledby="conn-title">

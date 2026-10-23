@@ -58,7 +58,7 @@ export function Layout() {
           <img src={`${import.meta.env.BASE_URL}icon-96.png`} alt="" width="32" height="32" />
           Davey
         </a>
-        <NavLink to="/connect" className="btn btn-primary connect-cta"><PlusIcon size={18} />Connect a Bank</NavLink>
+        <NavLink to="/connect" className="btn btn-primary connect-cta"><PlusIcon size={18} />Connect an account</NavLink>
         <nav aria-label="Main" className="side-nav">
           {NAV_GROUPS.map((g, i) => {
             const items = g.items.filter((it) => !it.businessOnly || business)

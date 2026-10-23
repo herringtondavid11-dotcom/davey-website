@@ -9,10 +9,11 @@ describe('Plaid fallback token (Shellpoint fix)', () => {
     expect(isFallbackExit('ITEM_ERROR', 'INVALID_CREDENTIALS')).toBe(false)
     expect(isFallbackExit(undefined, undefined)).toBe(false)
   })
-  it('builds the token body: loans mode, fallback, institution, update mode', () => {
-    expect(linkTokenBody()).toEqual({ platform: 'web', redirect_uri: 'https://daveypersonalfinance.com/app/oauth' })
+  it('builds the unified account token, and still the loans, fallback, and update bodies', () => {
+    expect(linkTokenBody()).toEqual({ platform: 'web', redirect_uri: 'https://daveypersonalfinance.com/app/oauth', mode: 'account' })
+    expect(linkTokenBody({ mode: 'bank' })).toEqual({ platform: 'web', redirect_uri: 'https://daveypersonalfinance.com/app/oauth' })
     expect(linkTokenBody({ mode: 'loans' })).toMatchObject({ mode: 'loans' })
-    expect(linkTokenBody({ mode: 'loans', fallback: true, institutionId: 'ins_119891' })).toMatchObject({ mode: 'loans', fallback: true, institution_id: 'ins_119891' })
+    expect(linkTokenBody({ mode: 'account', fallback: true, institutionId: 'ins_119891' })).toMatchObject({ mode: 'account', fallback: true, institution_id: 'ins_119891' })
     expect(linkTokenBody({ institutionId: 'nope; drop table' })).not.toHaveProperty('institution_id')
     expect(linkTokenBody({ itemId: 'item-1', fallback: true, mode: 'loans' })).toEqual({ platform: 'web', redirect_uri: 'https://daveypersonalfinance.com/app/oauth', item_id: 'item-1', mode: 'update' })
   })

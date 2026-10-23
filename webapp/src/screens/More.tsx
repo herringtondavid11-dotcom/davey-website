@@ -14,7 +14,7 @@ export function More() {
   return (
     <div className="page">
       <div className="page-head"><div><h1>More</h1></div></div>
-      <Link className="btn btn-primary" to="/connect"><PlusIcon size={18} />Connect a Bank</Link>
+      <Link className="btn btn-primary" to="/connect"><PlusIcon size={18} />Connect an account</Link>
       {NAV_GROUPS.map((g, i) => {
         const items = g.items.filter((it) => !inTabs.has(it.to) && (!it.businessOnly || business))
         if (!items.length) return null

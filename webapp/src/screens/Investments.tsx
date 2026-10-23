@@ -114,7 +114,7 @@ export function Investments() {
         </section>
       ))}
       {invest.length === 0 ? (
-        <section className="card"><div className="empty"><p>No investment accounts connected.</p><Link className="btn btn-primary" to="/connect">Connect a Bank</Link></div></section>
+        <section className="card"><div className="empty"><p>No investment accounts connected.</p><Link className="btn btn-primary" to="/connect">Connect an account</Link></div></section>
       ) : (
         <>
           <section className="card card-pad">
