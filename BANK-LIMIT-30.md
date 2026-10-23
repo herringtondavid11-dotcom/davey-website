@@ -1,3 +1,5 @@
+> **Superseded (2026-10-22, 5:10 PM PT): the limit is now 230 and lives on the server only (`server_flags.max_bank_connections`). See MAC-REBUILD-NEXT.md.**
+
 # Bank connection limit: 10 → 30 (2026-10-22)
 
 Premium's fair-use limit for linked banks (Plaid connections) is now 30. Free stays at 1; manual accounts stay unlimited.

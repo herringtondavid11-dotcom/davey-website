@@ -219,6 +219,8 @@ export interface MockOptions {
   passInMetadata?: boolean
   /** A leftover unfinished "Davey authenticator" setup that Supabase doesn't list but still blocks the name. */
   hiddenStaleFactor?: boolean
+  /** The household's bank count has reached the server's limit (server_flags.max_bank_connections). */
+  bankLimit?: number
   /** Plaid Link stays open (no success/exit) until the test calls window.__plaidClose(). */
   plaidHold?: boolean
   /** false: no company access pass on this device (the access-code screen shows first). Default true. */
@@ -467,6 +469,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     if (path === '/functions/v1/plaid-link-token') {
       state.linkTokenBody = body
       state.linkTokenBodies.push(body)
+      if (opts.bankLimit && !body.item_id) return json(route, { error: 'plan_limit', message: `You've connected ${opts.bankLimit} banks, Davey Premium's fair-use limit. Disconnect one you no longer use, or contact support and we'll help.` }, 402)
       // Shellpoint: Plaid fails the first (standard) session with API_ERROR; the fallback token works.
       if (opts.apiErrorFirst && !body.item_id) return json(route, { link_token: body.fallback ? 'link-fallback-1' : 'link-api-error', expiration: now, config: body.fallback ? 'fallback' : 'standard' })
       if (body.mode === 'update' && !opts.updateMode) return json(route, { link_token: 'link-production-web-123', expiration: now })

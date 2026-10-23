@@ -106,6 +106,16 @@ export function claimOAuthResume(href: string, storage: Storage = store()): bool
   return true
 }
 
+/** The { message } a function answered with (non-2xx), if any. */
+export async function serverMessage(error: unknown): Promise<string | undefined> {
+  try {
+    const body = await (error as { context?: Response }).context?.clone().json()
+    return typeof body?.message === 'string' && body.message ? body.message : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function errorMessage(e: unknown, fallback: string) {
   if (e && typeof e === 'object' && 'message' in e && typeof e.message === 'string' && e.message) return e.message
   return fallback
@@ -150,7 +160,8 @@ export async function logLinkEvent(fields: Record<string, string | boolean | und
 
 export async function createLinkToken(opts: { itemId?: string; mode?: LinkMode; fallback?: boolean; institutionId?: string; consentInvestments?: boolean } = {}): Promise<string> {
   const { data, error } = await supabase.functions.invoke('plaid-link-token', { body: linkTokenBody(opts) })
-  if (error) throw new Error(errorMessage(error, "Couldn't start the bank connection."))
+  // The server's own words (e.g. the bank connection limit, set server-side in server_flags) are shown as is.
+  if (error) throw new Error((await serverMessage(error)) ?? errorMessage(error, "Couldn't start the bank connection."))
   const token = data?.link_token ?? data?.linkToken
   if (typeof token !== 'string') throw new Error("Couldn't start the bank connection.")
   if (opts.itemId && data?.mode !== 'update') throw new Error(RECONNECT_UNSUPPORTED)

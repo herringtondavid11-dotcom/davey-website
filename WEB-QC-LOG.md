@@ -235,3 +235,20 @@ the GitHub Pages run instead.
   The Plaid test fake now adds its iframe like Plaid (inline style, refused by the CSP); that one console warning is
   expected and allowed.
 - Counts: Vitest 112/112; Playwright Chromium 113 passed, 17 skipped (email-code), 0 failed.
+
+## Loop 28 — 2026-10-23 00:17 UTC (PRIORITY: bank limit 230, one server-side value)
+- David hit "You've connected 10 banks…" on iPhone (5:10 PM PT): the installed app (10) and the deployed server (10)
+  both still had the old cap; the 10 → 30 change was never deployed or installed.
+- Where the cap lived: server _shared/entitlement.ts (LIMITS.premium.bankConnections, used by plaid-link-token);
+  iPhone/Mac Store/PlanLimits.swift (premiumBankConnections, checked before Link in BankConnectionFlow,
+  AccountsListView, ServicerHelpSheet; message BankSyncService.fairUseMessage). plaid-exchange and the web had none.
+- Now: one value, server_flags.max_bank_connections (migration 20261025020000 upserts 230; default 230 if missing),
+  read by plaid-link-token, which decides and words the message with the live number. iPhone/Mac: no Premium cap
+  (free plan's 1-bank paywall gate stays), the server's message is shown as is. Web: shows the server's message as
+  is (it used to show supabase-js's generic "non-2xx" text); no client cap. Terms page: up to 230.
+- Tests: Deno (90/90 incl. 10, 11, 229 allowed; 230, 231 refused with "230 banks"; flag parsing; free message);
+  Swift EntitlementsTests (Premium never capped on device at 10/11/229/230/231; server message shown as is; not run
+  here, no Xcode); web e2e (server's 230 message shown; Connect always asks the server).
+- davey-ios release-candidate 874bf92. Needs David's Mac: migration + deploy plaid-link-token (fixes it for the web
+  and for the server's own check) AND an iPhone/Mac rebuild (the installed app refuses at 10 before asking the server).
+- Counts: Vitest 112/112; Playwright Chromium 115 passed, 17 skipped (email-code), 0 failed.

@@ -127,3 +127,19 @@ test('the app refuses to render inside a frame', async ({ page }) => {
   const frame = page.frameLocator('iframe')
   await expect(frame.locator('body')).toContainText('can only be opened directly')
 })
+
+test("the bank limit is the server's: its message (with the live number) is shown as is, no limit on the web itself", async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true, bankLimit: 230 })
+  await page.goto('/app/connect')
+  await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
+  await expect(page.getByText("You've connected 230 banks, Davey Premium's fair-use limit. Disconnect one you no longer use, or contact support and we'll help.")).toBeVisible()
+  expect(state.linkTokenBodies).toHaveLength(1)
+})
+
+test('the web never caps banks itself: Connect a Bank always asks the server', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true })
+  await page.goto('/app/connect')
+  await page.getByRole('button', { name: 'Connect a Bank' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
+  expect(state.linkTokenBodies).toHaveLength(1)
+})
