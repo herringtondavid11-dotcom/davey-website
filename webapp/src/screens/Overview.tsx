@@ -29,7 +29,7 @@ const pct = (f: number) => percentText(f * 100)
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 export function Overview() {
-  const { accounts, transactions, error } = useData()
+  const { accounts, transactions } = useData()
   const budgets = useTable('budgets')
   const [all, setAll] = useState<Transaction[] | null>(null)
   const [range, setRange] = useState<Range>('6M')
@@ -81,7 +81,6 @@ export function Overview() {
         </div>
         <Link className="btn btn-primary" to="/connect">Connect a Bank</Link>
       </div>
-      {error && <p className="error" role="alert">{error}</p>}
       {empty && (
         <section className="card"><div className="empty"><p>Connect a bank or add an account to see your net worth, cash flow and goals.</p><Link className="btn btn-primary" to="/connect">Connect a Bank</Link></div></section>
       )}

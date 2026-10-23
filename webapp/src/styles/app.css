@@ -90,6 +90,9 @@ svg { display: block; flex: none; }
 /* Navy surfaces in both themes: plain gold (gold ink is under 3:1 on navy). */
 .sidebar :focus-visible, .networth :focus-visible { outline-color: var(--gold); }
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip-link { position: absolute; left: 16px; top: -100px; z-index: 80; background: var(--gold); color: var(--navy); padding: 12px 16px; border-radius: 10px; font-weight: 700; text-decoration: none; }
+.skip-link:focus { top: calc(16px + env(safe-area-inset-top)); }
+.load-failure { display: grid; gap: 16px; justify-items: start; }
 .muted { color: var(--muted); }
 .positive { color: var(--positive-ink); }
 .negative { color: var(--over-ink); }
@@ -131,7 +134,7 @@ textarea.input { min-height: 88px; resize: vertical; }
 .notice { background: var(--cream); color: var(--navy); border-radius: var(--radius-sm); padding: 12px 14px; font-size: .9375rem; }
 .success { color: var(--positive-ink); font-weight: 600; }
 
-.segmented { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+.segmented { display: inline-flex; flex-wrap: wrap; max-width: 100%; padding: 3px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
 .segmented button { border: 0; background: transparent; border-radius: 9px; padding: 8px 14px; font-weight: 600; cursor: pointer; min-height: 38px; }
 .segmented button[aria-pressed="true"] { background: var(--gold); color: var(--navy); }
 
@@ -199,7 +202,8 @@ textarea.input { min-height: 88px; resize: vertical; }
     height: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
     background: var(--surface); border-top: 1px solid var(--border);
   }
-  .tab { display: grid; place-items: center; align-content: center; gap: 3px; font-size: .75rem; font-weight: 600; color: var(--muted); text-decoration: none; }
+  .tab { display: grid; place-items: center; align-content: center; gap: 3px; font-size: clamp(.625rem, 2.9vw, .75rem); font-weight: 600; line-height: 1.15; color: var(--muted); text-decoration: none; padding-inline: 2px; text-align: center; min-width: 0; }
+  .tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tab.active { color: var(--gold-ink); }
   .tab.active svg { color: var(--gold); }
 }
@@ -207,7 +211,7 @@ textarea.input { min-height: 88px; resize: vertical; }
 /* ---------- Cards ---------- */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 .card-pad { padding: 20px; }
-.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px 6px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px 6px; min-width: 0; flex-wrap: wrap; }
 .card-head a { font-weight: 600; font-size: .9375rem; color: var(--gold-ink); }
 
 .overview-grid { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); }
@@ -388,6 +392,14 @@ button.row:hover { background: var(--surface-2); }
 .data-table tbody th { font-weight: 600; }
 @media (max-width: 899px) { .data-table th, .data-table td { padding: 10px 12px; } .data-table th:first-child, .data-table td:first-child { padding-left: 20px; } .data-table th:last-child, .data-table td:last-child { padding-right: 20px; } }
 @media (max-width: 599px) { .data-table { font-size: .8125rem; } .data-table th, .data-table td { padding: 10px 8px; } .data-table th:first-child, .data-table td:first-child { padding-left: 16px; } .data-table th:last-child, .data-table td:last-child { padding-right: 16px; } }
+@media (max-width: 380px) {
+  .btn { white-space: normal; text-align: center; }
+  .data-table { font-size: .75rem; }
+  .data-table thead th { letter-spacing: .04em; }
+  .data-table th, .data-table td { padding: 8px 4px; }
+  .data-table th:first-child, .data-table td:first-child { padding-left: 10px; }
+  .data-table th:last-child, .data-table td:last-child { padding-right: 10px; }
+}
 
 /* ---------- Recurring calendar ---------- */
 .split-2 { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); align-items: start; }

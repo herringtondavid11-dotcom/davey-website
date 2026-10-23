@@ -70,6 +70,17 @@ export function Budget() {
   const { rows, unbudgeted } = useMemo(() => budgetRows(list, summary.byCategory), [list, summary])
 
   if (!transactions || !budgets.result) return <Spinner label="Loading budget" />
+  if (budgets.error) {
+    return (
+      <div className="page">
+        <div className="page-head"><div><h1>Budget</h1></div></div>
+        <section className="card card-pad load-failure">
+          <p className="error" role="alert">{budgets.error}</p>
+          <button type="button" className="btn btn-primary" onClick={() => void budgets.reload()}>Try again</button>
+        </section>
+      </div>
+    )
+  }
   const available = budgets.result.available
   const table = resolvedTable('budgets')
   const totalBudget = rows.reduce((s, r) => s + r.limit, 0)

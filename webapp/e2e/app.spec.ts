@@ -7,6 +7,7 @@ test('overview: net worth trend, this week, cash flow, categories, budget, goals
   await page.goto('/app/')
   // Assets 8,420.17 + 25,000 + 512,640.55 + 12,800 + the home 690,000 (its own Real Estate account in Davey);
   // debts 1,875.42 + 3,400 + 412,300 + 18,250.
+  await expect(page).toHaveTitle('Overview – Davey')
   await expect(page.getByTestId('net-worth')).toHaveText('$813,035.30')
   for (const h of ['This week', 'Cash flow', 'Spending by category', 'Monthly budget', 'Goals', 'Recent transactions']) {
     await expect(page.getByRole('heading', { name: h, exact: true })).toBeVisible()
@@ -21,6 +22,7 @@ test('overview: net worth trend, this week, cash flow, categories, budget, goals
   await expect(page.getByText('Chase · •••• 0000')).toHaveCount(0)
   await page.getByTestId('goals-open').click()
   await expect(page).toHaveURL(/\/app\/accounts$/)
+  await expect(page).toHaveTitle('Accounts – Davey')
   expect(problems).toEqual([])
 })
 

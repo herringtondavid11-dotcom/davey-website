@@ -13,6 +13,43 @@ import { ResetLinkExpired, ResetPassword } from './screens/ResetPassword'
 import { SignUp } from './screens/SignUp'
 
 // Screens load on demand, so the sign-in screens (the first visit) download only what they need.
+const PAGE_TITLES: Record<string, string> = {
+  '/': 'Overview',
+  '/budget': 'Budget',
+  '/accounts': 'Accounts',
+  '/investments': 'Investments',
+  '/transactions': 'Transactions',
+  '/cash-flow': 'Cash flow',
+  '/recurring': 'Recurring',
+  '/credit-cards': 'Credit cards',
+  '/loans': 'Mortgages & loans',
+  '/tax': 'Tax',
+  '/household': 'Household',
+  '/profile': 'Profile',
+  '/exports': 'Exports',
+  '/help': 'Connection help',
+  '/settings': 'Settings',
+  '/more': 'More',
+  '/connect': 'Connect a Bank',
+  '/oauth': 'Connecting your bank',
+  '/login': 'Sign in',
+  '/signup': 'Create your account',
+  '/forgot': 'Reset password',
+  '/reset': 'Choose a new password',
+  '/access': 'Access code',
+  '/auth/callback': 'Signing in',
+}
+
+/** Tab titles follow the screen, the way the iPhone app names each page. */
+function DocumentTitle() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    const name = PAGE_TITLES[pathname]
+    document.title = name ? `${name} – Davey` : 'Davey'
+  }, [pathname])
+  return null
+}
+
 const Transactions = lazy(() => import('./screens/Transactions').then((m) => ({ default: m.Transactions })))
 const Overview = lazy(() => import('./screens/Overview').then((m) => ({ default: m.Overview })))
 const Connect = lazy(() => import('./screens/Connect').then((m) => ({ default: m.Connect })))
@@ -187,6 +224,7 @@ export function AppRoutes() {
 export function App() {
   return (
     <BrowserRouter basename="/app">
+      <DocumentTitle />
       <AuthProvider>
         <Suspense fallback={<FullPageSpinner />}>
           <AppRoutes />

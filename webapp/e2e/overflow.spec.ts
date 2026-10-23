@@ -5,7 +5,7 @@ import { PAGES } from './pages'
 // Responsive range 360–1920: nothing may stick out past the viewport on any screen.
 const ALL = ['/app/', '/app/transactions', '/app/connect', '/app/settings', ...PAGES.map((p) => p.path)]
 
-for (const width of [360, 768, 1280, 1920]) {
+for (const width of [320, 360, 768, 1280, 1920]) {
   test(`no element overflows at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await mockBackend(page, { signedIn: true })
@@ -23,7 +23,7 @@ for (const width of [360, 768, 1280, 1920]) {
   })
 }
 
-for (const width of [360, 768, 1280, 1920]) {
+for (const width of [320, 360, 768, 1280, 1920]) {
   test(`signed-out screens fit at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 })
     await mockBackend(page)

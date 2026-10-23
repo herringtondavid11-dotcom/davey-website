@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { loadErrorMessage } from './loadError'
 import { fetchOptional, type OptionalTable, type TableResult } from './tables'
 
 const cache = new Map<OptionalTable, TableResult>()
@@ -14,8 +15,9 @@ export function useTable(name: OptionalTable) {
       setResult(r)
       setError(null)
     } catch (e) {
-      setError((e as Error).message || "Couldn't load.")
-      setResult((prev) => prev ?? { rows: [], available: true })
+      setError(loadErrorMessage(e))
+      // A failed read is not "you have no rows". Leave a previous result; otherwise mark the table unavailable.
+      setResult((prev) => prev ?? { rows: [], available: false })
     }
   }, [name])
   useEffect(() => {
