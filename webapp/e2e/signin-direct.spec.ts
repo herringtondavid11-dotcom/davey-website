@@ -31,6 +31,9 @@ test('the company access code is still required before sign-in', async ({ page }
   }
   await page.getByLabel('Access code').fill(TEST_PIN)
   await page.getByRole('button', { name: 'Continue' }).click()
+  // The last gated page was forgot-password, so a successful code returns there. Wait for that
+  // before opening sign-in: leaving early, before the pass is saved, lands back on the code screen.
+  await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
   await page.goto('/app/login')
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill(PASSWORD)
