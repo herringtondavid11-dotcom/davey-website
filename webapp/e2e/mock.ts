@@ -571,7 +571,13 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
         frame.title = 'Plaid Link';
         frame.setAttribute('style', 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;border:0;display:block');
         document.body.appendChild(frame);
-        window.__plaidClose = function () { opts.onExit(null, { status: 'requires_credentials', link_session_id: 'ls-held' }); };
+        window.__plaidClose = function (status, institutionName) {
+          opts.onExit(null, {
+            status: arguments.length ? status : 'requires_credentials',
+            link_session_id: 'ls-held',
+            institution: institutionName ? { institution_id: 'ins_56', name: institutionName } : null,
+          });
+        };
         return {
           open: function () {
             window.__plaidOpenGestures.push(window.__daveyUserGesture === true);

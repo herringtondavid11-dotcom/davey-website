@@ -38,6 +38,26 @@ export type FlowState =
   | { step: 'naming'; accounts: Account[]; institution?: string }
   | { step: 'reconnected'; institution?: string }
   | { step: 'error'; message: string }
+  | { step: 'unfinished'; message: string }
+
+/** Link closed on an OAuth handoff or any other unfinished step, with no error from Plaid. */
+export function unfinishedSignInMessage(institution?: string | null): string {
+  const bank = institution?.trim() || 'Bank'
+  return `${bank} sign-in didn't finish. Make sure pop-ups are allowed for this site, then try again.`
+}
+
+/**
+ * What the Connect screen shows after Link's onExit. An error stays an error. A status with no error
+ * (requires_oauth, or any other non-null status) explains the unfinished sign-in. A plain close stays idle.
+ */
+export function linkExitState(
+  err: { display_message?: string | null } | null | undefined,
+  metadata: { status?: string | null; institution?: { name?: string | null } | null } | null | undefined,
+): FlowState {
+  if (err) return { step: 'error', message: err.display_message || 'The bank connection was interrupted. Try again.' }
+  if (metadata?.status != null) return { step: 'unfinished', message: unfinishedSignInMessage(metadata.institution?.name) }
+  return { step: 'idle' }
+}
 
 /** Davey keeps money data on the iPhone/Mac and in iCloud; the web sees what the household shares. */
 export const NO_HOUSEHOLD =
@@ -113,7 +133,7 @@ export function usePlaidFlow() {
     [reload],
   )
 
-  const prepareRef = useRef<(opts?: SessionOpts) => Promise<void>>(async () => {})
+  const prepareRef = useRef<(opts?: SessionOpts, keepMessage?: boolean) => Promise<void>>(async () => {})
   const armFallbackRef = useRef<(institutionId?: string) => Promise<void>>(async () => {})
 
   // Assigned each render so Link's callbacks see the latest finishers without an await before open().
@@ -149,7 +169,8 @@ export function usePlaidFlow() {
           void armFallbackRef.current(metadata?.institution?.institution_id)
           return
         }
-        if (err) {
+        const next = linkExitState(err, metadata)
+        if (next.step === 'error' && err) {
           saveLinkIssue({
             at: new Date().toISOString(),
             institution: metadata?.institution?.name,
@@ -159,9 +180,13 @@ export function usePlaidFlow() {
             errorCode: err.error_code,
             errorMessage: err.error_message,
           })
+        }
+        if (next.step === 'error' || next.step === 'unfinished') {
           prepared.current = null
           setReady(false)
-          setState({ step: 'error', message: err.display_message || 'The bank connection was interrupted. Try again.' })
+          setState(next)
+          // Fetch the next token while the message stays up, so Try again can open Link inside that click.
+          if (next.step === 'unfinished') void prepareRef.current(sessionOpts.current, true)
           return
         }
         // Closed without connecting. A redirect return goes back to Connect; a normal close fetches a fresh token
@@ -174,7 +199,7 @@ export function usePlaidFlow() {
     handler.current.open()
   }
 
-  const prepare = useCallback(async (opts: SessionOpts = {}) => {
+  const prepare = useCallback(async (opts: SessionOpts = {}, keepMessage = false) => {
     const ticket = ++seq.current
     sessionOpts.current = opts
     mode.current = 'account'
@@ -183,7 +208,7 @@ export function usePlaidFlow() {
     usingFallback.current = false
     prepared.current = null
     setReady(false)
-    setState({ step: 'starting' })
+    if (!keepMessage) setState({ step: 'starting' })
     try {
       // A bank connected here is shared through the household; without one it would reach no device.
       if (!opts.updateItemId && !(await householdID(await loadDaveyData()))) throw new Error(NO_HOUSEHOLD)
@@ -196,7 +221,7 @@ export function usePlaidFlow() {
       if (ticket !== seq.current) return
       prepared.current = { token, updateItemId: opts.updateItemId }
       setReady(true)
-      setState({ step: 'idle' })
+      if (!keepMessage) setState({ step: 'idle' })
     } catch (e) {
       if (ticket !== seq.current) return
       prepared.current = null

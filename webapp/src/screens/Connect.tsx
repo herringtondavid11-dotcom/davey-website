@@ -16,7 +16,7 @@ function actionLabel(reconnectId?: string, consentInvestments?: boolean) {
 function buttonLabel(state: FlowState, action: string) {
   if (state.step === 'starting') return 'Starting…'
   if (state.step === 'linking') return 'Plaid is open…'
-  if (state.step === 'retry' || state.step === 'error') return 'Try again'
+  if (state.step === 'retry' || state.step === 'error' || state.step === 'unfinished') return 'Try again'
   return action
 }
 
@@ -51,7 +51,7 @@ function FlowView({
       </section>
     )
   const busy = state.step === 'starting' || state.step === 'linking'
-  const canOpen = ready && (state.step === 'idle' || state.step === 'retry')
+  const canOpen = ready && (state.step === 'idle' || state.step === 'retry' || state.step === 'unfinished')
   return (
     <section className="card connect-hero">
       <h2>{action === 'Reconnect' ? 'Reconnect this account' : action === 'Finish setup' ? 'Finish setting up investments' : 'Connect an account securely'}</h2>
@@ -63,6 +63,7 @@ function FlowView({
       </ul>
       {state.step === 'retry' && <p className="notice" role="status">That connection needs another try.</p>}
       {state.step === 'error' && <p className="error" role="alert">{state.message}</p>}
+      {state.step === 'unfinished' && <p className="notice" role="status">{state.message}</p>}
       <div>
         <button className="btn btn-primary" onClick={onOpen} disabled={busy || (!canOpen && state.step !== 'error')}>
           {buttonLabel(state, action)}
@@ -95,7 +96,7 @@ export function Connect() {
     void flow.prepare({ updateItemId: reconnectId, consentInvestments })
   }, [reconnectId, consentInvestments, flow.prepare])
   const action = actionLabel(reconnectId, consentInvestments)
-  const showManual = !reconnectId && (flow.state.step === 'idle' || flow.state.step === 'error' || flow.state.step === 'starting' || flow.state.step === 'retry')
+  const showManual = !reconnectId && (flow.state.step === 'idle' || flow.state.step === 'error' || flow.state.step === 'starting' || flow.state.step === 'retry' || flow.state.step === 'unfinished')
   return (
     <div className="page">
       <div className="page-head"><div><h1>Connect an account</h1><p>Checking, savings, credit cards, loans, mortgages, and investments.</p></div></div>
