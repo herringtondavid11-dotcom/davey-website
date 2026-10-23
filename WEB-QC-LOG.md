@@ -276,3 +276,9 @@ the GitHub Pages run instead.
 ## Loop 33 — 2026-10-23 04:32 UTC (hourly check)
 - Pages: 820f145 deployed (success). No new commits from other sessions. No issues found.
 - Counts: Vitest 112/112; Playwright Chromium 118 passed, 17 skipped (email-code), 0 failed.
+
+## Loop 34 — 2026-10-23 05:36 UTC (hourly check)
+- New on main from another session: 113076b "Show a message when Plaid Link exits before bank sign-in finishes (#2)"
+  (new 'unfinished' step: "<Bank> sign-in didn't finish. Make sure pop-ups are allowed…", Try again). Reviewed: works
+  with the full-screen Link fix (the overlay class is only on while 'linking'). Pages deployed (success).
+- Counts: Vitest 116/116; Playwright Chromium 119 passed, 17 skipped (email-code), 0 failed.
