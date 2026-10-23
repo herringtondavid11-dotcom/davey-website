@@ -42,7 +42,7 @@ export function Login() {
 
   return (
     <AuthCard title="Sign in" lead="Use the same account as the Davey app.">
-      {(location.state as { linkMessage?: string } | null)?.linkMessage && <p className="notice" role="status">{(location.state as { linkMessage: string }).linkMessage.replace('Enter the 6-digit code from the newest email, or send a new code.', 'Sign in again to get a new code.')}</p>}
+      {(location.state as { linkMessage?: string } | null)?.linkMessage && <p className="notice" role="status">{(location.state as { linkMessage: string }).linkMessage}</p>}
       {signOutReason === 'idle' && <p className="notice" role="status">You were signed out after 30 minutes without activity.</p>}
       {oauthError && <p className="error" role="alert">{/not enabled|unsupported/i.test(oauthError) ? 'Sign in with Apple on the web is coming soon. Use email and password for now.' : oauthError}</p>}
       <button type="button" className="btn btn-apple btn-block" onClick={apple}>

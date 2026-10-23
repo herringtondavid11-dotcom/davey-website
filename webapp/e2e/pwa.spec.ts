@@ -42,4 +42,25 @@ test('PWA: service worker never caches Supabase or Plaid', async ({ page }) => {
   const sw = await (await page.request.get('/app/sw.js')).text()
   expect(sw).toContain("url.origin !== self.location.origin")
   expect(sw).not.toMatch(/supabase|plaid\.com/)
+  expect(sw).toContain("const VERSION = 'davey-app-v2'")
+  expect(sw).toContain('self.skipWaiting()')
+  expect(sw).toContain('self.clients.claim()')
+  expect(sw).toContain("caches.delete")
+  expect(sw).toContain("cache: 'reload'")
+})
+
+test('PWA: a working network never serves a stale shell', async ({ page }) => {
+  await mockBackend(page)
+  await page.goto('/app/login')
+  await expect.poll(() => page.evaluate(async () => {
+    await navigator.serviceWorker.ready
+    return !!navigator.serviceWorker.controller
+  }), { timeout: 15_000 }).toBe(true)
+  await page.evaluate(async () => {
+    const cache = await caches.open('davey-app-v2')
+    await cache.put('/app/', new Response('<!doctype html><title>OLD SHELL</title><p>OLD SHELL</p>', { headers: { 'Content-Type': 'text/html' } }))
+  })
+  await page.goto('/app/login')
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  await expect(page.getByText('OLD SHELL')).toHaveCount(0)
 })

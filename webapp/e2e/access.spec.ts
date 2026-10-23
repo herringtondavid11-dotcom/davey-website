@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { EMAIL, EMAIL_2FA_ENABLED, PASSWORD, TEST_PASS, TEST_PIN, finishSignIn, mockBackend, watchConsole } from './mock'
+import { EMAIL, PASSWORD, TEST_PASS, TEST_PIN, mockBackend, watchConsole } from './mock'
 
 test('sign-in, sign-up and forgot password all need the company access code first', async ({ page }) => {
   await mockBackend(page, { accessPass: false })
@@ -81,11 +81,11 @@ test('an existing account signs in with its password (no sign-up)', async ({ pag
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: EMAIL_2FA_ENABLED ? 'Check your email' : 'Overview' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
   expect(state.calls.some((c) => c.path.startsWith('/auth/v1/signup'))).toBe(false)
 })
 
-test('a deep link survives the access code, sign-in and 2-step code', async ({ page }) => {
+test('a deep link survives the access code and sign-in', async ({ page }) => {
   await mockBackend(page, { accessPass: false })
   await page.goto('/app/budget')
   await expect(page.getByRole('heading', { name: 'Company access code' })).toBeVisible()
@@ -95,7 +95,6 @@ test('a deep link survives the access code, sign-in and 2-step code', async ({ p
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await finishSignIn(page)
   await expect(page).toHaveURL(/\/app\/budget$/)
   await expect(page.getByRole('heading', { name: 'Budget', level: 1 })).toBeVisible()
 })
@@ -108,7 +107,7 @@ test('after the first sign-in, the access pass is cleared from the account metad
   expect(state.metadata.first_name).toBe('Alex')
 })
 
-test('a Plaid OAuth return keeps its full query through the access code, sign-in and 2-step code, then resumes Link', async ({ page }) => {
+test('a Plaid OAuth return keeps its full query through the access code and sign-in, then resumes Link', async ({ page }) => {
   await mockBackend(page, { accessPass: false })
   // Link was started on this browser before the bank's OAuth page (the pending token survives the trip).
   await page.addInitScript(() => {
@@ -132,7 +131,6 @@ test('a Plaid OAuth return keeps its full query through the access code, sign-in
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await finishSignIn(page)
 
   await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
   const creates = await page.evaluate(() => (window as unknown as { __plaidCreates: unknown[] }).__plaidCreates)
@@ -155,7 +153,6 @@ test('signed out for inactivity while at the bank: after signing back in, the OA
   await page.getByLabel('Email').fill(EMAIL)
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await finishSignIn(page)
   await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
   const creates = await page.evaluate(() => (window as unknown as { __plaidCreates: unknown[] }).__plaidCreates)
   expect(creates).toEqual([{ token: 'link-production-web-123', receivedRedirectUri: 'http://localhost:4173/app/oauth?oauth_state_id=state-88' }])

@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AuthCard } from '../components/AuthCard'
-import { EMAIL_2FA_ENABLED } from '../config'
 import { hasAccess, minutesUntil, recheckPass, verifyPin } from '../lib/accessPass'
 
 /** Where to go after the code: only paths inside the app. */
@@ -82,7 +81,7 @@ export function AccessCode() {
           {busy ? 'Checking…' : 'Continue'}
         </button>
       </form>
-      <p className="muted small">This device stays approved for 30 days. You'll still sign in with your Davey account{EMAIL_2FA_ENABLED ? ' and a code we email you' : ''}.</p>
+      <p className="muted small">This device stays approved for 30 days. You'll still sign in with your Davey account.</p>
     </AuthCard>
   )
 }

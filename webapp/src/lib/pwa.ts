@@ -10,8 +10,24 @@ const listeners = new Set<() => void>()
 
 export function registerPwa() {
   if (!('serviceWorker' in navigator) || !import.meta.env.PROD) return
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL }).catch(() => undefined)
+  // A new worker calls skipWaiting and clients.claim. Reload once so an open tab drops the old shell
+  // (the one that still asked for an emailed code) instead of waiting for every tab to close.
+  let hadController = !!navigator.serviceWorker.controller
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) {
+      hadController = true
+      return
+    }
+    window.location.reload()
+  })
+  const update = () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
+      .then((reg) => reg.update())
+      .catch(() => undefined)
+  }
+  window.addEventListener('load', update)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') update()
   })
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault()

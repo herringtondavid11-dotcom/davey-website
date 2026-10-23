@@ -1,7 +1,4 @@
-import { expect, type Page, type Route } from '@playwright/test'
-import { EMAIL_2FA_ENABLED } from '../src/flags'
-
-export { EMAIL_2FA_ENABLED }
+import { type Page, type Route } from '@playwright/test'
 
 export const SUPABASE = 'https://zvyargbnvccdqgmtytck.supabase.co'
 export const EMAIL = 'alex@example.com'
@@ -628,10 +625,3 @@ export function watchConsole(page: Page) {
   return problems
 }
 
-/** After the password: with web 2-step on, type the emailed code; with it off (EMAIL_2FA_ENABLED=false) nothing to do. */
-export async function finishSignIn(page: Page) {
-  if (!EMAIL_2FA_ENABLED) return
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
-  await page.getByLabel('6-digit code').fill(EMAIL_CODE)
-  await page.getByRole('button', { name: 'Continue' }).click()
-}

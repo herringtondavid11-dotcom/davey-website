@@ -1,13 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { EMAIL, EMAIL_2FA_ENABLED, EMAIL_CODE, PASSWORD, mockBackend, watchConsole } from './mock'
-
-async function signIn(page: import('@playwright/test').Page) {
-  await page.goto('/app/')
-  await expect(page).toHaveURL(/\/app\/login$/)
-  await page.getByLabel('Email').fill(EMAIL)
-  await page.getByLabel('Password').fill(PASSWORD)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-}
+import { EMAIL, mockBackend } from './mock'
 
 test('wrong password shows an error', async ({ page }) => {
   await mockBackend(page)
@@ -18,89 +10,9 @@ test('wrong password shows an error', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveText("That email and password don't match.")
 })
 
-test('sign in: password, then the code emailed to the account (no QR code, no authenticator app)', async ({ page }) => {
-  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
-  const problems = watchConsole(page)
-  const state = await mockBackend(page, { mfa: 'none' })
-  await signIn(page)
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
-  await expect(page.getByText('a•••@example.com')).toBeVisible()
-  await expect(page.getByAltText(/QR code/)).toHaveCount(0)
-  // One code is sent, to the account's own address, without creating accounts.
-  await expect.poll(() => state.otpSends).toEqual([expect.objectContaining({ email: EMAIL, create_user: false })])
-  await page.getByLabel('6-digit code').fill('111111')
-  await page.getByRole('button', { name: 'Continue' }).click()
-  await expect(page.getByRole('alert')).toContainText("didn't work")
-  await page.getByLabel('6-digit code').fill(EMAIL_CODE)
-  await page.getByRole('button', { name: 'Continue' }).click()
-  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
-  expect(state.factors.filter((f) => f.status === 'unverified')).toEqual([])
-  expect(problems).toEqual([])
-})
-
-test('email code: exactly 6 digits, clear wording, and the email never relies on the link (David, 11:55 PT)', async ({ page }) => {
-  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
-  const state = await mockBackend(page)
-  await signIn(page)
-  await expect(page.getByText('Enter the 6-digit code we emailed you at')).toBeVisible()
-  const input = page.getByLabel('6-digit code')
-  await input.fill('12345')
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
-  await input.fill('1234567890')
-  await expect(input).toHaveValue('123456')
-  await input.fill('48 21-39')
-  await expect(input).toHaveValue('482139')
-  // An older email's link (if any) comes back into the app, never the home page.
-  await expect.poll(() => state.calls.some((c) => c.path.startsWith('/auth/v1/otp'))).toBe(true)
-  const otp = state.calls.find((c) => c.path.startsWith('/auth/v1/otp'))
-  expect(decodeURIComponent(otp!.path)).toContain('redirect_to=https://daveypersonalfinance.com/app/')
-  await page.getByRole('button', { name: 'Continue' }).click()
-  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible()
-})
-
-test('an old sign-in link that lands on the home page goes to the code screen, not the start', async ({ page }) => {
-  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
-  await mockBackend(page)
-  await signIn(page)
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
-  await page.goto('/?code=old-magic-link')
-  await expect(page).toHaveURL(/\/app(\/|$)/)
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
-  await page.goto('/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired')
-  await expect(page).toHaveURL(/\/app(\/|$)/)
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
-})
-
 test('the home page itself is not redirected', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveURL(/localhost:4173\/$/)
-})
-
-test('email code: reload does not send a second code; resend waits 60 seconds', async ({ page }) => {
-  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
-  const state = await mockBackend(page)
-  await signIn(page)
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
-  await expect.poll(() => state.otpSends.length).toBe(1)
-  await page.reload()
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
-  expect(state.otpSends).toHaveLength(1)
-  await expect(page.getByRole('button', { name: /Send a new code in \d+s/ })).toBeDisabled()
-})
-
-test('email code: the email limit gets a clear message', async ({ page }) => {
-  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
-  await mockBackend(page, { emailRateLimited: true })
-  await signIn(page)
-  await expect(page.getByRole('alert')).toHaveText('Too many emails, try again in a few minutes.')
-})
-
-test('Settings shows 2-step as an emailed code (no recovery key, no authenticator)', async ({ page }) => {
-  test.skip(!EMAIL_2FA_ENABLED, 'web 2-step is off (EMAIL_2FA_ENABLED=false)')
-  await mockBackend(page, { signedIn: true })
-  await page.goto('/app/settings')
-  await expect(page.getByText(/a code is emailed to alex@example.com at each sign-in/)).toBeVisible()
-  await expect(page.getByText(/Recovery key|authenticator app/)).toHaveCount(0)
 })
 
 test('sign out is local only and returns to sign in', async ({ page }) => {

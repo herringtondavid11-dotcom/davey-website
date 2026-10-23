@@ -3,7 +3,7 @@
 ## What's live
 - https://daveypersonalfinance.com/app (GitHub Pages, `main`), now behind a **Company access code** screen before
   Sign in, Create account and Forgot password. A device that enters the right code stays approved for 30 days.
-- Your existing email + password are the same as on iPhone; web 2-step is off for now (EMAIL_2FA_ENABLED=false): access code + password: same Supabase project, user and
+- Your existing email + password are the same as on iPhone. The web does not email a sign-in code: access code + password, same Supabase project, user and
   household data. Nothing here creates accounts, sets passwords or signs in as you.
 - `/app/oauth` (Plaid OAuth return) is served as before.
 - **The code screen won't accept any code until you run the Mac paste below** (the server pieces aren't deployed yet).

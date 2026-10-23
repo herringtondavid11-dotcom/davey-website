@@ -1,5 +1,7 @@
 # Sign-in email: a 6-digit code, no link (2026-10-22)
 
+**2026-10-23:** the web app no longer asks for or sends an emailed sign-in code. Do not put that step back. Sign-in on the web is the company access code, then email and password. The notes below are only for the iPhone and Mac code emails.
+
 **Bug (David, 11:55 AM PT):** the web's sign-in email arrived as Supabase's default "Your sign-in link" email: a link,
 no code. The link opened the home page (the Site URL), back at the start.
 

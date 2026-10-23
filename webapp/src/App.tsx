@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { AuthProvider, isEmailVerifiedSession, useAuth } from './auth/AuthProvider'
+import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { Layout } from './components/Layout'
 import { FullPageSpinner } from './components/Spinner'
 import { DataProvider } from './lib/DataProvider'
@@ -8,7 +8,6 @@ import { hashSession, supabase } from './lib/supabase'
 import { AccessCode, AccessGate } from './screens/AccessCode'
 import { ForgotPassword } from './screens/ForgotPassword'
 import { Login } from './screens/Login'
-import { EmailCode } from './screens/EmailCode'
 import { ResetLinkExpired, ResetPassword } from './screens/ResetPassword'
 import { SignUp } from './screens/SignUp'
 
@@ -69,7 +68,7 @@ const More = lazy(() => import('./screens/More').then((m) => ({ default: m.More 
 const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })))
 const ProfilePage = lazy(() => import('./screens/Settings').then((m) => ({ default: m.ProfilePage })))
 
-/** Signed in + 2-step verified (password, then a code emailed to the account), or the right step to get there. */
+/** Signed in with email and password, or the sign-in screen. */
 function Gate({ children, signedOut }: { children: ReactNode; signedOut?: ReactNode }) {
   const { status } = useAuth()
   const location = useLocation()
@@ -79,7 +78,6 @@ function Gate({ children, signedOut }: { children: ReactNode; signedOut?: ReactN
     const next = location.pathname + location.search
     return <Navigate to={next === '/' ? '/login' : `/login?next=${encodeURIComponent(next)}`} replace />
   }
-  if (status !== 'ready') return <EmailCode />
   return <>{children}</>
 }
 
@@ -141,12 +139,11 @@ function SignedOutOnly({ children }: { children: ReactNode }) {
   return <AccessGate>{children}</AccessGate>
 }
 
-export const LINK_EXPIRED = 'That sign-in link has expired or was already used. Enter the 6-digit code from the newest email, or send a new code.'
+export const LINK_EXPIRED = 'That sign-in link has expired or was already used. Sign in with your email and password.'
 
 /**
- * Where the emailed sign-in link lands (emailRedirectTo /app/auth/callback; old links reach it through the home page).
- * supabase-js has already exchanged a ?code= once on page load (PKCE, same browser); a ?token_hash= link is verified
- * here at most once. Signed in → the app; otherwise → the code screen (or sign-in) with a clear message.
+ * Where an old emailed sign-in link lands. There is no emailed code. A session supabase-js already
+ * exchanged (a ?code= on this device) goes into the app. Anything else goes to email-and-password sign-in.
  */
 function AuthCallbackRoute() {
   const { refresh } = useAuth()
@@ -161,16 +158,11 @@ function AuthCallbackRoute() {
     const linkError = url.searchParams.get('error_code') ?? hash.get('error_code') ?? url.searchParams.get('error') ?? hash.get('error')
     void (async () => {
       await hashSession
-      let { data } = await supabase.auth.getSession()
-      const verified = () => Boolean(data.session && isEmailVerifiedSession(data.session.access_token))
-      if (!verified() && tokenHash && claimToken(tokenHash)) {
-        await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'email' })
-        ;({ data } = await supabase.auth.getSession())
-      }
+      const { data } = await supabase.auth.getSession()
       window.history.replaceState(null, '', window.location.pathname)
       await refresh()
-      if (verified()) navigate('/', { replace: true })
-      else navigate(data.session ? '/' : '/login', { replace: true, state: { linkMessage: linkError || tokenHash || url.searchParams.get('code') ? LINK_EXPIRED : undefined } })
+      if (data.session) navigate('/', { replace: true })
+      else navigate('/login', { replace: true, state: { linkMessage: linkError || tokenHash || url.searchParams.get('code') ? LINK_EXPIRED : undefined } })
     })()
   }, [navigate, refresh])
   return <FullPageSpinner />

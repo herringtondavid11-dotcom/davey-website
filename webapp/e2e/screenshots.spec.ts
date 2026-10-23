@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { EMAIL, EMAIL_2FA_ENABLED, EMAIL_CODE, PASSWORD, TEST_PIN, mockBackend } from './mock'
+import { EMAIL, PASSWORD, TEST_PIN, mockBackend } from './mock'
 import { PAGES } from './pages'
 
 // Full-page shots in parallel crash Playwright's WebKit (the browser closes, or a click never settles).
@@ -48,12 +48,6 @@ for (const vp of VIEWPORTS) {
       await page.getByLabel('Email').fill(EMAIL)
       await page.getByLabel('Password').fill(PASSWORD)
       await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-      if (EMAIL_2FA_ENABLED) {
-        await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
-        await page.getByLabel('6-digit code').fill(EMAIL_CODE)
-        await shot('02-two-step')
-        await page.getByRole('button', { name: 'Continue' }).click()
-      }
 
       // Overview
       await expect(page.getByTestId('net-worth')).toBeVisible()

@@ -1,13 +1,13 @@
 import type { Session } from '@supabase/supabase-js'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { EMAIL_2FA_ENABLED, IDLE_TIMEOUT_MS } from '../config'
+import { IDLE_TIMEOUT_MS } from '../config'
 import { ACTIVITY_EVENTS, idleState, readLastActive, writeLastActive, type IdleState } from '../lib/idle'
 import { clearPendingLink } from '../lib/plaid'
 import { supabase } from '../lib/supabase'
 import { resetResolvedTables } from '../lib/tables'
 import { clearTableCache } from '../lib/useTable'
 
-export type AuthStatus = 'loading' | 'signedOut' | 'needsEmailCode' | 'ready'
+export type AuthStatus = 'loading' | 'signedOut' | 'ready'
 
 interface AuthContextValue {
   status: AuthStatus
@@ -24,30 +24,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-// 2-step verification on the web: after the password, a code emailed to the account's address (David, 2026-10-22: email
-// code instead of an authenticator app / QR code). A session counts as verified when it was signed in with an emailed
-// code or link (otp / magiclink), a password-reset link (recovery), or an authenticator code (totp, older sessions).
-const VERIFIED_METHODS = new Set(['otp', 'magiclink', 'recovery', 'totp', 'email/signup', 'invite'])
-
-/** The sign-in methods recorded in the access token (`amr`). */
-export function sessionMethods(accessToken: string): string[] {
-  try {
-    const part = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    const claims = JSON.parse(atob(part.padEnd(part.length + ((4 - (part.length % 4)) % 4), '='))) as { amr?: { method?: string }[] }
-    return (claims.amr ?? []).map((a) => String(a.method ?? ''))
-  } catch {
-    return []
-  }
-}
-
-export function isEmailVerifiedSession(accessToken: string): boolean {
-  return sessionMethods(accessToken).some((m) => VERIFIED_METHODS.has(m))
-}
-
-async function computeStatus(session: Session | null): Promise<AuthStatus> {
-  if (!session) return 'signedOut'
-  if (!EMAIL_2FA_ENABLED) return 'ready'
-  return isEmailVerifiedSession(session.access_token) ? 'ready' : 'needsEmailCode'
+function computeStatus(session: Session | null): AuthStatus {
+  return session ? 'ready' : 'signedOut'
 }
 
 const storage = () => (typeof window === 'undefined' ? undefined : window.localStorage)
@@ -62,8 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const apply = useCallback(async (s: Session | null) => {
     setSession(s)
-    const next = await computeStatus(s)
-    setStatus(next)
+    setStatus(computeStatus(s))
   }, [])
 
   const refresh = useCallback(async () => {
@@ -128,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIdle('active')
   }, [])
 
-  // 30-minute idle timeout while any session exists (including mid-2FA).
+  // 30-minute idle timeout while a session exists.
   useEffect(() => {
     if (!session) return
     stayActive()
