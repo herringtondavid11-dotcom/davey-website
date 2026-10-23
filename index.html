@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Davey – Personal Finance &amp; Budgeting for iPhone and Mac</title>
   <meta name="description" content="Davey connects your bank accounts, credit cards, loans and investments, turns spending into clear budgets, and answers money questions with Davey AI. Personal finance for iPhone and Mac, coming soon.">
   <link rel="canonical" href="https://daveypersonalfinance.com/">
   <meta name="theme-color" content="#1C2838">
 
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
   <meta property="og:site_name" content="Davey – Personal Finance">
   <meta property="og:title" content="Davey – Know where every dollar goes">
   <meta property="og:description" content="Accounts, budgets, cards, mortgages, business taxes and Davey AI in one beautifully simple app for iPhone and Mac. Coming soon.">
@@ -26,11 +27,9 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- Fonts load without blocking the first paint (display=swap falls back to system fonts meanwhile). -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap"></noscript>
+  <meta name="color-scheme" content="light">
+  <link rel="preload" href="/assets/fonts/inter-latin-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/plus-jakarta-sans-latin-800.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" as="image" type="image/webp" href="/assets/img/hero.webp" imagesrcset="/assets/img/hero.webp 380w, /assets/img/hero@2x.webp 760w" imagesizes="(max-width: 900px) 90vw, 560px" fetchpriority="high">
   <link rel="stylesheet" href="/assets/css/site.css">
 
@@ -55,7 +54,24 @@
         "description": "Davey connects your accounts, tracks every transaction, and turns your spending into clear budgets and trends.",
         "url": "https://daveypersonalfinance.com/",
         "image": "https://daveypersonalfinance.com/assets/og/og-image.png",
+        "offers": {
+          "@type": "AggregateOffer",
+          "lowPrice": "0",
+          "highPrice": "69.99",
+          "priceCurrency": "USD",
+          "offerCount": "2"
+        },
         "publisher": { "@id": "https://daveypersonalfinance.com/#org" }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "Is my data safe?", "acceptedAnswer": { "@type": "Answer", "text": "Bank connections go through Plaid, so Davey never sees your bank password. Access keys are encrypted with AES-256, budgets sync through your own iCloud account, and the app locks with Face ID." } },
+          { "@type": "Question", "name": "Which banks work with Davey?", "acceptedAnswer": { "@type": "Answer", "text": "Davey uses Plaid, which supports thousands of banks, credit unions and card issuers in the US. You can also add any account manually." } },
+          { "@type": "Question", "name": "Does Davey move money?", "acceptedAnswer": { "@type": "Answer", "text": "No. Davey has read-only access. It can see balances and transactions, but it can't make payments or transfers." } },
+          { "@type": "Question", "name": "What does it cost?", "acceptedAnswer": { "@type": "Answer", "text": "Davey has a free plan. Premium is $9.99 a month or $69.99 a year and adds more banks and Views, Davey AI, business and tax tools, and Household Sharing." } },
+          { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Premium is an App Store subscription. Cancel anytime in your Apple Account subscriptions." } }
+        ]
       }
     ]
   }
@@ -380,7 +396,7 @@
             <p class="price"><span id="price-premium">$69.99</span> <small id="price-unit">/ year</small></p>
             <p class="price-note" id="price-note">Just $5.83 a month, billed annually</p>
             <ul>
-              <li>Up to 10 connected banks</li>
+              <li>Up to 230 connected banks</li>
               <li>Up to 10 Views: Personal, Business, Rentals…</li>
               <li>100 Davey AI questions a month</li>
               <li>Business profit &amp; loss, Schedule C/E and quarterly taxes</li>

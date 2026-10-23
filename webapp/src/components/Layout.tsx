@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useData } from '../lib/DataProvider'
@@ -9,15 +9,50 @@ import { AskAI } from './AskAI'
 import { IdleWarning } from './IdleWarning'
 import { NAV_GROUPS, TAB_ITEMS, openAsk } from './nav'
 
+function Retry({ primary, onRetry }: { primary?: boolean; onRetry: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false)
+  return (
+    <button type="button" className={'btn ' + (primary ? 'btn-primary' : 'btn-secondary btn-sm')} disabled={busy} onClick={() => {
+      setBusy(true)
+      void onRetry().finally(() => setBusy(false))
+    }}>{busy ? 'Trying…' : 'Try again'}</button>
+  )
+}
+
+/** Full page when the first load failed; a banner when a later refresh failed and the last data is still on screen. */
+function DataNotice() {
+  const { error, status, accounts, reload } = useData()
+  if (!error) return null
+  if (status === 'error' && !accounts) {
+    return (
+      <div className="page">
+        <div className="page-head"><div><h1>Couldn't load your data</h1></div></div>
+        <section className="card card-pad load-failure">
+          <p className="error" role="alert">{error}</p>
+          <Retry primary onRetry={reload} />
+        </section>
+      </div>
+    )
+  }
+  return (
+    <div className="banner card" role="alert">
+      <span>{error}</span>
+      <Retry onRetry={reload} />
+    </div>
+  )
+}
+
 export function Layout() {
   const { email, signOut } = useAuth()
-  const { accounts, transactions } = useData()
+  const { accounts, transactions, status } = useData()
   const location = useLocation()
   const business = hasBusiness(accounts ?? [], transactions ?? [])
   const inMore = !TAB_ITEMS.some((t) => (t.end ? location.pathname === t.to : location.pathname.startsWith(t.to)))
+  const blocked = status === 'error' && !accounts
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#main">Skip to content</a>
       <aside className="sidebar" aria-label="Davey">
         <a className="brand" href="/">
           <img src={`${import.meta.env.BASE_URL}icon-96.png`} alt="" width="32" height="32" />
@@ -64,20 +99,23 @@ export function Layout() {
         </NavLink>
       </header>
       <main className="main" id="main">
-        <Suspense fallback={<Spinner />}>
-          <Outlet />
-        </Suspense>
+        {blocked ? <DataNotice /> : (
+          <Suspense fallback={<Spinner />}>
+            <DataNotice />
+            <Outlet />
+          </Suspense>
+        )}
       </main>
       <nav className="tabbar" aria-label="Main">
         {TAB_ITEMS.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => 'tab' + (isActive ? ' active' : '')}>
             <Icon />
-            {label}
+            <span className="tab-label">{label}</span>
           </NavLink>
         ))}
         <button type="button" className="tab" onClick={openAsk}>
           <SparkleIcon />
-          Ask
+          <span className="tab-label">Ask</span>
         </button>
       </nav>
       <AskAI />

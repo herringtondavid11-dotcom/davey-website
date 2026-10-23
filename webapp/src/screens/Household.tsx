@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Spinner } from '../components/Spinner'
 import { shortDate } from '../lib/format'
 import { RELATIONSHIPS, ROLE_HELP, ROLE_LABEL, createInvite, householdStatus, inviteAction, leaveHousehold, removeMember, type HouseholdStatus } from '../lib/household'
+import { loadErrorMessage } from '../lib/loadError'
 
 export function Household() {
   const [h, setH] = useState<HouseholdStatus | null>(null)
@@ -23,13 +24,23 @@ export function Household() {
         setH(s)
         setLoadError('')
       },
-      (e: Error) => setLoadError(e.message || "Couldn't load your household."),
+      (e: unknown) => setLoadError(loadErrorMessage(e)),
     )
   useEffect(() => {
     void load()
   }, [])
 
-  if (loadError) return <div className="page"><div className="page-head"><div><h1>Household</h1></div></div><p className="notice" role="status">{loadError}</p></div>
+  if (loadError) {
+    return (
+      <div className="page">
+        <div className="page-head"><div><h1>Household</h1></div></div>
+        <section className="card card-pad load-failure">
+          <p className="error" role="alert">{loadError}</p>
+          <button type="button" className="btn btn-primary" onClick={() => { setLoadError(''); void load(true) }}>Try again</button>
+        </section>
+      </div>
+    )
+  }
   if (!h) return <Spinner label="Loading household" />
   if (!h.household_id) {
     return (

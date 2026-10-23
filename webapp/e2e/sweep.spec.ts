@@ -44,6 +44,8 @@ test('every screen: a server error shows a message, never a blank page or a cras
     const spinning = await page.locator('[role="status"][aria-busy="true"], .spinner').count()
     if (/boom/.test(text)) blank.push(`${path}: shows the raw server error`)
     if (text.length < 20 || (spinning > 0 && !/couldn|try again|error|went wrong/i.test(text))) blank.push(`${path}: ${text.slice(0, 80)}`)
+    if (!/Try again/i.test(text)) blank.push(`${path}: no way to retry`)
+    if (/No accounts yet|No credit cards connected|No loans or mortgages|No investment accounts connected|Nothing recorded for this month/.test(text)) blank.push(`${path}: failed load looks like an empty account`)
   }
   expect(crashes).toEqual([])
   expect(blank).toEqual([])

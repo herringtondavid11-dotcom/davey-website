@@ -12,7 +12,7 @@ import { EditTransaction } from './EditTransaction'
 const VISIBLE_STEP = 100
 
 export function Transactions() {
-  const { accounts, transactions, error, hasMore, loadMore, replaceTransaction } = useData()
+  const { accounts, transactions, hasMore, loadMore, replaceTransaction } = useData()
   const [params, setParams] = useSearchParams()
   const [filter, setFilter] = useState<TransactionFilter>(() => ({ ...EMPTY_FILTER, search: params.get('q') ?? '', category: params.get('category') ?? '' }))
   const onlyIds = useMemo(() => (params.get('ids') ? new Set(params.get('ids')!.split(',')) : null), [params])
@@ -59,7 +59,6 @@ export function Transactions() {
           <p>Tap a transaction to change its category, notes, or Business/Personal.</p>
         </div>
       </div>
-      {error && <p className="error" role="alert">{error}</p>}
       <section className="card">
         <div className="toolbar">
           <label className="search">

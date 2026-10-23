@@ -100,6 +100,12 @@ export function Investments() {
         {invest.length > 0 && <button className="btn btn-secondary" onClick={refresh} disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>}
       </div>
       {notice && <p className="muted" role="status">{notice}</p>}
+      {(holdingsT.error || securitiesT.error || snapshotsT.error) && (
+        <div className="banner card" role="alert">
+          <span>{holdingsT.error || securitiesT.error || snapshotsT.error}</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void Promise.all([holdingsT.reload(), securitiesT.reload(), snapshotsT.reload()])}>Try again</button>
+        </div>
+      )}
       {setupNeeded.map((s) => (
         <section className="card banner" key={s.item_id} role="region" aria-label="Finish setup">
           <div><strong>Finish setting up {shortInstitution(s.institution_name ?? 'your brokerage')} to see holdings &amp; history</strong>

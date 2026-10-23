@@ -222,7 +222,7 @@ export function AddAccount({ onClose }: { onClose: () => void }) {
 }
 
 export function Accounts() {
-  const { accounts, error } = useData()
+  const { accounts } = useData()
   const items = useTable('items')
   const connections = useMemo(() => (items.result?.rows ?? []).map(normalizeItem), [items.result])
   const [showHidden, setShowHidden] = useState(false)
@@ -243,7 +243,6 @@ export function Accounts() {
       <div className="page-head">
         <div><h1>Accounts</h1><p>Balances and goals for every account. Goals sync with the Davey app.</p></div>
       </div>
-      {error && <p className="error" role="alert">{error}</p>}
 
       <section className="card networth goals-head" aria-labelledby="goals-total">
         <div className="goals-head-top">

@@ -23,3 +23,42 @@ test('public pages: no script errors, no broken links or assets', async ({ page,
   }
   expect(problems).toEqual([])
 })
+
+test('public pages: page-specific social titles, self-hosted fonts, and a keyboard chart', async ({ page }) => {
+  const thirdParty: string[] = []
+  page.on('request', (r) => {
+    if (/fonts\.(googleapis|gstatic)\.com/.test(r.url())) thirdParty.push(r.url())
+  })
+  await page.goto('/')
+  await expect(page.getByText('Up to 230 connected banks')).toBeVisible()
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Davey – Know where every dollar goes')
+  expect(await page.locator('script[type="application/ld+json"]').textContent()).toContain('FAQPage')
+  await expect(page.locator('link[href="/assets/fonts/inter-latin-400.woff2"]')).toHaveCount(1)
+  expect(thirdParty).toEqual([])
+  const may = page.locator('#bars button').first()
+  await may.focus()
+  await expect(may).toHaveAttribute('aria-label', /May:/)
+
+  await page.setViewportSize({ width: 390, height: 800 })
+  await page.getByRole('button', { name: 'Open menu' }).click()
+  await expect(page.locator('#site-nav')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Open menu' })).toBeFocused()
+
+  for (const [path, title] of [
+    ['/help/', 'Help & FAQ – Davey'],
+    ['/terms/', 'Terms of Service – Davey'],
+    ['/cancel/', 'Cancel & Refunds – Davey'],
+  ] as const) {
+    await page.goto(path)
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', title)
+    await expect(page.locator('meta[name="description"]')).not.toHaveAttribute('content', /Coming soon/)
+  }
+  await page.goto('/help/')
+  const bodyLink = page.locator('main a').first()
+  await bodyLink.evaluate((el) => {
+    const node = el as HTMLElement & { focus: (opts?: { focusVisible?: boolean }) => void }
+    node.focus({ focusVisible: true })
+  })
+  await expect(bodyLink).toHaveCSS('outline-color', 'rgb(138, 98, 16)')
+})
