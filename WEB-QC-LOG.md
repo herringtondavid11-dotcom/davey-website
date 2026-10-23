@@ -351,3 +351,12 @@ the GitHub Pages run instead.
 - No new commits on main since e379f12; Pages run for e379f12: success.
 - Issues found: 0. Fixed: 0.
 - Counts: Vitest 116/116; Playwright Chromium 120 passed, 17 skipped (email-code), 0 failed.
+
+## Loop 50 – 2026-10-23 23:08 UTC
+- New on main from another agent (bb09508, 772eb5d, co-authored from David's account): Plaid Link no longer covers the
+  sidebar/tab bar; the frame sits beside the sidebar (desktop) or between the phone header and tab bar, so a Link
+  that never paints can't freeze navigation. This replaces the earlier full-screen-and-hide-bars behavior on purpose.
+  Reviewed: CSP-safe sizing kept, iframe hidden when closed, class removed in a layout effect; plaid-overlay e2e
+  updated by that agent and passing here (iPhone 14, iPad, desktop).
+- Issues found: 0. Fixed: 0.
+- Counts: Vitest 116/116; Playwright Chromium 120 passed, 17 skipped (email-code), 0 failed.
