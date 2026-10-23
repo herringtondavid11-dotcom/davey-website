@@ -56,7 +56,7 @@ export function Transactions() {
       <div className="page-head">
         <div>
           <h1>Transactions</h1>
-          <p>Tap a transaction to change its category, notes, or Business/Personal.</p>
+          <p>Choose a transaction to change its category, notes, or Business/Personal.</p>
         </div>
       </div>
       <section className="card">

@@ -193,6 +193,8 @@ textarea.input { min-height: 88px; resize: vertical; }
 
 .main { min-width: 0; padding: 32px clamp(16px, 3vw, 40px) 104px; }
 .page { width: min(100%, 1240px); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+/* A 1920px window has about 1560px beside the sidebar. Use it for the cards and charts. */
+@media (min-width: 1680px) { .page { width: min(100%, 1560px); } }
 .page > * { min-width: 0; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .page-head p { color: var(--muted); margin-top: 4px; }
@@ -218,7 +220,7 @@ textarea.input { min-height: 88px; resize: vertical; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 .card-pad { padding: 20px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px 6px; min-width: 0; flex-wrap: wrap; }
-.card-head a { font-weight: 600; font-size: .9375rem; color: var(--gold-ink); }
+.card-head a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 2px; font-weight: 600; font-size: .9375rem; color: var(--gold-ink); }
 
 .overview-grid { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 1100px) { .overview-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; } }
@@ -638,8 +640,10 @@ button.row:hover { background: var(--surface-2); }
 
 /* ---------- Overview cards ---------- */
 .overview-cards { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); }
+/* 1000px is the viewport, and the sidebar takes 248px of it, so three columns at 1400px
+   squeezed the side cards into ~350px. Wait until the content column is actually wide. */
 @media (min-width: 1000px) { .overview-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } .overview-cards .nw-trend { grid-column: 1 / -1; } }
-@media (min-width: 1400px) { .overview-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } .overview-cards .nw-trend { grid-column: 1 / 3; grid-row: span 2; } }
+@media (min-width: 1680px) { .overview-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } .overview-cards .nw-trend { grid-column: 1 / 3; grid-row: span 2; } }
 .overview-cards .card-pad { display: grid; gap: 12px; align-content: start; }
 .nw-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .nw-change { font-weight: 700; margin-top: 6px; }
