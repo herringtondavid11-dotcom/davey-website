@@ -614,7 +614,8 @@ export function watchConsole(page: Page) {
   const problems: string[] = []
   page.on('console', (m) => {
     // Plaid's script sets inline styles on its iframe; the CSP refuses them and app.css sizes the frame instead.
-    if (m.type() === 'error' && /Refused to apply inline style/.test(m.text())) return
+    // Chromium says "inline style"; WebKit says "a stylesheet" for the same style attribute.
+    if (m.type() === 'error' && /Refused to apply inline style|Refused to apply a stylesheet because its hash/.test(m.text())) return
     if (m.type() === 'error' && /Content Security Policy|Refused to/i.test(m.text())) problems.push(m.text())
   })
   page.on('pageerror', (e) => problems.push(e.message))

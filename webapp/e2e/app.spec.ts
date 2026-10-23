@@ -120,6 +120,9 @@ test('settings: switch theme', async ({ page }) => {
 
 test('marketing site links to the app, and unknown /app paths fall back into it', async ({ page }) => {
   await page.goto('/')
+  // On a phone the header links sit in the menu until it's opened.
+  const menu = page.getByRole('button', { name: 'Open menu' })
+  if (await menu.isVisible()) await menu.click()
   await expect(page.getByRole('link', { name: 'Log in' }).first()).toHaveAttribute('href', '/app/login')
   await expect(page.getByRole('link', { name: 'Get started' }).first()).toHaveAttribute('href', '/app/')
   await mockBackend(page)
