@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test'
 import { EMAIL, EMAIL_2FA_ENABLED, EMAIL_CODE, PASSWORD, TEST_PIN, mockBackend } from './mock'
 import { PAGES } from './pages'
 
+// Full-page shots in parallel crash Playwright's WebKit (the browser closes, or a click never settles).
+test.describe.configure({ mode: 'serial' })
+
 const VIEWPORTS = [
   { width: 360, height: 780 },
   { width: 768, height: 1024 },
