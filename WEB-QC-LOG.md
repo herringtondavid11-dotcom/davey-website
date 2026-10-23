@@ -252,3 +252,7 @@ the GitHub Pages run instead.
 - davey-ios release-candidate 874bf92. Needs David's Mac: migration + deploy plaid-link-token (fixes it for the web
   and for the server's own check) AND an iPhone/Mac rebuild (the installed app refuses at 10 before asking the server).
 - Counts: Vitest 112/112; Playwright Chromium 115 passed, 17 skipped (email-code), 0 failed.
+
+## Loop 29 — 2026-10-23 01:13 UTC (resumed)
+- Pages: 0f86791 deployed (success). No new commits from other sessions. No issues found.
+- Counts: Vitest 112/112; Playwright Chromium 115 passed, 17 skipped (email-code), 0 failed.
