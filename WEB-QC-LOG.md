@@ -264,3 +264,11 @@ the GitHub Pages run instead.
 ## Loop 31 — 2026-10-23 02:23 UTC (hourly check)
 - Pages: 6a8a45f deployed (success). No new commits from other sessions. No issues found.
 - Counts: Vitest 112/112; Playwright Chromium 115 passed, 17 skipped (email-code), 0 failed.
+
+## Loop 32 — 2026-10-23 03:28 UTC (hourly check)
+- New on main from another session: 563b597 "Browser and marketing UX sweep (#1)" (failed first load → error + Try
+  again, self-hosted fonts, focus/phone menu, SEO, prices hidden while subscriptions are off). Pages deployed (success).
+- Noted, not changed: the public pages and Terms now promise "up to 30" banks (its tests require that and forbid
+  "230" publicly), while the real server cap is 230 (server_flags.max_bank_connections). The promise is below the cap,
+  so nothing breaks; the app/server message still says 230 when that's reached.
+- Counts: Vitest 112/112; Playwright Chromium 118 passed, 17 skipped (email-code), 0 failed.
