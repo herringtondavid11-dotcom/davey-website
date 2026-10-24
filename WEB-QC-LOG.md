@@ -455,3 +455,12 @@ the GitHub Pages run instead.
 - No new commits on main since 6cab7d1; Pages run for 6cab7d1: success.
 - Issues found: 0. Fixed: 0.
 - Counts: Vitest 114/114; Playwright Chromium 125 passed, 0 skipped, 0 failed.
+
+## Loop 69 – 2026-10-24 19:52 UTC
+- New on main: 7f38885 (PR #7, merged from David's account, Cursor agent): web Plaid Link onEvent/onExit logged to
+  client_diagnostics as link_event (same shape as iOS); Mac Hosted Link tokens get the universal-link redirect for
+  Chase OAuth; server bundles, loaders, a migration and rollback copies under supabase-changes/. Pages: success.
+- Reviewed: link events use an allowlist, drop anything shaped like a link-/public-/access- token, never throw;
+  plaidLinkEvent.test.ts covers it. Secret scan of supabase-changes/: no keys, only comments naming key types.
+- Issues found: 0. Fixed: 0.
+- Counts: Vitest 117/117; Playwright Chromium 125 passed, 0 skipped, 0 failed.
