@@ -62,6 +62,15 @@ test('connect an account: one web link token, Plaid opened from the click, excha
   await page.getByRole('button', { name: 'Connect an account' }).click()
   await expect(page.getByRole('heading', { name: 'Name your accounts' })).toBeVisible()
   expect(state.linkTokenBody).toEqual({ platform: 'web', redirect_uri: 'https://daveypersonalfinance.com/app/oauth', mode: 'account' })
+  await expect.poll(() => state.diagnostics.length).toBeGreaterThan(0)
+  const linkEvent = state.diagnostics.find((d) => d.kind === 'link_event')
+  expect(linkEvent).toMatchObject({
+    kind: 'link_event',
+    app_version: 'web',
+    payload: { event: 'TRANSITION_VIEW', view_name: 'SELECT_INSTITUTION', institution_name: 'First Platypus Bank', link_session_id: 'ls-1' },
+  })
+  expect(JSON.stringify(linkEvent)).not.toContain('link-production')
+  expect(String((linkEvent?.payload as { user_agent?: string } | undefined)?.user_agent || '')).not.toBe('')
   expect(await page.evaluate(() => (window as unknown as { __plaidOpenGestures: boolean[] }).__plaidOpenGestures)).toEqual([true])
   expect(state.exchangeBody).toMatchObject({ public_token: 'public-production-abc', platform: 'web' })
   expect(state.syncBodies).toEqual([{ item_id: 'item-new' }])

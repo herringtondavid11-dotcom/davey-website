@@ -167,6 +167,81 @@ export async function logLinkEvent(fields: Record<string, string | boolean | und
   }
 }
 
+const DIAGNOSTIC_KEY = 'davey.diagnosticId'
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function clip(value: unknown, max: number): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  // A Link token, public token, or access token must never be stored. Ordinary text (an error sentence, a
+  // view name, a session id) does not have this shape.
+  if (!trimmed || /^(link-|public-|access-)[A-Za-z0-9]/.test(trimmed)) return undefined
+  return trimmed.slice(0, max)
+}
+
+/** Anonymous id for client_diagnostics. Not the signed-in user. */
+export function diagnosticId(storage: Pick<Storage, 'getItem' | 'setItem'> = localStorage): string {
+  const existing = storage.getItem(DIAGNOSTIC_KEY)
+  if (existing && UUID_RE.test(existing)) return existing
+  const id = crypto.randomUUID()
+  storage.setItem(DIAGNOSTIC_KEY, id)
+  return id
+}
+
+/**
+ * The fields iOS stores on a client_diagnostics link_event. Allowlist only: a raw Plaid metadata object can
+ * carry a token, and those keys are dropped even if a caller passes them.
+ */
+export function linkEventRecord(
+  eventName: string,
+  metadata: unknown,
+  error?: { error_type?: string; error_code?: string; error_message?: string } | null,
+): Record<string, string> {
+  const meta = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {}
+  const institution = meta.institution && typeof meta.institution === 'object' ? (meta.institution as Record<string, unknown>) : {}
+  const nested = meta.error && typeof meta.error === 'object' ? (meta.error as Record<string, unknown>) : {}
+  const fields: Record<string, string> = { event: (clip(eventName, 64) ?? 'UNKNOWN').slice(0, 64), timestamp: new Date().toISOString() }
+  const put = (key: string, value: unknown, max = 180) => {
+    const text = clip(value, max)
+    if (text) fields[key] = text
+  }
+  put('link_session_id', meta.link_session_id, 80)
+  put('request_id', meta.request_id, 80)
+  put('view_name', meta.view_name, 80)
+  put('exit_status', meta.status ?? meta.exit_status, 80)
+  put('institution_id', institution.institution_id ?? meta.institution_id, 64)
+  put('institution_name', institution.name ?? meta.institution_name, 120)
+  put('error_type', error?.error_type ?? meta.error_type ?? nested.error_type, 64)
+  put('error_code', error?.error_code ?? meta.error_code ?? nested.error_code, 64)
+  put('error_message', error?.error_message ?? meta.error_message ?? nested.error_message, 180)
+  put('mfa_type', meta.mfa_type, 64)
+  return fields
+}
+
+/** onEvent / onExit → client_diagnostics kind link_event. Same shape as iOS. Never throws, never sends a token. */
+export async function logClientLinkEvent(
+  eventName: string,
+  metadata: unknown,
+  error?: { error_type?: string; error_code?: string; error_message?: string } | null,
+): Promise<void> {
+  try {
+    const payload = linkEventRecord(eventName, metadata, error)
+    const agent = navigator.userAgent
+    payload.user_agent = agent.slice(0, 180)
+    await supabase.functions.invoke('client-diagnostics', {
+      body: {
+        diagnostic_id: diagnosticId(),
+        kind: 'link_event',
+        app_version: 'web',
+        os_version: (navigator.platform || 'web').slice(0, 64),
+        device: agent.slice(0, 64),
+        payload,
+      },
+    })
+  } catch {
+    /* best effort */
+  }
+}
+
 export async function createLinkToken(opts: { itemId?: string; mode?: LinkMode; fallback?: boolean; institutionId?: string; consentInvestments?: boolean } = {}): Promise<string> {
   const { data, error } = await supabase.functions.invoke('plaid-link-token', { body: linkTokenBody(opts) })
   // The server's own words (e.g. the bank connection limit, set server-side in server_flags) are shown as is.

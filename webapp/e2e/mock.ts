@@ -237,6 +237,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     linkTokenBody: null as unknown,
     linkTokenBodies: [] as Row[],
     linkEvents: [] as Row[],
+    diagnostics: [] as Row[],
     extra: extraTables() as Record<string, Row[]>,
     reportBody: null as unknown,
     inviteBody: null as unknown,
@@ -472,6 +473,10 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       if (body.mode === 'update' && !opts.updateMode) return json(route, { link_token: 'link-production-web-123', expiration: now })
       return json(route, { link_token: 'link-production-web-123', expiration: now, ...(body.mode === 'update' ? { mode: 'update' } : {}) })
     }
+    if (path === '/functions/v1/client-diagnostics') {
+      state.diagnostics.push(body)
+      return json(route, { stored: true })
+    }
     if (path === '/functions/v1/link-support') {
       if (opts.reportDown) return route.abort('failed')
       if (body.action === 'event') {
@@ -578,6 +583,14 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
         return {
           open: function () {
             window.__plaidOpenGestures.push(window.__daveyUserGesture === true);
+            if (opts.onEvent) opts.onEvent('TRANSITION_VIEW', {
+              view_name: 'SELECT_INSTITUTION',
+              link_session_id: 'ls-1',
+              request_id: 'req-1',
+              institution_id: 'ins_109508',
+              institution_name: 'First Platypus Bank',
+              link_token: 'link-production-should-not-be-stored'
+            });
             if (${opts.plaidHold ? 'true' : 'false'}) return; setTimeout(function () {
             if (opts.token === 'link-api-error') return opts.onExit(
               { error_type: 'API_ERROR', error_code: 'INTERNAL_SERVER_ERROR', error_message: 'an unexpected error occurred', display_message: null },

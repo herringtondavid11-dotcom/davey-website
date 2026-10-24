@@ -10,6 +10,7 @@ import {
   exchangePublicToken,
   loadPlaid,
   isFallbackExit,
+  logClientLinkEvent,
   logLinkEvent,
   pendingLinkFor,
   readPendingLink,
@@ -145,7 +146,11 @@ export function usePlaidFlow() {
       receivedRedirectUri: opts.receivedRedirectUri,
       onSuccess: (publicToken, metadata) =>
         void (opts.updateItemId ? finishUpdate(opts.updateItemId, metadata) : finish(publicToken, metadata)),
+      onEvent: (eventName, metadata) => {
+        void logClientLinkEvent(eventName, metadata)
+      },
       onExit: (err, metadata) => {
+        void logClientLinkEvent('EXIT', metadata, err)
         clearPendingLink()
         const ids = {
           mode: mode.current,
