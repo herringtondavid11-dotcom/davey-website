@@ -360,3 +360,13 @@ the GitHub Pages run instead.
   updated by that agent and passing here (iPhone 14, iPad, desktop).
 - Issues found: 0. Fixed: 0.
 - Counts: Vitest 116/116; Playwright Chromium 120 passed, 17 skipped (email-code), 0 failed.
+
+## Loop 51 – 2026-10-24 00:20 UTC
+- New on main from another agent (049fcaa, 4758956, co-authored from David's account), both deployed (Pages: success):
+  - 049fcaa: content column widens on large desktops, three-column overview starts later, bigger section links;
+    docs/QUALITY-ASSESSMENT-2026-10.md and e2e/quality.spec.ts added.
+  - 4758956: the emailed sign-in code is removed entirely (it was already off via EMAIL_2FA_ENABLED=false), with its
+    tests; service worker v2 is network-first with cache:'reload' for pages, so an old cached shell can't keep asking
+    for a code. Reviewed: only same-origin /app/ GETs cached, no Supabase/Plaid data; offline still falls back to the shell.
+- Issues found: 0. Fixed: 0.
+- Counts: Vitest 114/114; Playwright Chromium 125 passed, 0 skipped, 0 failed.
