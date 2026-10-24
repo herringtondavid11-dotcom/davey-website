@@ -482,3 +482,15 @@ the GitHub Pages run instead.
   $518,640.55, holdings, chart and net worth).
 - iPhone/Mac and server: davey-ios release-candidate 8a15b6a. Steps are in MAC-REBUILD-NEXT.md §1.
 - Counts: Vitest 121/121; Playwright Chromium 126 passed, 0 failed.
+
+## Performance – 2026-10-24 (priority update)
+- Web: each tab's code and the Investments tables now download while the browser is idle after the first screen.
+  The shell's business check is memoized (it scanned every transaction on each navigation).
+- Before/after, measured in the page from click to heading: Investments first visit 131–134 ms → 48–94 ms; other
+  tabs 16–42 ms → 16–34 ms. Scrolling: p95 16.7 ms, no frame over 17 ms.
+- New e2e/tab-budget.spec.ts:
+  - Desktop and phone: each tab's best of two switches under 100 ms, every switch under 200 ms.
+  - Scroll: frame budget.
+- iPhone/Mac: davey-ios release-candidate (Overview/Budget memoized, household sync no longer re-encodes everything,
+  cached date formatters, no receipt file reads per row). PERF-REPORT.md has the Instruments paste.
+- Counts: Vitest 121/121; Playwright Chromium 129 passed, 0 failed (twice).

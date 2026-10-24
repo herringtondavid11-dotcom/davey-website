@@ -1,8 +1,9 @@
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useData } from '../lib/DataProvider'
 import { hasBusiness } from '../lib/finance'
+import { prefetchTabScreens } from '../lib/prefetch'
 import { MoreIcon, PlusIcon, SignOutIcon, SparkleIcon } from './Icons'
 import { Spinner } from './Spinner'
 import { AskAI } from './AskAI'
@@ -46,7 +47,10 @@ export function Layout() {
   const { email, signOut } = useAuth()
   const { accounts, transactions, status } = useData()
   const location = useLocation()
-  const business = hasBusiness(accounts ?? [], transactions ?? [])
+  // The shell re-renders on every navigation; scanning every transaction for business activity each time made tab
+  // switches wait on it. Only new data changes the answer.
+  const business = useMemo(() => hasBusiness(accounts ?? [], transactions ?? []), [accounts, transactions])
+  useEffect(() => { prefetchTabScreens() }, [])
   const inMore = !TAB_ITEMS.some((t) => (t.end ? location.pathname === t.to : location.pathname.startsWith(t.to)))
   const blocked = status === 'error' && !accounts
 

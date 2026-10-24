@@ -29,3 +29,9 @@ export function useTable(name: OptionalTable) {
 export function clearTableCache() {
   cache.clear()
 }
+
+/** Loads a table into the cache ahead of its screen (idle prefetch), so the first visit renders without waiting. */
+export function prefetchTable(name: OptionalTable): Promise<void> {
+  if (cache.has(name)) return Promise.resolve()
+  return fetchOptional(name).then((r) => { cache.set(name, r) }, () => undefined)
+}

@@ -1,5 +1,10 @@
 # Next Mac rebuild (one Claude Code paste)
 
+## 0. Performance (2026-10-24)
+
+The paste is in PERF-REPORT.md (Instruments on the iPhone in Release, fix anything over budget, install). Run it after
+§1 below. iPhone/Mac commits: davey-ios release-candidate 06da30f, 4a8488f (never main).
+
 ## 1. Household parity for investments (2026-10-24, do this first)
 
 The problem: Allie's Investments tab showed $0 and a flat line. The fix is commit 8a15b6a on davey-ios
