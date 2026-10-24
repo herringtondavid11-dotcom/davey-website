@@ -8,7 +8,33 @@
 - iPhone/Mac: davey-ios `release-candidate` 06da30f + 4a8488f, never main. CI passed: 523 unit tests on Mac.
 - Web: davey-website `main`, deployed.
 
-## Top causes found and fixed (iPhone + Mac)
+## Round 2 (2026-10-24): "fast at first, then slower; a bubble on every touch"
+
+**Why it got slower over time.** Each of these runs again on every tab switch or every return to the app, and
+together they kept the main thread busy:
+
+| # | Cause | Fix |
+|---|---|---|
+| 1 | **Every return to the app rewrote all investment rows.** The household investments reload set every holding and daily value even when nothing changed. The save that followed made every open screen rebuild and woke the household sync. | It writes only real changes and saves only when something changed (`SustainedResponsivenessTests`). |
+| 2 | **Sync echo loop.** Household Realtime sends this device's own pushes back. Each echo pulled them and built an index of every record (all transactions, holdings and daily values) on the main thread. | Own echoes are dropped before the store is touched, and the index fetches each kind only when needed. |
+| 3 | **History rebuilt on every switch.** The net-worth history cache held one entry, keyed by each screen's own counter, so Overview and Accounts evicted each other. Every switch between them rebuilt history from every transaction (~0.5 s at 10,000), on a background context that competes with the main one. | Keyed by the app-wide save count, with 8 entries shared by all screens. |
+| 4 | **Repeated rebuilds per save.** Each save rebuilt every open screen separately, several times during a sync burst. | Coalesced (400 ms). |
+
+**The bubble.** Every chart (16 of them on Overview, Budget, Investments, Accounts and Tax) used SwiftUI's default
+chart-selection gesture, which takes every touch. Starting a scroll on a chart popped the value bubble and fought the
+scroll. On iPhone, scrubbing now starts after a short press (0.2 s): swipes scroll, and letting go hides the bubble
+(`pressToScrub`). The Mac keeps pointer scrubbing.
+
+On the web, iPhone Safari's grey tap highlight is turned off. Davey shows its own instant press feedback instead.
+Ask AI's old tap-anywhere gesture was already removed (32f6d0a); it is not in this build.
+
+**Stress tests:**
+- **iPhone:** `SustainedResponsivenessUITests` runs ten rounds of every tab, Ask AI open and close, Transactions push
+  and pop, scrolling, and Home then back, on 2,000 transactions. The later rounds must not be slower than the first.
+- **Web:** `e2e/sustained.spec.ts` runs the same rounds plus a page hide and show. Measured: 1.1–1.4 s per round, flat;
+  heap 12–13 MB; DOM 372–379 nodes, unchanged.
+
+## Top causes found and fixed, round 1 (iPhone + Mac)
 
 | # | Cause | Where | Fix |
 |---|---|---|---|
@@ -90,7 +116,9 @@ In ~/Developer/davey-ios: git fetch origin && git checkout release-candidate && 
    xcrun xctrace record --device <UDID> --template 'Time Profiler' --attach Davey --time-limit 45s --output ~/Desktop/davey-time.trace
    xcrun xctrace record --device <UDID> --template 'SwiftUI' --attach Davey --time-limit 45s --output ~/Desktop/davey-swiftui.trace
    xcrun xctrace record --device <UDID> --template 'Animation Hitches' --attach Davey --time-limit 45s --output ~/Desktop/davey-hitches.trace
-   (Tell me when to do the switching for each recording.)
+   (Tell me when to do the switching for each recording.) Also record one 3-minute Time Profiler trace while I keep
+   switching tabs, opening Ask AI and leaving/returning to the app, and compare the first and last minute: CPU per
+   switch must not grow.
 4. Read the traces (xcrun xctrace export --input <trace> --toc, then --xpath for the time profile, the SwiftUI view-body
    table, the Points of Interest signposts TabSwitch / OverviewSummary / BudgetReport / PlaidImport / DataMaintenance,
    and the hitches table). Budgets: tab switch < 100 ms, no hitch > 16 ms during scrolling (120 Hz: aim < 8 ms),
@@ -98,7 +126,7 @@ In ~/Developer/davey-ios: git fetch origin && git checkout release-candidate && 
 5. Fix anything over budget in Davey's code (body work → memoize or move off the main actor; @Query without a
    predicate on big tables → add predicates; PlaidImport or household sync hitching → move to a background ModelActor),
    add a test for each fix, run DaveyTests and DaveyUITests/TabSwitchScrollPerformanceUITests and
-   DaveyUITests/ResponsivenessUITests on a booted iPhone 17 simulator (-parallel-testing-enabled NO
+   DaveyUITests/ResponsivenessUITests and DaveyUITests/SustainedResponsivenessUITests on a booted iPhone 17 simulator (-parallel-testing-enabled NO
    -test-timeouts-enabled YES -default-test-execution-time-allowance 120), then commit and push to release-candidate.
    Re-record step 3 and put the before/after numbers in PERF-REPORT.md.
 6. Install the normal build (Debug, no PERF_HOOKS) on my iPhone and this Mac from release-candidate, keeping my data:
