@@ -499,3 +499,10 @@ the GitHub Pages run instead.
 - New on main: only this session's performance and household-parity work. Pages run for 3d5cac1: success.
 - Issues found: 0 beyond the performance work above. Fixed: 0.
 - Counts: Vitest 121/121; Playwright Chromium 129 passed, 0 failed (two consecutive full runs).
+
+## Responsiveness round 2 – 2026-10-24 (David: slows down over time, a "bubble" on every touch)
+- Web: iPhone Safari's grey tap highlight (a rounded box over every tapped card and row) is turned off. Taps show
+  Davey's own instant press feedback and act without the double-tap-zoom wait (touch-action: manipulation).
+- New e2e/sustained.spec.ts runs ten rounds of: every tab, Ask AI open and close, Transactions, and the page hidden
+  and shown. Measured at 1.1–1.4 s per round on desktop and phone, flat; heap 12–13 MB; DOM 372–379 nodes, unchanged.
+- Counts: Vitest 121/121; Playwright Chromium 131 passed, 0 failed.

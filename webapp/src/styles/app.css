@@ -73,6 +73,11 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; }
+/* iPhone Safari draws a grey rounded box over whatever is tapped (the "bubble" David saw on cards and rows). Davey shows
+   its own quick press feedback instead, and taps act immediately (no double-tap-zoom wait). */
+html { -webkit-tap-highlight-color: transparent; }
+a, button, [role="button"], summary, label, select { touch-action: manipulation; }
+a:active, button:active, [role="button"]:active { opacity: .72; transition: opacity 0s; }
 body {
   background: var(--bg); color: var(--text);
   font: 400 16px/1.5 var(--font-body);
