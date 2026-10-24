@@ -494,3 +494,8 @@ the GitHub Pages run instead.
 - iPhone/Mac: davey-ios release-candidate (Overview/Budget memoized, household sync no longer re-encodes everything,
   cached date formatters, no receipt file reads per row). PERF-REPORT.md has the Instruments paste.
 - Counts: Vitest 121/121; Playwright Chromium 129 passed, 0 failed (twice).
+
+## Loop 71 – 2026-10-24 22:17 UTC
+- New on main: only this session's performance and household-parity work. Pages run for 3d5cac1: success.
+- Issues found: 0 beyond the performance work above. Fixed: 0.
+- Counts: Vitest 121/121; Playwright Chromium 129 passed, 0 failed (two consecutive full runs).
