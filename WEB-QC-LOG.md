@@ -469,3 +469,16 @@ the GitHub Pages run instead.
 - No new commits on main since 0e47be4; Pages run for 0e47be4: success.
 - Issues found: 0. Fixed: 0.
 - Counts: Vitest 117/117; Playwright Chromium 125 passed, 0 skipped, 0 failed.
+
+## Household parity – 2026-10-24 (priority update)
+- Report: Allie (household member) saw $0 and a flat line on Investments; David saw real holdings and history.
+- Cause: holdings and daily values weren't household data. Linked brokerages reached a member only through her own
+  Plaid pull. Manual and CSV holdings, manual accounts' history and rentals never left David's devices. On the web,
+  investment accounts were valued at starting balance plus transactions instead of their holdings.
+- Web (this push): Investments merges the shared `holding` and `investmentSnapshot` records with the server rows.
+  Investment accounts with holdings are worth their holdings, like the app. A member's Refresh is read-only on the
+  server.
+- Tests: householdParity.test.ts and e2e/household-parity.spec.ts (owner and member render identical portfolio
+  $518,640.55, holdings, chart and net worth).
+- iPhone/Mac and server: davey-ios release-candidate 8a15b6a. Steps are in MAC-REBUILD-NEXT.md §1.
+- Counts: Vitest 121/121; Playwright Chromium 126 passed, 0 failed.

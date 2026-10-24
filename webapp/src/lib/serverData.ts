@@ -87,9 +87,13 @@ export function toRows(input: {
   categories: HouseholdRecord[]
   connections: HouseholdRecord[]
   budgets: HouseholdRecord[]
+  /** Holdings value in cents per account id (Davey's id or Plaid's), from `holdingValues`. */
+  holdingValues?: Map<string, number>
 }): DaveyData {
   const records = new Map<string, HouseholdRecord>()
-  for (const list of Object.values(input)) for (const r of list) records.set(`${r.entity}:${r.id}`, r)
+  for (const list of [input.accounts, input.transactions, input.categories, input.connections, input.budgets]) {
+    for (const r of list) records.set(`${r.entity}:${r.id}`, r)
+  }
   const categoryName = new Map(input.categories.map((c) => [c.id, text(c.payload.name) ?? 'Uncategorized']))
   const connection = new Map(input.connections.map((c) => [c.id, c.payload]))
   const accountPayload = new Map(input.accounts.map((a) => [a.id, a.payload]))
@@ -106,7 +110,14 @@ export function toRows(input: {
   const accounts = input.accounts.map((a) => {
     const p = a.payload
     const bank = connection.get(text(p.bankConnectionID) ?? '')
-    const daveyBalance = (typeof p.startingBalance === 'number' ? p.startingBalance : 0) + (sums.get(a.id) ?? 0)
+    // Like the app: an investment account with holdings is worth its holdings (linked ones from the server, manual ones
+    // from the household's records), not starting balance plus transactions.
+    const held = p.type === 'investment'
+      ? (input.holdingValues?.get(a.id) ?? 0) + (text(p.externalID) ? (input.holdingValues?.get(String(p.externalID)) ?? 0) : 0)
+      : 0
+    const hasHoldings = p.type === 'investment' &&
+      (input.holdingValues?.has(a.id) === true || (text(p.externalID) !== undefined && input.holdingValues?.has(String(p.externalID)) === true))
+    const daveyBalance = hasHoldings ? held : (typeof p.startingBalance === 'number' ? p.startingBalance : 0) + (sums.get(a.id) ?? 0)
     // Davey keeps debts negative; the web screens use Plaid's convention (a card or loan's balance = amount owed).
     const balanceMinor = LIABILITY_TYPES.has(String(p.type)) ? -daveyBalance : daveyBalance
     return {
@@ -182,15 +193,76 @@ export function toRows(input: {
   return { accounts, transactions, budgets, connections, records }
 }
 
+const WEB_SECURITY_TYPE: Record<string, string> = {
+  stock: 'equity', etf: 'etf', mutualFund: 'mutual fund', bond: 'fixed income', cash: 'cash', crypto: 'cryptocurrency', other: 'other',
+}
+
+/** The app's shared manual holdings (entity "holding") in the columns `normalizeHoldings` reads. */
+export function holdingRows(records: HouseholdRecord[]): Row[] {
+  return records.filter((r) => text(r.payload.accountID)).map((r) => {
+    const p = r.payload
+    const quantity = typeof p.quantity === 'number' ? p.quantity : 0
+    const value = minor(p.value)
+    return {
+      id: r.id,
+      account_id: text(p.accountID),
+      name: text(p.name) ?? text(p.ticker) ?? 'Holding',
+      ticker: text(p.ticker),
+      quantity,
+      institution_price: quantity > 0 ? value / quantity : undefined,
+      institution_value: value,
+      cost_basis: optMinor(p.costBasis),
+      type: WEB_SECURITY_TYPE[String(p.assetClass)] ?? 'other',
+    }
+  })
+}
+
+/** The app's shared daily values of manual accounts (entity "investmentSnapshot") as investment_snapshots rows. */
+export function snapshotRows(records: HouseholdRecord[]): Row[] {
+  return records.filter((r) => text(r.payload.accountID) && localDay(r.payload.date)).map((r) => ({
+    account_id: text(r.payload.accountID),
+    date: localDay(r.payload.date),
+    value: minor(r.payload.value),
+    net_flow: minor(r.payload.netFlow),
+    estimated: r.payload.isEstimated === true,
+  }))
+}
+
+/** Holdings value in cents per account: server rows (Plaid account ids, dollars) plus shared manual holdings (Davey ids). */
+export function holdingValues(serverRows: Row[], holdingRecords: HouseholdRecord[]): Map<string, number> {
+  const out = new Map<string, number>()
+  const add = (id: string | undefined, cents: number) => { if (id) out.set(id, (out.get(id) ?? 0) + cents) }
+  for (const h of serverRows) {
+    const value = typeof h.institution_value === 'number' ? h.institution_value
+      : Number(h.institution_value ?? (Number(h.quantity ?? 0) * Number(h.institution_price ?? 0))) || 0
+    add(text(h.account_id), Math.round(value * 100))
+  }
+  for (const r of holdingRecords) add(text(r.payload.accountID), typeof r.payload.value === 'number' ? r.payload.value : 0)
+  return out
+}
+
+async function serverHoldings(): Promise<Row[]> {
+  const rows: Row[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from('investment_holdings')
+      .select('account_id,quantity,institution_price,institution_value').range(from, from + PAGE - 1)
+    // Balances still load without holdings (an older database or a network blip): accounts fall back to transactions.
+    if (error) return rows
+    rows.push(...((data ?? []) as Row[]))
+    if (!data || data.length < PAGE) return rows
+  }
+}
+
 let cache: Promise<DaveyData> | null = null
 
 /** Everything the screens read, loaded once per session (call `reloadDaveyData` after a write or a new bank). */
 export function loadDaveyData(): Promise<DaveyData> {
   cache ??= (async () => {
-    const [accounts, transactions, categories, connections, budgets] = await Promise.all(
-      ['account', 'transaction', 'category', 'bankConnection', 'budget'].map(fetchRecords),
-    )
-    return toRows({ accounts, transactions, categories, connections, budgets })
+    const [[accounts, transactions, categories, connections, budgets, holdings], server] = await Promise.all([
+      Promise.all(['account', 'transaction', 'category', 'bankConnection', 'budget', 'holding'].map(fetchRecords)),
+      serverHoldings(),
+    ])
+    return toRows({ accounts, transactions, categories, connections, budgets, holdingValues: holdingValues(server, holdings) })
   })().catch((error) => {
     cache = null
     throw error

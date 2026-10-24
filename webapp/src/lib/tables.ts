@@ -2,7 +2,7 @@
 // (PostgREST PGRST205 / 42P01 / 404) is reported as `available: false` so screens can explain instead of failing.
 // Candidate names are tried in order and the first that exists is remembered. Assumptions: WEB-STATUS.md.
 import { optNum, pick } from './schema'
-import { fetchRecords, loadDaveyData, monthKey, recurringRows } from './serverData'
+import { fetchRecords, holdingRows, loadDaveyData, monthKey, recurringRows, snapshotRows } from './serverData'
 import { supabase } from './supabase'
 
 type Row = Record<string, unknown>
@@ -53,6 +53,20 @@ export async function fetchOptional(name: OptionalTable): Promise<TableResult> {
     resolved.set(name, 'household_records')
     return { rows, available: data.records.size > 0, table: 'household_records' }
   }
+  // Investments: the server's rows for linked accounts plus the household's shared manual holdings and daily values,
+  // so the web shows what the owner's and the partner's apps show.
+  if (name === 'holdings' || name === 'snapshots') {
+    const [server, records] = await Promise.all([
+      fetchServerTable(name),
+      fetchRecords(name === 'holdings' ? 'holding' : 'investmentSnapshot'),
+    ])
+    const shared = name === 'holdings' ? holdingRows(records) : snapshotRows(records)
+    return { ...server, rows: [...server.rows, ...shared], available: server.available || shared.length > 0 }
+  }
+  return fetchServerTable(name)
+}
+
+async function fetchServerTable(name: OptionalTable): Promise<TableResult> {
   const known = resolved.get(name)
   if (known === null) return { rows: [], available: false }
   const candidates = known ? [known] : OPTIONAL_TABLES[name]

@@ -226,6 +226,22 @@ export interface MockOptions {
   accessPinDown?: boolean
   /** The user doesn't share a household (Davey on the web has nothing to show or connect into). */
   noHousehold?: boolean
+  /** Signed in as the household member (user-2, Jordan) instead of the owner (user-1, Alex). Same rows (RLS). */
+  asMember?: boolean
+  /** The household also shares a manual investment account with a holding and two daily values (app records). */
+  manualInvestments?: boolean
+}
+
+/** A manual "Gold & Coins" account as the app shares it: account, holding and daily values (HouseholdSyncCodec). */
+export function manualInvestmentRecords() {
+  const r = (entity: string, id: string, payload: Row) => ({ household_id: HOUSEHOLD, entity, id, payload, updated_at: '2026-10-01T00:00:00Z' })
+  const day = (n: number) => new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - n, 12)).toISOString()
+  return [
+    r('account', 'acc-coins', { name: 'Gold & Coins', type: 'investment', source: 'manual', startingBalance: 0, isArchived: false }),
+    r('holding', 'hold-gold', { accountID: 'acc-coins', ticker: 'GOLD', name: 'Gold coins', quantity: 2.5, value: 600_000, costBasis: 500_000, assetClass: 'other' }),
+    r('investmentSnapshot', 'snap-gold-1', { accountID: 'acc-coins', date: day(30), value: 580_000, netFlow: 0, isEstimated: false }),
+    r('investmentSnapshot', 'snap-gold-2', { accountID: 'acc-coins', date: day(1), value: 600_000, netFlow: 0, isEstimated: false }),
+  ]
 }
 
 export async function mockBackend(page: Page, opts: MockOptions = {}) {
@@ -262,7 +278,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
   }
 
   const user = () => ({
-    id: 'user-1', aud: 'authenticated', role: 'authenticated', email: EMAIL, email_confirmed_at: now,
+    id: opts.asMember ? 'user-2' : 'user-1', aud: 'authenticated', role: 'authenticated', email: EMAIL, email_confirmed_at: now,
     app_metadata: { provider: 'email' }, user_metadata: state.metadata, created_at: now, updated_at: now,
     factors: state.factors,
   })
@@ -271,7 +287,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     const t = Math.floor(Date.now() / 1000)
     // aal2 here means "verified by the emailed code" (amr otp); a password-reset link gives a recovery session.
     const amr = state.recovery ? [{ method: 'recovery', timestamp: t }] : [{ method: 'password', timestamp: t }, ...(state.aal === 'aal2' ? [{ method: 'otp', timestamp: t }] : [])]
-    const token = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({ sub: 'user-1', email: EMAIL, role: 'authenticated', aal: state.aal, amr, exp, session_id: 'sess-1' })}.sig`
+    const token = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({ sub: opts.asMember ? 'user-2' : 'user-1', email: EMAIL, role: 'authenticated', aal: state.aal, amr, exp, session_id: 'sess-1' })}.sig`
     return { access_token: token, refresh_token: 'refresh-1', token_type: 'bearer', expires_in: 3600, expires_at: exp, user: user() }
   }
 
@@ -391,7 +407,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     if (path === '/rest/v1/household_records' && method === 'GET') {
       if (opts.noHousehold) return json(route, [])
       const entity = url.searchParams.get('entity')?.replace(/^eq\./, '')
-      const all = [...householdRecords(state), ...state.pushed.filter((r) => !householdRecords(state).some((x) => x.entity === r.entity && x.id === r.id))]
+      const all = [...householdRecords(state), ...(opts.manualInvestments ? manualInvestmentRecords() : []), ...state.pushed.filter((r) => !householdRecords(state).some((x) => x.entity === r.entity && x.id === r.id))]
       const rows = all.filter((r) => r.entity === entity)
       const offset = Number(url.searchParams.get('offset') ?? 0)
       const limit = Number(url.searchParams.get('limit') ?? rows.length)
