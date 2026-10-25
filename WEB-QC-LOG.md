@@ -582,3 +582,8 @@ the GitHub Pages run instead.
 - No new commits on main since 91cb3bc or on davey-ios release-candidate (cbc57a7, CI green); Pages run: success.
 - Issues found: 0. Fixed: 0.
 - Counts: Vitest 129/129; Playwright Chromium 138 passed, 0 failed.
+
+## Loop 80 – 2026-10-25 08:09 UTC
+- No new commits on main since bf1ef14 or on davey-ios release-candidate (cbc57a7, CI green); Pages run: success.
+- Issues found: 0. Fixed: 0.
+- Counts: Vitest 129/129; Playwright Chromium 138 passed, 0 failed.
