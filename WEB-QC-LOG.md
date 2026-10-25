@@ -570,3 +570,10 @@ the GitHub Pages run instead.
   this Plaid client, not Davey's return handling. Dashboard checklist, queries and Plaid message: MAC-REBUILD-NEXT.md.
 - Tests: e2e/oauth.spec.ts (pop-up hand-off, Plaid finishes itself, two tabs one exchange, token body); idle.test.
 - Counts: Vitest 129/129; Playwright Chromium 138 passed, 0 failed.
+
+## Loop 78 – 2026-10-25 06:00 UTC
+- No new commits on main since e8f66e5 or on davey-ios release-candidate; Pages run for e8f66e5: success.
+- davey-ios CI: 0c27fd2 failed one timing check (Overview cold build 136 ms > 100 ms); fixed in cbc57a7 (best of 3
+  cold builds), CI green.
+- Issues found: 0. Fixed: 0.
+- Counts: Vitest 129/129; Playwright Chromium 138 passed, 0 failed.
