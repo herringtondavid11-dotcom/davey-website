@@ -21,7 +21,7 @@
 - Screens checked at 360 / 768 / 1280 / 1920 in light and dark; axe on every screen including the new ones.
 
 ## Tests
-- Vitest: 142/142. Playwright (Chromium): 153 passed, 0 failed (loop 92, Refresh all). Latest counts: WEB-QC-LOG.md.
+- Vitest: 142/142. Playwright (Chromium): 153 passed, 0 failed (loop 93). Latest counts: WEB-QC-LOG.md.
 - WebKit/Firefox aren't installed in the cloud container; on the Mac: `cd webapp && npm run e2e`.
 
 ## Your one Claude Code paste (on the Mac)
