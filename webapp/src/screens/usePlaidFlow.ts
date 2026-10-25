@@ -4,6 +4,7 @@ import { fetchAccounts } from '../lib/data'
 import { loadDaveyData, reloadDaveyData } from '../lib/serverData'
 import { householdID, importNewBank } from '../lib/importBank'
 import { adoptNewItem, findSameBank, refreshBank } from '../lib/refreshBank'
+import { clearTableCache } from '../lib/useTable'
 import { newAccountsFromLink } from '../lib/linkFlow'
 import {
   clearPendingLink,
@@ -117,6 +118,7 @@ export function usePlaidFlow() {
           setState({ step: 'updating', institution: metadata.institution?.name })
           await adoptNewItem(same, itemId, data)
           await reloadDaveyData()
+          clearTableCache()
           await reload()
           setState({ step: 'reconnected', institution: metadata.institution?.name, updatedAt: new Date().toISOString(), merged: true })
           return
@@ -124,6 +126,7 @@ export function usePlaidFlow() {
         // Shared with the household, so the iPhone and Mac get the bank too (they import from these records).
         await importNewBank({ itemId, institutionName: metadata.institution?.name ?? 'Bank', institutionId: metadata.institution?.institution_id ?? undefined, data, household })
         await reloadDaveyData()
+        clearTableCache()
         const accounts = await fetchAccounts()
         await reload()
         setState({ step: 'naming', accounts: newAccountsFromLink(accounts, metadata, startedAt), institution: metadata.institution?.name })
@@ -154,11 +157,13 @@ export function usePlaidFlow() {
         await syncInvestments(itemId).catch(() => undefined)
       }
       await reloadDaveyData()
+      // The connection list is cached per screen; without this Accounts kept showing "Needs you to sign in again".
+      clearTableCache()
       await reload()
       setState({ step: 'reconnected', institution, updatedAt: new Date().toISOString(), warning })
       // Plaid re-reads the bank right after a repaired login; pick that up once more in a moment.
       window.setTimeout(() => {
-        void reloadDaveyData().then((data) => refreshBank(itemId, data)).then(() => reloadDaveyData()).then(() => reload()).catch(() => undefined)
+        void reloadDaveyData().then((data) => refreshBank(itemId, data)).then(() => reloadDaveyData()).then(() => { clearTableCache(); return reload() }).catch(() => undefined)
       }, 30_000)
     },
     [reload],

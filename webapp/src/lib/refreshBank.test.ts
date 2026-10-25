@@ -83,3 +83,17 @@ describe('the same bank connected again as a new Item', () => {
     expect(transactions.filter((t) => t.id.startsWith('new-'))).toHaveLength(1) // only the pharmacy charge is new
   })
 })
+
+describe('checking flagged connections (SoFi / PenFed badges, 2026-10-25)', () => {
+  it('checks each connection at most every 10 minutes', async () => {
+    const { dueForCheck, checkConnections, resetConnectionChecks } = await import('./refreshBank')
+    resetConnectionChecks()
+    expect(dueForCheck('item-x')).toBe(true)
+    // No bank record for the Item: nothing is synced, and it says why.
+    const data = { records: new Map() } as unknown as DaveyData
+    const problems = await checkConnections(['item-x'], async () => data)
+    expect(problems.get('item-x')).toMatch(/isn't shared/)
+    expect(dueForCheck('item-x')).toBe(false)
+    expect(dueForCheck('item-x', Date.now() + 10 * 60_000)).toBe(true)
+  })
+})

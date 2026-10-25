@@ -12,6 +12,7 @@ import { displayName, maskLabel, money, percentText, typeLabel } from '../lib/fo
 import type { Account, Usage } from '../lib/schema'
 import { createManualAccount } from '../lib/serverData'
 import { normalizeItem } from '../lib/tables'
+import { useConnectionCheck } from '../lib/useConnectionCheck'
 import { useTable } from '../lib/useTable'
 
 // The Accounts tab (same as the app's AccountsTabView): every account with its goal. The header totals the balances
@@ -225,6 +226,7 @@ export function Accounts() {
   const { accounts } = useData()
   const items = useTable('items')
   const connections = useMemo(() => (items.result?.rows ?? []).map(normalizeItem), [items.result])
+  const check = useConnectionCheck(connections, items.reload)
   const [showHidden, setShowHidden] = useState(false)
   const [sort, setSort] = useState<GoalSort>('funded')
   const [query, setQuery] = useState('')
@@ -278,7 +280,7 @@ export function Accounts() {
       {issues.length > 0 && (
         <section className="card alert-card" aria-labelledby="issues-title">
           <div className="card-head"><h2 id="issues-title">{issues.length === 1 ? '1 connection needs attention' : `${issues.length} connections need attention`}</h2></div>
-          {issues.map((c) => <ConnectionRow key={c.id} c={c} />)}
+          {issues.map((c) => <ConnectionRow key={c.id} c={c} checking={!!c.itemId && check.checking.has(c.itemId)} problem={c.itemId ? check.problems.get(c.itemId) : undefined} onRetry={c.itemId ? () => void check.retry(c.itemId!) : undefined} />)}
         </section>
       )}
 
@@ -300,7 +302,7 @@ export function Accounts() {
       {connections.length > 0 && (
         <section className="card" aria-labelledby="conn-title">
           <div className="card-head"><h2 id="conn-title">Bank connections</h2><Link to="/help">Connection help</Link></div>
-          {connections.map((c) => <ConnectionRow key={c.id} c={c} />)}
+          {connections.map((c) => <ConnectionRow key={c.id} c={c} checking={!!c.itemId && check.checking.has(c.itemId)} problem={c.itemId ? check.problems.get(c.itemId) : undefined} onRetry={c.itemId ? () => void check.retry(c.itemId!) : undefined} />)}
         </section>
       )}
       {hiddenCount > 0 && (

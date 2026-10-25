@@ -186,14 +186,34 @@ export function refreshRecords(opts: {
 }
 
 /** plaid-sync pages from a cursor (none: the whole history). A cursor Plaid no longer accepts starts over. */
+/** plaid-sync's answer when it failed: `code` is the function's error code (item_login_required, item_not_found, …). */
+export class SyncError extends Error {
+  constructor(readonly code: string, message: string) {
+    super(message)
+  }
+}
+
+async function syncError(error: unknown): Promise<SyncError> {
+  let body: Row = {}
+  try {
+    const context = (error as { context?: Response }).context
+    if (context && typeof context.json === 'function') body = (await context.clone().json()) as Row
+  } catch { /* not JSON */ }
+  const code = text(body.error) ?? 'unknown'
+  if (code === 'item_login_required') return new SyncError(code, 'This bank needs you to sign in again.')
+  return new SyncError(code, text(body.message) ?? "Couldn't load the bank's latest balances. Try again in a minute.")
+}
+
 async function syncPages(itemId: string, cursor: string | undefined): Promise<SyncPage[]> {
   const pages: SyncPage[] = []
   let next = cursor
   for (let round = 0; round < 10; round++) {
     const { data, error } = await supabase.functions.invoke('plaid-sync', { body: { item_id: itemId, ...(next ? { cursor: next } : {}) } })
     if (error) {
-      if (round === 0 && next) { next = undefined; continue }
-      throw new Error("Couldn't load the bank's latest balances. Try Refresh in a minute.")
+      const failed = await syncError(error)
+      // A stale cursor: start over once. A login problem won't change by retrying.
+      if (round === 0 && next && failed.code !== 'item_login_required') { next = undefined; continue }
+      throw failed
     }
     const page = data as SyncPage
     pages.push(page)
@@ -222,7 +242,17 @@ function categories(data: DaveyData) {
 export async function refreshBank(itemId: string, data: DaveyData): Promise<{ changes: number } | null> {
   const found = bankRecords(data, { itemId })
   if (!found) return null
-  const pages = await syncPages(itemId, text(found.bank.payload.cursor))
+  let pages: SyncPage[]
+  try {
+    pages = await syncPages(itemId, text(found.bank.payload.cursor))
+  } catch (e) {
+    // Say exactly what's wrong on every device: a login problem is "needs you to sign in again" (Reconnect), not a
+    // generic connection problem.
+    if (e instanceof SyncError && e.code === 'item_login_required' && found.bank.payload.status !== 'needsReauth') {
+      await push(found.bank.household_id, [{ entity: 'bankConnection', id: found.bank.id, payload: { ...found.bank.payload, status: 'needsReauth' } }]).catch(() => undefined)
+    }
+    throw e
+  }
   const changes = refreshRecords({ ...found, pages, categoryIdByName: categories(data) })
   await push(found.bank.household_id, changes)
   return { changes: changes.length }
@@ -238,4 +268,35 @@ export async function adoptNewItem(oldBank: HouseholdRecord, newItemId: string, 
   // The old login is replaced; revoke it so Plaid doesn't keep (and bill) both. Its records now belong to the new Item.
   if (oldItemId) await supabase.functions.invoke('plaid-item-remove', { body: { item_id: oldItemId } }).catch(() => undefined)
   return { changes: changes.length }
+}
+
+/** Connections the web checks by itself (at most every 10 minutes each), so a fixed bank stops showing as broken. */
+const CHECK_EVERY_MS = 10 * 60_000
+const checkedAt = new Map<string, number>()
+
+export function dueForCheck(itemId: string, now = Date.now()): boolean {
+  return now - (checkedAt.get(itemId) ?? 0) >= CHECK_EVERY_MS
+}
+
+/**
+ * Syncs each flagged connection once. Returns what's still wrong: item ID → message (a bank that synced is left out).
+ * A connection whose login Plaid already accepts (fixed on another device, or a passing outage) turns OK everywhere.
+ */
+export async function checkConnections(itemIds: string[], load: () => Promise<DaveyData>): Promise<Map<string, string>> {
+  const problems = new Map<string, string>()
+  for (const itemId of itemIds) {
+    checkedAt.set(itemId, Date.now())
+    try {
+      const done = await refreshBank(itemId, await load())
+      if (!done) problems.set(itemId, "This connection isn't shared with your household yet.")
+    } catch (e) {
+      problems.set(itemId, (e as Error).message)
+    }
+  }
+  return problems
+}
+
+/** Tests only. */
+export function resetConnectionChecks() {
+  checkedAt.clear()
 }

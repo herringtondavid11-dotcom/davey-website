@@ -20,19 +20,23 @@ export function ConnectionBadge({ c }: { c: BankConnection }) {
   )
 }
 
-export function ConnectionRow({ c }: { c: BankConnection }) {
-  const fixable = c.health === 'needs_reauth' || c.health === 'pending_expiration'
+export function ConnectionRow({ c, checking, problem, onRetry }: { c: BankConnection; checking?: boolean; problem?: string; onRetry?: () => void }) {
+  // A login can be repaired with Reconnect (Plaid update mode); so can most other Item errors.
+  const fixable = c.health !== 'ok'
+  // The badge already says a login is needed; the check's message only adds something for other problems.
+  const detail = (c.health === 'needs_reauth' ? undefined : problem) ?? (c.health !== 'ok' ? c.errorMessage : undefined)
   return (
     <div className="settings-row connection-row">
       <div style={{ minWidth: 0 }}>
-        <strong>{c.institution}</strong> <ConnectionBadge c={c} />
+        <strong>{c.institution}</strong> {checking ? <span className="status">Checking…</span> : <ConnectionBadge c={c} />}
         <p className="muted small">
           {c.lastSynced ? `Last synced ${shortDateTime(c.lastSynced)}` : 'Not synced yet'}
-          {c.health !== 'ok' && c.errorMessage ? ` · ${c.errorMessage}` : ''}
+          {!checking && detail ? ` · ${detail}` : ''}
         </p>
       </div>
       <div className="row-actions">
-        {fixable && c.itemId && <Link className="btn btn-primary btn-sm" to={`/connect?reconnect=${encodeURIComponent(c.itemId)}`}>Reconnect</Link>}
+        {fixable && !checking && c.health === 'error' && onRetry && <button type="button" className="btn btn-secondary btn-sm" onClick={onRetry}>Try again</button>}
+        {fixable && !checking && c.itemId && <Link className="btn btn-primary btn-sm" to={`/connect?reconnect=${encodeURIComponent(c.itemId)}`}>Reconnect</Link>}
         {c.health !== 'ok' && <Link className="btn btn-secondary btn-sm" to={`/help?institution=${encodeURIComponent(c.institution)}`}>Get help</Link>}
       </div>
     </div>

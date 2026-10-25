@@ -59,6 +59,28 @@ test('reconnect in update mode syncs from the cursor, shares the update and clea
   await expect(page.getByRole('button', { name: /Reconnect/ })).toHaveCount(0)
 })
 
+test('flagged connections are checked on open: one that syncs turns OK everywhere, a real login problem keeps Reconnect', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true, sofiError: true })
+  await page.goto('/app/accounts')
+  const issues = page.locator('.alert-card')
+  await expect(issues.getByRole('heading')).toHaveText('1 connection needs attention')
+  await expect(issues.getByText('Wells Fargo')).toBeVisible()
+  await expect(issues.getByText('Needs you to sign in again')).toBeVisible()
+  await expect(issues.getByRole('link', { name: 'Reconnect' })).toBeVisible()
+  await expect(page.getByText('SoFi').first()).toBeVisible()
+  expect(pushedPayloads(state, 'bankConnection', (id) => id === 'bank-sofi').at(-1)).toMatchObject({ status: 'ok', cursor: 'cursor-sofi-2' })
+  // Plaid still reports Wells Fargo's login as broken, so it isn't synced or rewritten.
+  expect(pushedPayloads(state, 'bankConnection', (id) => id === 'bank-wells-fargo')).toHaveLength(0)
+})
+
+test('a bank fixed on another device clears its badge without a reconnect', async ({ page }) => {
+  await mockBackend(page, { signedIn: true, wfLoginFixed: true })
+  await page.goto('/app/accounts')
+  await expect(page.getByRole('heading', { name: 'Bank connections' })).toBeVisible()
+  await expect(page.locator('.alert-card')).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Reconnect' })).toHaveCount(0)
+})
+
 test('connecting the same bank again updates the existing connection instead of adding a copy', async ({ page }) => {
   const state = await mockBackend(page, { signedIn: true, linkInstitution: { id: 'ins_127991', name: 'Wells Fargo', mask: '6666' } })
   await page.goto('/app/connect')

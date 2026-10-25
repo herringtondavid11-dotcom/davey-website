@@ -541,3 +541,11 @@ the GitHub Pages run instead.
   the old Item instead of duplicating accounts.
 - Tests: refreshBank.test.ts (7); e2e accounts.spec: update-mode reconnect clears the badge; same-bank dedupe.
 - Counts: Vitest 128/128; Playwright Chromium 132 passed, 0 failed.
+
+## SoFi / PenFed badges – 2026-10-25
+- Accounts kept a cached connection list after a reconnect, so the badge stayed until a full reload. Now cleared.
+- "Connection problem" (status error, e.g. one failed sync on any device) had no fix button. Accounts now checks each
+  flagged bank by syncing it (at most every 10 min): one that syncs turns OK on every platform; a login problem is
+  checked once plaid-item-status says Plaid accepts the login again. Error rows show Try again and Reconnect.
+- Tests: e2e accounts.spec (auto-check heals SoFi, keeps WF's Reconnect; a bank fixed elsewhere clears); unit test.
+- Counts: Vitest 129/129; Playwright Chromium 134 passed, 0 failed.

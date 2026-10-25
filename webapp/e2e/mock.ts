@@ -144,7 +144,7 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
     const id = `bank-${String(item.institution_name).toLowerCase().replace(/\W+/g, '-')}`
     banks.set(String(item.institution_name), id)
     add('bankConnection', id, { itemID: item.plaid_item_id, institutionName: item.institution_name, institutionID: item.institution_id ?? null,
-      cursor: item.cursor ?? null, status: item.status === 'login_required' ? 'needsReauth' : 'ok', lastSyncedAt: item.last_synced_at })
+      cursor: item.cursor ?? null, status: item.status === 'login_required' ? 'needsReauth' : item.status === 'error' ? 'error' : 'ok', lastSyncedAt: item.last_synced_at })
   }
   const categories = new Set<string>()
   for (const t of state.transactions) if (t.category) categories.add(String(t.category))
@@ -233,6 +233,10 @@ export interface MockOptions {
   manualInvestments?: boolean
   /** Plaid Link's onSuccess reports this institution and account instead of First Platypus Bank. */
   linkInstitution?: { id: string; name: string; mask: string }
+  /** Wells Fargo's login already works at Plaid (fixed elsewhere): plaid-sync succeeds without a reconnect. */
+  wfLoginFixed?: boolean
+  /** SoFi is flagged "Connection problem" (status error) but syncs fine now (a passing outage). */
+  sofiError?: boolean
 }
 
 /** A manual "Gold & Coins" account as the app shares it: account, holding and daily values (HouseholdSyncCodec). */
@@ -265,6 +269,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     pushes: [] as Row[],
     pushed: [] as { household_id: string; entity: string; id: string; payload: Row; updated_at: string; deleted?: boolean }[],
     removedItems: [] as string[],
+    /** Wells Fargo's login is repaired once an update-mode Link token is created for it (the test then finishes Link). */
+    wfRepaired: opts.wfLoginFixed === true,
     syncBodies: [] as Row[],
     investmentsBodies: [] as Row[],
     pinFailures: 0,
@@ -276,6 +282,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     signUpBody: null as Row | null,
   }
   const now = new Date().toISOString()
+  if (opts.sofiError) state.extra.plaid_items.push({ id: 'item-row-4', plaid_item_id: 'item-sofi', institution_name: 'SoFi', status: 'error', error_code: null, last_synced_at: new Date(Date.now() - 86400_000).toISOString() })
   if ((opts.mfa ?? 'verified') === 'verified') {
     state.factors.push({ id: 'f-primary', friendly_name: 'Davey authenticator', factor_type: 'totp', status: 'verified', created_at: now, updated_at: now })
     if (opts.backup ?? true) state.factors.push({ id: 'f-backup', friendly_name: 'Davey backup', factor_type: 'totp', status: 'verified', created_at: now, updated_at: now })
@@ -493,6 +500,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     if (path === '/functions/v1/plaid-link-token') {
       state.linkTokenBody = body
       state.linkTokenBodies.push(body)
+      if (body.item_id === 'item-wf') state.wfRepaired = true
       if (opts.bankLimit && !body.item_id) return json(route, { error: 'plan_limit', message: `You've connected ${opts.bankLimit} banks, Davey Premium's fair-use limit. Disconnect one you no longer use, or contact support and we'll help.` }, 402)
       // Shellpoint: Plaid fails the first (standard) session with API_ERROR; the fallback token works.
       if (opts.apiErrorFirst && !body.item_id) return json(route, { link_token: body.fallback ? 'link-fallback-1' : 'link-api-error', expiration: now, config: body.fallback ? 'fallback' : 'standard' })
@@ -534,7 +542,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     }
     if (path === '/functions/v1/plaid-item-status') {
       return json(route, { items: [{ item_id: 'item-fid', needs_sync: false, status: 'ok', institution_name: 'Fidelity Investments',
-        investments_status: opts.investmentsConsent ? 'needs_consent' : 'ok' }] })
+        investments_status: opts.investmentsConsent ? 'needs_consent' : 'ok' },
+        { item_id: 'item-wf', needs_sync: false, status: state.wfRepaired ? 'ok' : 'login_required', institution_name: 'Wells Fargo', investments_status: null }] })
     }
     if (path === '/functions/v1/plaid-investments') {
       state.investmentsBodies.push(body)
@@ -552,6 +561,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     if (path === '/functions/v1/plaid-sync') {
       state.syncBodies.push(body)
       // Wells Fargo after its login is repaired (update mode), or connected again as a new Item (same account, new IDs).
+      if (body.item_id === 'item-wf' && !state.wfRepaired) return json(route, { error: 'item_login_required', message: 'This bank needs you to sign in again.' }, 409)
+      if (body.item_id === 'item-sofi') return json(route, { added: [], modified: [], removed: [], accounts: [], next_cursor: 'cursor-sofi-2', has_more: false })
       if (body.item_id === 'item-wf' || body.item_id === 'item-relinked') {
         const relinked = body.item_id === 'item-relinked'
         const account = relinked ? 'p-6-new' : 'p-6'
