@@ -1,5 +1,11 @@
 # Next Mac rebuild (one Claude Code paste)
 
+## Connection badges (2026-10-25)
+
+davey-ios release-candidate: a passing sync failure (network, sync_busy, 5xx) no longer marks a bank "Connection
+problem" for the household (SyncFailureStatusTests). Rebuild and install on the Mac, David's iPhone and Allie's iPhone
+(cable install keeps data) with the usual paste. No server change.
+
 ## PenFed reconnect on the web (2026-10-25)
 
 Web-only fix (davey-website main). No server deploy, no secret change, no iPhone/Mac rebuild needed: the web now
