@@ -120,7 +120,7 @@ export function extraTables(): Record<string, Row[]> {
     plaid_items: [
       { id: 'item-row-3', plaid_item_id: 'item-fid', institution_name: 'Fidelity', status: 'good', error_code: null, last_synced_at: new Date(Date.now() - 3600_000).toISOString() },
       { id: 'item-row-1', plaid_item_id: 'item-chase', institution_name: 'Chase', status: 'good', error_code: null, last_synced_at: new Date(Date.now() - 3600_000).toISOString() },
-      { id: 'item-row-2', plaid_item_id: 'item-wf', institution_name: 'Wells Fargo', status: 'login_required', error_code: 'ITEM_LOGIN_REQUIRED', error_message: 'Sign in to Wells Fargo again', last_synced_at: new Date(Date.now() - 4 * 86400_000).toISOString() },
+      { id: 'item-row-2', plaid_item_id: 'item-wf', institution_name: 'Wells Fargo', institution_id: 'ins_127991', cursor: 'cursor-wf-1', status: 'login_required', error_code: 'ITEM_LOGIN_REQUIRED', error_message: 'Sign in to Wells Fargo again', last_synced_at: new Date(Date.now() - 4 * 86400_000).toISOString() },
     ],
   }
 }
@@ -143,7 +143,8 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
   for (const item of state.extra.plaid_items ?? []) {
     const id = `bank-${String(item.institution_name).toLowerCase().replace(/\W+/g, '-')}`
     banks.set(String(item.institution_name), id)
-    add('bankConnection', id, { itemID: item.plaid_item_id, institutionName: item.institution_name, status: item.status === 'login_required' ? 'needsReauth' : 'ok', lastSyncedAt: item.last_synced_at })
+    add('bankConnection', id, { itemID: item.plaid_item_id, institutionName: item.institution_name, institutionID: item.institution_id ?? null,
+      cursor: item.cursor ?? null, status: item.status === 'login_required' ? 'needsReauth' : 'ok', lastSyncedAt: item.last_synced_at })
   }
   const categories = new Set<string>()
   for (const t of state.transactions) if (t.category) categories.add(String(t.category))
@@ -230,6 +231,8 @@ export interface MockOptions {
   asMember?: boolean
   /** The household also shares a manual investment account with a holding and two daily values (app records). */
   manualInvestments?: boolean
+  /** Plaid Link's onSuccess reports this institution and account instead of First Platypus Bank. */
+  linkInstitution?: { id: string; name: string; mask: string }
 }
 
 /** A manual "Gold & Coins" account as the app shares it: account, holding and daily values (HouseholdSyncCodec). */
@@ -260,7 +263,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     aiBody: null as Record<string, unknown> | null,
     exchangeBody: null as unknown,
     pushes: [] as Row[],
-    pushed: [] as { household_id: string; entity: string; id: string; payload: Row; updated_at: string }[],
+    pushed: [] as { household_id: string; entity: string; id: string; payload: Row; updated_at: string; deleted?: boolean }[],
+    removedItems: [] as string[],
     syncBodies: [] as Row[],
     investmentsBodies: [] as Row[],
     pinFailures: 0,
@@ -407,8 +411,11 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     if (path === '/rest/v1/household_records' && method === 'GET') {
       if (opts.noHousehold) return json(route, [])
       const entity = url.searchParams.get('entity')?.replace(/^eq\./, '')
-      const all = [...householdRecords(state), ...(opts.manualInvestments ? manualInvestmentRecords() : []), ...state.pushed.filter((r) => !householdRecords(state).some((x) => x.entity === r.entity && x.id === r.id))]
-      const rows = all.filter((r) => r.entity === entity)
+      // A pushed record replaces the fixture's copy (last write wins, like push_household_records); deleted ones go.
+      const pushed = new Map(state.pushed.map((r) => [`${r.entity}:${r.id}`, r]))
+      const all = [...householdRecords(state), ...(opts.manualInvestments ? manualInvestmentRecords() : [])]
+        .filter((r) => !pushed.has(`${r.entity}:${r.id}`)).concat(state.pushed)
+      const rows = all.filter((r) => r.entity === entity && !(r as { deleted?: boolean }).deleted)
       const offset = Number(url.searchParams.get('offset') ?? 0)
       const limit = Number(url.searchParams.get('limit') ?? rows.length)
       return json(route, rows.slice(offset, offset + limit))
@@ -416,13 +423,16 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     if (path === '/rest/v1/household_members' && method === 'GET' && opts.noHousehold) return json(route, [])
     if (path === '/rest/v1/rpc/push_household_records') {
       state.pushes.push(body)
-      const list = (body.p_records as { entity: string; id: string; payload: Row }[]) ?? []
+      const list = (body.p_records as { entity: string; id: string; payload: Row; deleted?: boolean }[]) ?? []
       for (const r of list) {
         // Edits land on the web-shaped fixture rows; new records (an imported bank) are kept as pushed.
         const account = r.entity === 'account' ? state.accounts.find((a) => a.id === r.id) : undefined
         const tx = r.entity === 'transaction' ? state.transactions.find((t) => t.id === r.id) : undefined
         const budget = r.entity === 'budget' ? (state.extra.budgets ?? []).find((b) => b.id === r.id) : undefined
-        if (budget) Object.assign(budget, { amount: Number(r.payload.limit) / 100 })
+        if (r.entity === 'bankConnection' || r.deleted) {
+          state.pushed = state.pushed.filter((x) => !(x.entity === r.entity && x.id === r.id))
+          state.pushed.push({ household_id: HOUSEHOLD, entity: r.entity, id: r.id, payload: r.payload, updated_at: now, deleted: r.deleted === true })
+        } else if (budget) Object.assign(budget, { amount: Number(r.payload.limit) / 100 })
         else if (account) Object.assign(account, {
           nickname: r.payload.nickname ?? null, is_business: r.payload.isBusiness === true,
           goal_target: r.payload.goalTarget ?? null, goal_start: r.payload.goalStart ?? null, goal_target_date: r.payload.goalTargetDate ?? null,
@@ -532,10 +542,26 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     }
     if (path === '/functions/v1/plaid-exchange') {
       state.exchangeBody = body
-      return json(route, { item_id: 'item-new', institution_name: 'First Platypus Bank', accounts: [] })
+      return json(route, opts.linkInstitution ? { item_id: 'item-relinked', institution_name: opts.linkInstitution.name, accounts: [] }
+        : { item_id: 'item-new', institution_name: 'First Platypus Bank', accounts: [] })
+    }
+    if (path === '/functions/v1/plaid-item-remove') {
+      state.removedItems.push(String(body.item_id))
+      return json(route, { removed: true })
     }
     if (path === '/functions/v1/plaid-sync') {
       state.syncBodies.push(body)
+      // Wells Fargo after its login is repaired (update mode), or connected again as a new Item (same account, new IDs).
+      if (body.item_id === 'item-wf' || body.item_id === 'item-relinked') {
+        const relinked = body.item_id === 'item-relinked'
+        const account = relinked ? 'p-6-new' : 'p-6'
+        return json(route, {
+          added: [{ transaction_id: relinked ? 'wtx-new-1' : 'wtx-1', account_id: account, amount_cents: -4200, date: iso(0), name: 'Studio Supplies', pending: false, category_primary: 'GENERAL_MERCHANDISE', category_detailed: null }],
+          modified: [], removed: [],
+          accounts: [{ account_id: account, name: 'Everyday Business Checking', official_name: null, mask: '6666', type: 'depository', subtype: 'checking', current_balance_cents: 1_345_600, available_balance_cents: 1_345_600, limit_cents: null }],
+          next_cursor: relinked ? 'cursor-relinked-1' : 'cursor-wf-2', has_more: false,
+        })
+      }
       // The function's wire format (toAppAccount / toAppTransaction): cents, app sign.
       return json(route, {
         added: [{ transaction_id: 'ptx-1', account_id: 'p-new-1', amount_cents: -1250, date: iso(1), name: 'Platypus Coffee', pending: false, category_primary: 'FOOD_AND_DRINK', category_detailed: null }],
@@ -612,8 +638,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
               { error_type: 'API_ERROR', error_code: 'INTERNAL_SERVER_ERROR', error_message: 'an unexpected error occurred', display_message: null },
               { status: null, link_session_id: 'ls-shellpoint', request_id: 'req-shellpoint', institution: { institution_id: 'ins_119891', name: 'Shellpoint Mortgage Servicing' } });
             opts.onSuccess('public-production-abc', {
-            institution: { institution_id: 'ins_109508', name: 'First Platypus Bank' },
-            accounts: [{ id: 'p-new-1', name: 'Plaid Checking', mask: '4321', type: 'depository', subtype: 'checking' }],
+            institution: { institution_id: '${opts.linkInstitution?.id ?? 'ins_109508'}', name: '${opts.linkInstitution?.name ?? 'First Platypus Bank'}' },
+            accounts: [{ id: 'p-new-1', name: 'Plaid Checking', mask: '${opts.linkInstitution?.mask ?? '4321'}', type: 'depository', subtype: 'checking' }],
             link_session_id: 'ls-1' }); }, 50); },
           exit: function () {}, destroy: function () { frame.remove(); }
         };

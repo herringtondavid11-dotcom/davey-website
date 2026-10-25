@@ -34,11 +34,21 @@ function FlowView({
   onDone: () => void
 }) {
   if (state.step === 'naming') return <NameAccounts accounts={state.accounts} institution={state.institution} onDone={onDone} />
+  if (state.step === 'updating')
+    return (
+      <section className="card connect-hero" aria-live="polite">
+        <h2>Updating {state.institution ?? 'your account'}…</h2>
+        <p className="muted">Getting the latest balances and transactions.</p>
+        <Spinner label="Updating" />
+      </section>
+    )
   if (state.step === 'reconnected')
     return (
       <section className="card connect-hero" role="status">
         <h2>{state.institution ?? 'Your account'} is reconnected</h2>
-        <p className="muted">New transactions will sync in the next few minutes.</p>
+        {state.warning
+          ? <p className="notice">{state.warning}</p>
+          : <p className="muted">Updated just now{state.merged ? '. This was already connected, so the existing accounts were updated instead of added again' : ''}. Your iPhone and Mac get the same update.</p>}
         <div><button className="btn btn-primary" onClick={onDone}>Done</button></div>
       </section>
     )

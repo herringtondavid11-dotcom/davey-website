@@ -39,13 +39,40 @@ test('reconnect stops safely when the server has no update mode', async ({ page 
   expect(state.calls.some((c) => c.path === '/functions/v1/plaid-exchange')).toBe(false)
 })
 
-test('reconnect in update mode re-syncs without a new exchange', async ({ page }) => {
-  const state = await mockBackend(page, { signedIn: true, updateMode: true })
+test('reconnect in update mode syncs from the cursor, shares the update and clears the badge', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true, updateMode: true, linkInstitution: { id: 'ins_127991', name: 'Wells Fargo', mask: '6666' } })
+  await page.goto('/app/accounts')
+  await expect(page.getByText('Wells Fargo').first()).toBeVisible()
   await page.goto('/app/connect?reconnect=item-wf')
   await page.getByRole('button', { name: 'Reconnect' }).click()
-  await expect(page.getByRole('heading', { name: /is reconnected/ })).toBeVisible()
+  await expect(page.getByText('Updated just now')).toBeVisible()
   expect(state.calls.some((c) => c.path === '/functions/v1/plaid-exchange')).toBe(false)
-  expect(state.calls.find((c) => c.path === '/functions/v1/plaid-sync')?.body).toEqual({ item_id: 'item-wf' })
+  // From the bank's own cursor (the old call sent no cursor and threw the answer away).
+  expect(state.syncBodies[0]).toEqual({ item_id: 'item-wf', cursor: 'cursor-wf-1' })
+  const bank = pushedPayloads(state, 'bankConnection', (id) => id === 'bank-wells-fargo').at(-1)
+  expect(bank).toMatchObject({ status: 'ok', cursor: 'cursor-wf-2', itemID: 'item-wf' })
+  const account = pushedPayloads(state, 'account', (id) => id === 'acc-6').at(-1)!
+  expect(account.availableBalance).toBe(1_345_600)
+  expect(pushedPayloads(state, 'transaction', (_, p) => p.externalID === 'wtx-1')).toHaveLength(1)
+  await page.goto('/app/accounts')
+  await expect(page.getByText('Studio').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: /Reconnect/ })).toHaveCount(0)
+})
+
+test('connecting the same bank again updates the existing connection instead of adding a copy', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true, linkInstitution: { id: 'ins_127991', name: 'Wells Fargo', mask: '6666' } })
+  await page.goto('/app/connect')
+  await page.getByRole('button', { name: /Connect an account/ }).first().click()
+  await expect(page.getByText(/already connected, so the existing accounts were updated/)).toBeVisible()
+  const banks = pushedPayloads(state, 'bankConnection', () => true)
+  expect(banks.every((b) => b.institutionName === 'Wells Fargo')).toBe(true)
+  expect(banks.at(-1)).toMatchObject({ itemID: 'item-relinked', status: 'ok' })
+  // The account keeps its id (moved to the new Item's account ID); no second Wells Fargo account.
+  const accounts = pushedPayloads(state, 'account', () => true)
+  expect(accounts.map((a) => a.externalID)).toEqual(['p-6-new'])
+  expect(pushedPayloads(state, 'account', (id) => id === 'acc-6')).toHaveLength(1)
+  expect(state.removedItems).toEqual(['item-wf'])
+  expect(state.calls.filter((c) => c.path === '/functions/v1/plaid-sync').map((c) => c.body)).toEqual([{ item_id: 'item-relinked' }])
 })
 
 test('connection help: Report to Plaid via link-support', async ({ page }) => {

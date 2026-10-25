@@ -1,5 +1,20 @@
 # Next Mac rebuild (one Claude Code paste)
 
+## PenFed reconnect on the web (2026-10-25)
+
+Web-only fix (davey-website main). No server deploy, no secret change, no iPhone/Mac rebuild needed: the web now
+publishes the reconnected bank's status, cursor, balances and transactions to household_records, which the iPhone and
+Mac already apply. To see the outcome of David's PenFed session, run in Terminal on the Mac (read-only):
+
+```sh
+supabase db query --linked "select created_at, event, platform, mode, institution_id, institution_name, error_code, exit_status, link_session_id from plaid_link_events where platform = 'web' order by created_at desc limit 15;"
+supabase db query --linked "select created_at, kind, payload->>'event' as event, payload->>'institution_name' as bank, payload->>'error_code' as code from client_diagnostics where kind = 'link_event' order by created_at desc limit 15;"
+supabase db query --linked "select plaid_item_id, institution_name, status, error_code, needs_sync, last_synced_at from plaid_items where institution_name ilike '%penfed%' or institution_name ilike '%pentagon%';"
+```
+
+Two PenFed rows in the last query = the duplicate case: open daveypersonalfinance.com/app, Connect an account,
+pick PenFed again; the web now merges it into the existing accounts and removes the old Item.
+
 ## 0. Performance (2026-10-24)
 
 The paste is in PERF-REPORT.md (Instruments on the iPhone in Release, fix anything over budget, install). Run it after

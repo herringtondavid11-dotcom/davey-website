@@ -3,6 +3,7 @@ import { useData } from '../lib/DataProvider'
 import { fetchAccounts } from '../lib/data'
 import { loadDaveyData, reloadDaveyData } from '../lib/serverData'
 import { householdID, importNewBank } from '../lib/importBank'
+import { adoptNewItem, findSameBank, refreshBank } from '../lib/refreshBank'
 import { newAccountsFromLink } from '../lib/linkFlow'
 import {
   clearPendingLink,
@@ -36,8 +37,11 @@ export type FlowState =
   | { step: 'linking' }
   | { step: 'retry' }
   | { step: 'saving'; institution?: string }
+  /** A reconnected bank is being brought up to date ("Updating PenFed…"). */
+  | { step: 'updating'; institution?: string }
   | { step: 'naming'; accounts: Account[]; institution?: string }
-  | { step: 'reconnected'; institution?: string }
+  /** Up to date (`updatedAt`), or still behind with `warning` when Plaid couldn't send the latest yet. */
+  | { step: 'reconnected'; institution?: string; updatedAt?: string; warning?: string; merged?: boolean }
   | { step: 'error'; message: string }
   | { step: 'unfinished'; message: string }
 
@@ -102,9 +106,21 @@ export function usePlaidFlow() {
       setState({ step: 'saving', institution: metadata.institution?.name })
       try {
         const { itemId } = await exchangePublicToken(publicToken, metadata)
-        const data = await loadDaveyData()
+        const data = await reloadDaveyData()
         const household = await householdID(data)
         if (!itemId || !household) throw new Error(NO_HOUSEHOLD)
+        // The same bank connected again (Connect an account instead of Reconnect): update the existing connection
+        // instead of adding a second copy of every account and transaction.
+        const same = findSameBank(data, metadata.institution?.institution_id ?? undefined, itemId,
+          (metadata.accounts ?? []).map((a) => a.mask ?? '').filter(Boolean))
+        if (same) {
+          setState({ step: 'updating', institution: metadata.institution?.name })
+          await adoptNewItem(same, itemId, data)
+          await reloadDaveyData()
+          await reload()
+          setState({ step: 'reconnected', institution: metadata.institution?.name, updatedAt: new Date().toISOString(), merged: true })
+          return
+        }
         // Shared with the household, so the iPhone and Mac get the bank too (they import from these records).
         await importNewBank({ itemId, institutionName: metadata.institution?.name ?? 'Bank', institutionId: metadata.institution?.institution_id ?? undefined, data, household })
         await reloadDaveyData()
@@ -121,15 +137,29 @@ export function usePlaidFlow() {
   const finishUpdate = useCallback(
     async (itemId: string, metadata: PlaidLinkMetadata) => {
       clearPendingLink()
-      setState({ step: 'saving', institution: metadata.institution?.name })
-      await syncItem(itemId)
+      const institution = metadata.institution?.name
+      setState({ step: 'updating', institution })
+      let warning: string | undefined
+      try {
+        // Sync from the bank's own cursor and share the changes: status OK, new balances and transactions, for the
+        // web, iPhone and Mac alike. (This used to call plaid-sync without the cursor and discard the answer.)
+        const done = await refreshBank(itemId, await reloadDaveyData())
+        if (!done) await syncItem(itemId)
+      } catch (e) {
+        warning = (e as Error).message
+      }
       // "Finish setting up": Investments was just added to this connection: pull holdings and history now.
       if (consentInvestments.current) {
         consentInvestments.current = false
         await syncInvestments(itemId).catch(() => undefined)
       }
+      await reloadDaveyData()
       await reload()
-      setState({ step: 'reconnected', institution: metadata.institution?.name })
+      setState({ step: 'reconnected', institution, updatedAt: new Date().toISOString(), warning })
+      // Plaid re-reads the bank right after a repaired login; pick that up once more in a moment.
+      window.setTimeout(() => {
+        void reloadDaveyData().then((data) => refreshBank(itemId, data)).then(() => reloadDaveyData()).then(() => reload()).catch(() => undefined)
+      }, 30_000)
     },
     [reload],
   )

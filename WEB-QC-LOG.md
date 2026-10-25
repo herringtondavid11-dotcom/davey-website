@@ -531,3 +531,13 @@ the GitHub Pages run instead.
 - No new commits on main since e95a705 or on davey-ios release-candidate; Pages run for e95a705: success.
 - Issues found: 0. Fixed: 0.
 - Counts: Vitest 121/121; Playwright Chromium 131 passed, 0 failed.
+
+## PenFed reconnect fix – 2026-10-25 04:10 UTC
+- Root cause: web Reconnect (Plaid update mode, correct) then called plaid-sync without the cursor and discarded the
+  answer, so the shared bankConnection stayed needsReauth and no balances/transactions changed on any platform.
+- Fix: `lib/refreshBank.ts` syncs from the bank's cursor and pushes status ok, cursor, lastSyncedAt, balances and
+  transactions to household_records; "Updating {bank}…" then "Updated just now"; a second pass after 30 s.
+  Connecting the same bank as a new Item (same institution + mask) adopts it into the existing records and removes
+  the old Item instead of duplicating accounts.
+- Tests: refreshBank.test.ts (7); e2e accounts.spec: update-mode reconnect clears the badge; same-bank dedupe.
+- Counts: Vitest 128/128; Playwright Chromium 132 passed, 0 failed.

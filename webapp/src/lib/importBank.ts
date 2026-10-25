@@ -87,7 +87,7 @@ export function daveyAccountType(type: string, subtype?: string | null): string 
   return 'checking'
 }
 
-const isLiability = (daveyType: string) => daveyType === 'creditCard' || daveyType === 'loan' || daveyType === 'otherLiability'
+export const isLiability = (daveyType: string) => daveyType === 'creditCard' || daveyType === 'loan' || daveyType === 'otherLiability'
 
 /** Plaid's calendar day (yyyy-mm-dd) as local midnight, the way PlaidImporter.date(from:) stores it. */
 export function plaidDay(day: string): string {
