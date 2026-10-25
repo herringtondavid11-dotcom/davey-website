@@ -97,3 +97,14 @@ describe('checking flagged connections (SoFi / PenFed badges, 2026-10-25)', () =
     expect(dueForCheck('item-x', Date.now() + 10 * 60_000)).toBe(true)
   })
 })
+
+describe('Refresh all wording (same as the app: BankSyncService.balanceNote)', () => {
+  it('says which balances came back', async () => {
+    const { balanceNote } = await import('./refreshBank')
+    expect(balanceNote(true, 'live')).toBe('Live balance from the bank')
+    expect(balanceNote(false, 'recent')).toBe('Checked live in the last 5 minutes; showing that balance')
+    expect(balanceNote(false, 'unavailable')).toBe("The bank didn't answer a live check; showing Plaid's latest balance")
+    expect(balanceNote(false, 'off')).toBe("Plaid's latest balance (live checks are off)")
+    expect(balanceNote(false)).toBe("Plaid's latest balance (live checks are off)")
+  })
+})

@@ -8,7 +8,7 @@ import { CategoryManagerDialog } from '../components/CategoryManager'
 import { CategoryPicker } from '../components/CategoryPicker'
 import { ConnectionRow } from '../components/ConnectionStatus'
 import { GoalBar } from '../components/GoalBar'
-import { ChevronIcon } from '../components/Icons'
+import { AlertIcon, CheckIcon, ChevronIcon, RefreshIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
 import {
   BUILT_IN, categoryTotals, filterRows, rowsFor, sections as groupRows, sortRows, suggestion,
@@ -20,11 +20,12 @@ import { refreshData, setAccountCategory, updateAccountGoal, updateAccountNickna
 import { isLiability } from '../lib/finance'
 import { displayName, maskLabel, money, percentText, shortDateTime, typeLabel } from '../lib/format'
 import type { Account, Usage } from '../lib/schema'
-import { createManualAccount } from '../lib/serverData'
+import { balanceNote, refreshAllBanks, type RefreshResult } from '../lib/refreshBank'
+import { createManualAccount, reloadDaveyData } from '../lib/serverData'
 import { normalizeItem } from '../lib/tables'
 import { useAccountCategories } from '../lib/useAccountCategories'
 import { useConnectionCheck } from '../lib/useConnectionCheck'
-import { useTable } from '../lib/useTable'
+import { clearTableCache, useTable } from '../lib/useTable'
 
 // The Accounts tab (same as the app's AccountsTabView): every account with its bank, name and category in their own
 // columns, rolled up by the household's account categories (Settings › Account categories). A chart of what's owned
@@ -282,7 +283,7 @@ function usePrefs(userId: string | undefined): [Prefs, (change: Partial<Prefs>) 
 const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
 
 export function Accounts() {
-  const { accounts, replaceAccount } = useData()
+  const { accounts, replaceAccount, reload } = useData()
   const { session } = useAuth()
   const { categories } = useAccountCategories()
   const items = useTable('items')
@@ -292,6 +293,22 @@ export function Accounts() {
   const [query, setQuery] = useState('')
   const [prefs, setPrefs] = usePrefs(session?.user.id)
   const [managing, setManaging] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshed, setRefreshed] = useState<{ at: string; results: RefreshResult[] } | null>(null)
+
+  async function refreshAll() {
+    setRefreshing(true)
+    try {
+      const results = await refreshAllBanks(reloadDaveyData)
+      setRefreshed({ at: new Date().toISOString(), results })
+      await reloadDaveyData()
+      clearTableCache()
+      await items.reload()
+      await reload()
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   if (!accounts || !categories) return <Spinner label="Loading accounts" />
   const shown = accounts.filter((a) => showHidden || !a.hidden)
@@ -312,7 +329,39 @@ export function Accounts() {
     <div className="page">
       <div className="page-head">
         <div><h1>Accounts</h1><p>Balances, goals and categories for every account. Shared with the Davey app and your household.</p></div>
+        {connections.length > 0 && (
+          <button type="button" className={'btn btn-secondary refresh-all' + (refreshing ? ' spinning' : '')} onClick={() => void refreshAll()} disabled={refreshing}
+            aria-label={refreshing ? 'Refreshing all accounts' : 'Refresh all accounts'} title="Refresh all accounts: sync every bank now">
+            <RefreshIcon size={20} /> <span>{refreshing ? 'Refreshing…' : 'Refresh all'}</span>
+          </button>
+        )}
       </div>
+
+      {refreshing && <p className="card card-pad muted" role="status">Refreshing {connections.length} {connections.length === 1 ? 'bank' : 'banks'}…</p>}
+      {!refreshing && refreshed && (
+        <section className="card refresh-results" aria-labelledby="refresh-title">
+          <div className="card-head">
+            <h2 id="refresh-title">Refreshed {new Date(refreshed.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</h2>
+            <button type="button" className="link-btn small" onClick={() => setRefreshed(null)}>Done</button>
+          </div>
+          <ul className="list">
+            {refreshed.results.map((r) => (
+              <li key={r.itemId} className={`refresh-row refresh-${r.outcome}`}>
+                {r.outcome === 'updated' ? <CheckIcon size={18} /> : <AlertIcon size={18} />}
+                <div>
+                  <strong>{r.institution}</strong>
+                  <p className="muted small">
+                    {r.outcome === 'updated' ? `Updated · ${balanceNote(r.live === true, r.reason)}`
+                      : r.outcome === 'needsReconnect' ? "Needs you to sign in again. Until then its balance can't update."
+                        : `Couldn't refresh: ${r.message ?? 'try again in a minute.'}`}
+                  </p>
+                </div>
+                {r.outcome === 'needsReconnect' && <Link className="btn btn-primary btn-sm" to={`/connect?reconnect=${encodeURIComponent(r.itemId)}`}>Reconnect</Link>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="card networth goals-head" aria-labelledby="goals-total">
         <div className="goals-head-top">

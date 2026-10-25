@@ -204,11 +204,13 @@ async function syncError(error: unknown): Promise<SyncError> {
   return new SyncError(code, text(body.message) ?? "Couldn't load the bank's latest balances. Try again in a minute.")
 }
 
-async function syncPages(itemId: string, cursor: string | undefined): Promise<SyncPage[]> {
+async function syncPages(itemId: string, cursor: string | undefined, realtime = false): Promise<SyncPage[]> {
   const pages: SyncPage[] = []
   let next = cursor
   for (let round = 0; round < 10; round++) {
-    const { data, error } = await supabase.functions.invoke('plaid-sync', { body: { item_id: itemId, ...(next ? { cursor: next } : {}) } })
+    // Refresh all asks for a live balance on the first page only (the server checks at most once per 5 minutes).
+    const body = { item_id: itemId, ...(next ? { cursor: next } : {}), ...(realtime && round === 0 ? { realtime: true } : {}) }
+    const { data, error } = await supabase.functions.invoke('plaid-sync', { body })
     if (error) {
       const failed = await syncError(error)
       // A stale cursor: start over once. A login problem won't change by retrying.
@@ -239,12 +241,12 @@ function categories(data: DaveyData) {
 }
 
 /** After a reconnect (update mode): sync the Item from its cursor and share the changes. Returns false without a record. */
-export async function refreshBank(itemId: string, data: DaveyData): Promise<{ changes: number } | null> {
+export async function refreshBank(itemId: string, data: DaveyData, opts: { realtime?: boolean } = {}): Promise<{ changes: number; balanceSource?: string } | null> {
   const found = bankRecords(data, { itemId })
   if (!found) return null
   let pages: SyncPage[]
   try {
-    pages = await syncPages(itemId, text(found.bank.payload.cursor))
+    pages = await syncPages(itemId, text(found.bank.payload.cursor), opts.realtime === true)
   } catch (e) {
     // Say exactly what's wrong on every device: a login problem is "needs you to sign in again" (Reconnect), not a
     // generic connection problem.
@@ -255,7 +257,48 @@ export async function refreshBank(itemId: string, data: DaveyData): Promise<{ ch
   }
   const changes = refreshRecords({ ...found, pages, categoryIdByName: categories(data) })
   await push(found.bank.household_id, changes)
-  return { changes: changes.length }
+  return { changes: changes.length, balanceSource: (pages[0] as SyncPage & { balance_source?: string } | undefined)?.balance_source }
+}
+
+/** What Refresh all found for one bank (the app's BankSyncService.RefreshResult). */
+export interface RefreshResult {
+  itemId: string
+  institution: string
+  outcome: 'updated' | 'needsReconnect' | 'failed'
+  live?: boolean
+  reason?: string
+  message?: string
+}
+
+/** The same words as the app for which balances came back (plaid-sync's balance_source). */
+export function balanceNote(live: boolean, reason?: string): string {
+  if (live) return 'Live balance from the bank'
+  switch (reason) {
+    case 'recent': return 'Checked live in the last 5 minutes; showing that balance'
+    case 'unavailable': return "The bank didn't answer a live check; showing Plaid's latest balance"
+    default: return "Plaid's latest balance (live checks are off)"
+  }
+}
+
+/**
+ * Accounts › Refresh all: syncs every bank in the household now (transactions and balances, a live balance where
+ * that's switched on) and shares the results, one bank after another. Banks that need a sign-in are tried too.
+ */
+export async function refreshAllBanks(load: () => Promise<DaveyData>): Promise<RefreshResult[]> {
+  const banks = [...(await load()).records.values()].filter((r) => r.entity === 'bankConnection' && text(r.payload.itemID))
+  const results: RefreshResult[] = []
+  for (const bank of banks) {
+    const itemId = text(bank.payload.itemID)!
+    const institution = text(bank.payload.institutionName) ?? 'Bank'
+    try {
+      const done = await refreshBank(itemId, await load(), { realtime: true })
+      results.push({ itemId, institution, outcome: 'updated', live: done?.balanceSource === 'live', reason: done?.balanceSource })
+    } catch (e) {
+      if (e instanceof SyncError && e.code === 'item_login_required') results.push({ itemId, institution, outcome: 'needsReconnect' })
+      else results.push({ itemId, institution, outcome: 'failed', message: (e as Error).message })
+    }
+  }
+  return results
 }
 
 /** A second Item for a bank the household already has: move the old connection onto it, then remove the old Item. */

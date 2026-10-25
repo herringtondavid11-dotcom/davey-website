@@ -244,6 +244,8 @@ export interface MockOptions {
   sofiError?: boolean
   /** Account categories already in the household (entity accountCategory), e.g. renamed on another device. */
   accountCategories?: { id: string; payload: Row }[]
+  /** server_flags.realtime_balance is on: Refresh all's plaid-sync answers with live balances. */
+  realtimeBalance?: boolean
   /** Account fields to set on the fixture accounts (by id), e.g. { 'acc-1': { account_category_id: '…' } }. */
   accountFields?: Record<string, Row>
 }
@@ -575,6 +577,20 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       state.syncBodies.push(body)
       // Wells Fargo after its login is repaired (update mode), or connected again as a new Item (same account, new IDs).
       if (body.item_id === 'item-wf' && !state.wfRepaired) return json(route, { error: 'item_login_required', message: 'This bank needs you to sign in again.' }, 409)
+      // Chase and Fidelity: their own accounts, with the bank's new balances (checking is $100 higher now).
+      if (body.item_id === 'item-chase' || body.item_id === 'item-fid') {
+        const institution = body.item_id === 'item-chase' ? 'Chase' : 'Fidelity'
+        const kind = (a: Row) => (a.type === 'credit' ? 'credit' : a.type === 'investment' ? 'investment' : 'depository')
+        return json(route, {
+          added: [], modified: [], removed: [], next_cursor: `cursor-${body.item_id}-2`, has_more: false,
+          accounts: state.accounts.filter((a) => a.institution_name === institution).map((a) => ({
+            account_id: a.plaid_account_id, name: a.name, official_name: null, mask: a.mask, type: kind(a), subtype: a.subtype,
+            current_balance_cents: Math.round(Number(a.current_balance) * 100) + (a.id === 'acc-1' ? 10_000 : 0),
+            available_balance_cents: null, limit_cents: null,
+          })),
+          ...(body.realtime ? { balance_source: opts.realtimeBalance ? 'live' : 'off' } : {}),
+        })
+      }
       if (body.item_id === 'item-sofi') return json(route, { added: [], modified: [], removed: [], accounts: [], next_cursor: 'cursor-sofi-2', has_more: false })
       if (body.item_id === 'item-wf' || body.item_id === 'item-relinked') {
         const relinked = body.item_id === 'item-relinked'

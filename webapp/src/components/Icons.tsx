@@ -88,3 +88,7 @@ export const AlertIcon = ({ size, ...p }: P) => (
 export const ChevronIcon = ({ size, ...p }: P) => (
   <svg {...base(size ?? 18)} {...p}><path d="m9 6 6 6-6 6" /></svg>
 )
+
+export const RefreshIcon = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><circle cx="12" cy="12" r="9.5" /><path d="M15.5 9.2A4.2 4.2 0 1 0 16.2 13M15.8 6.6v2.8H13" /></svg>
+)

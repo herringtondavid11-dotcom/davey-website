@@ -93,3 +93,12 @@ path.slice[class*="cc-"] { stroke: var(--cc); cursor: pointer; }
 .cat-dialog::backdrop { background: rgba(19, 28, 40, .55); }
 .cat-dialog .card { margin: 0; border: 0; box-shadow: none; }
 .cat-dialog-actions { justify-content: flex-end; padding: 0 20px 8px; }
+.refresh-all { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.refresh-all.spinning svg { animation: refresh-spin 1s linear infinite; }
+@keyframes refresh-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .refresh-all.spinning svg { animation: none; } }
+.refresh-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 20px; }
+.refresh-row + .refresh-row { border-top: 1px solid var(--border); }
+.refresh-row p { margin: 2px 0 0; }
+.refresh-updated > svg { color: var(--positive-ink); }
+.refresh-needsReconnect > svg, .refresh-failed > svg { color: var(--over-ink); }

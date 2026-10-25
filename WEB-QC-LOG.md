@@ -665,3 +665,12 @@ the GitHub Pages run instead.
   subtotals (one table for all Apple surfaces).
 - Mobile web: e2e/account-categories-mobile.spec.ts (iPhone viewport, touch) taps through every feature.
 - Counts: Vitest 141/141; Playwright Chromium 150 passed, 0 failed.
+
+## Refresh all + loop 92 – 2026-10-25 21:55 UTC
+- Accounts › Refresh all (circular arrow): syncs every bank (refreshBank per Item, realtime on the first page),
+  shares new balances with the household, and lists per bank: updated (live or Plaid's latest), needs a sign-in
+  (Reconnect), or failed. Live check needs plaid-sync from davey-ios 71110d9 and server_flags.realtime_balance
+  (off by default; Plaid bills it per call).
+- No new commits from other sessions; Pages for main: success.
+- Tests: e2e/refresh-all.spec.ts (3), refreshBank.test wording parity with the app.
+- Counts: Vitest 142/142; Playwright Chromium 153 passed, 0 failed.

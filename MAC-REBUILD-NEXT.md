@@ -1,6 +1,34 @@
 # Next Mac rebuild (one Claude Code paste)
 
-## Account categories, round 2 (2026-10-25, do this first)
+## Refresh all (2026-10-25, do this first)
+
+The Accounts tab's circular arrow (web: live now; iPhone/Mac: davey-ios release-candidate 71110d9) syncs every bank
+right away and lists the result per bank. It needs the new plaid-sync deployed, run in Terminal on the Mac:
+
+```sh
+cd ~/davey-ios && git pull && git checkout release-candidate
+supabase db query --linked -f supabase/migrations/20261026000700_plaid_items_balance_checked.sql
+supabase migration repair --status applied 20261026000700
+supabase functions deploy plaid-sync plaid-sync-sandbox --project-ref zvyargbnvccdqgmtytck --use-api
+```
+
+Until then the button still works: the old plaid-sync ignores the live request and syncs as before.
+
+**Live balance check (costs money, off by default).** A refresh always gets Plaid's latest stored balance for free.
+Checking live at the bank uses Plaid's Balance product (`/accounts/balance/get`), which Plaid bills per call (see
+Plaid Dashboard › Billing for your rate). Davey limits it to one check per bank every 5 minutes. To turn it on, enable
+Balance for Production in the Plaid Dashboard (Products), then run:
+
+```sh
+supabase db query --linked "update server_flags set value = 'true'::jsonb, updated_at = now() where key = 'realtime_balance';"
+```
+
+To turn it off, run the same with `'false'`.
+
+**Wells Fargo looks way off:** tap Refresh all. If Wells Fargo shows "Needs you to sign in again", tap Reconnect and
+finish the Wells Fargo sign-in. Its balance can't update until then, because the bank stopped sharing on Oct 21.
+
+## Account categories, round 2 (2026-10-25)
 
 davey-ios release-candidate fd4d4cf (CI green): household-managed categories (new SwiftData model
 AccountCategoryRecord, synced as `accountCategory`; Account.accountCategoryID), Settings › Account Categories (add,

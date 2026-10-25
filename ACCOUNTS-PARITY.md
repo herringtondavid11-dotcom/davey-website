@@ -36,6 +36,7 @@ table.
 | 22 | Choices remembered: layout, chart, group, sort and direction, filters, collapsed sections | ✅ (per device) | ✅ (per device) | ✅ (per device) | ✅ (per person, per browser) | ✅ (per person, per browser) |
 | 23 | Light and dark mode | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 24 | Sizes | ✅ all iPhone widths (adaptive row layout) | ✅ (iPhone layout) | ✅ resizable window | ✅ 768–1920 px | ✅ 360–430 px |
+| 25 | Refresh all (circular arrow): sync every bank now, results per bank, Reconnect for sign-in problems, live balance when switched on | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ## How each surface was checked
 
