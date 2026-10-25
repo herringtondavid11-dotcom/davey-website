@@ -1,5 +1,12 @@
 # Next Mac rebuild (one Claude Code paste)
 
+## Account categories (2026-10-25)
+
+davey-ios release-candidate e103a57: Account.rollupCategory (optional field, migrates by itself), Accounts tab
+grouped by category with totals and a pie, Category field on account detail. Rebuild and install on the Mac, David's
+iPhone and Allie's iPhone (cable install keeps data) with the usual paste. Until a device runs this build, an edit
+it makes to an account resends that account without its category; re-pick it on the web or an updated device.
+
 ## Chase audit (2026-10-25): queries, Dashboard checklist, Plaid message
 
 Web change only (davey-website main): /app/oauth never starts a second Link inside a bank pop-up, and every web OAuth

@@ -152,6 +152,7 @@ export function toRows(input: {
       goal_target: optMinor(p.goalTarget),
       goal_start: optMinor(p.goalStart),
       goal_target_date: localDay(p.goalTargetDate),
+      rollup_category: text(p.rollupCategory),
       household_id: a.household_id,
     } as Row
   })

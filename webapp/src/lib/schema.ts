@@ -97,6 +97,8 @@ export interface Account {
   /** Debt goals: what was owed when the goal was set. */
   goalStart?: number
   goalTargetDate?: string
+  /** The user's own category for rolling accounts up (Ops Cash, Retirement, Emergency…); unset = by account type. */
+  rollupCategory?: string
   raw: Row
 }
 
@@ -157,6 +159,7 @@ export function normalizeAccount(row: Row): Account {
     goalTarget: optNum(row.goal_target),
     goalStart: optNum(row.goal_start),
     goalTargetDate: str(row.goal_target_date)?.slice(0, 10),
+    rollupCategory: str(row.rollup_category)?.trim() || undefined,
     raw: row,
   }
 }

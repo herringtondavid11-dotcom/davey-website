@@ -170,6 +170,7 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
       nextPaymentDueDate: a.next_payment_due_date ? localMidnight(String(a.next_payment_due_date)) : null,
       linkedPropertyID: a.property_value !== undefined ? `${a.id}-home` : null,
       goalTarget: a.goal_target ?? null, goalStart: a.goal_start ?? null, goalTargetDate: a.goal_target_date ?? null,
+      rollupCategory: a.rollup_category ?? null,
     })
     // Davey keeps a mortgage's home as its own (real estate) account.
     if (a.property_value !== undefined) {
@@ -443,6 +444,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
         else if (account) Object.assign(account, {
           nickname: r.payload.nickname ?? null, is_business: r.payload.isBusiness === true,
           goal_target: r.payload.goalTarget ?? null, goal_start: r.payload.goalStart ?? null, goal_target_date: r.payload.goalTargetDate ?? null,
+          ...('rollupCategory' in r.payload ? { rollup_category: r.payload.rollupCategory } : {}),
         })
         else if (tx) {
           const category = householdRecords(state).find((c) => c.entity === 'category' && c.id === r.payload.categoryID)

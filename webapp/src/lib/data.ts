@@ -74,6 +74,15 @@ export async function updateAccountNickname(a: Account, nickname: string): Promi
   return { ...a, nickname: nickname.trim() || undefined }
 }
 
+/** The account's own category (Account.rollupCategory in the app), shared with the household; '' clears it. */
+export async function updateAccountCategory(a: Account, category: string): Promise<Account> {
+  const value = category.trim().replace(/\s+/g, ' ').slice(0, 30)
+  await pushChange('account', a.id, { rollupCategory: value || null })
+  const row = (await loadDaveyData()).accounts.find((r) => r.id === a.id)
+  if (row) row.rollup_category = value || undefined
+  return { ...a, rollupCategory: value || undefined }
+}
+
 export async function updateAccountUsage(a: Account, usage: Usage): Promise<Account> {
   await pushChange('account', a.id, { isBusiness: usage === 'business' })
   return { ...a, usage }

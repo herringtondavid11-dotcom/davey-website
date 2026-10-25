@@ -1,12 +1,15 @@
 import { useMemo, useState, type FormEvent } from 'react'
+
 import { Link } from 'react-router-dom'
+import { CategoryPie } from '../components/CategoryPie'
 import { ConnectionRow } from '../components/ConnectionStatus'
 import { GoalBar } from '../components/GoalBar'
 import { ChevronIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
 import { GROUPS, fraction, goalRow, groupOf, signedCents, sortAccounts, summary, type GoalSort } from '../lib/accountGoals'
+import { categoryChoices, categoryGroups, categoryOf, cleanCategory, MAX_CATEGORY_LENGTH, pieSlices } from '../lib/accountCategories'
 import { useData } from '../lib/DataProvider'
-import { refreshData, updateAccountGoal, updateAccountNickname, updateAccountUsage } from '../lib/data'
+import { refreshData, updateAccountCategory, updateAccountGoal, updateAccountNickname, updateAccountUsage } from '../lib/data'
 import { isLiability } from '../lib/finance'
 import { displayName, maskLabel, money, percentText, typeLabel } from '../lib/format'
 import type { Account, Usage } from '../lib/schema'
@@ -25,7 +28,52 @@ const SORTS: { key: GoalSort; label: string }[] = [
   { key: 'name', label: 'Name' },
 ]
 
-function AccountEditor({ a }: { a: Account }) {
+/** The account's category, saved as you leave the field (or press Enter). Suggestions: categories in use, then defaults. */
+function CategoryField({ a, choices, compact }: { a: Account; choices: string[]; compact?: boolean }) {
+  const { replaceAccount } = useData()
+  const [value, setValue] = useState(a.rollupCategory ?? '')
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const listId = `cats-${a.id}`
+  async function save() {
+    // An existing category in any case ("ops cash") is saved with the spelling already in use ("Ops Cash").
+    const typed = cleanCategory(value) ?? ''
+    const chosen = choices.find((c) => c.toLowerCase() === typed.toLowerCase()) ?? typed
+    if (chosen === (a.rollupCategory ?? '')) { setValue(chosen); return }
+    setState('saving')
+    try {
+      const next = await updateAccountCategory(a, chosen)
+      replaceAccount(next)
+      setValue(next.rollupCategory ?? '')
+      setState('saved')
+    } catch {
+      setState('error')
+    }
+  }
+  const input = (
+    <input
+      className="input"
+      list={listId}
+      maxLength={MAX_CATEGORY_LENGTH}
+      placeholder={categoryOf({ ...a, rollupCategory: undefined })}
+      value={value}
+      aria-label={`Category for ${displayName(a)}`}
+      onChange={(e) => { setValue(e.target.value); setState('idle') }}
+      onBlur={() => void save()}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() } }}
+    />
+  )
+  return (
+    <>
+      {compact ? input : <label className="field grow"><span>Category</span>{input}</label>}
+      <datalist id={listId}>{choices.map((c) => <option key={c} value={c} />)}</datalist>
+      {state === 'saving' && <span className="muted small">Saving…</span>}
+      {state === 'error' && <span className="error small" role="alert">Couldn't save. Try again.</span>}
+      {state === 'saved' && !compact && <span className="success small" role="status">Saved</span>}
+    </>
+  )
+}
+
+function AccountEditor({ a, choices }: { a: Account; choices: string[] }) {
   const { replaceAccount } = useData()
   const [value, setValue] = useState(a.nickname ?? '')
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -75,6 +123,7 @@ function AccountEditor({ a }: { a: Account }) {
           </div>
         </div>
       </form>
+      <div className="account-editor-fields"><CategoryField a={a} choices={choices} /></div>
       {state === 'saved' && <span className="success small" role="status">Saved</span>}
       {state === 'error' && <span className="error small" role="alert">Couldn't save. Try again.</span>}
     </div>
@@ -131,7 +180,7 @@ function GoalEditor({ a, onDone }: { a: Account; onDone: () => void }) {
   )
 }
 
-function AccountGoalRow({ a }: { a: Account }) {
+function AccountGoalRow({ a, choices }: { a: Account; choices: string[] }) {
   const [editing, setEditing] = useState(false)
   const [open, setOpen] = useState(false)
   const row = goalRow(a)
@@ -159,7 +208,7 @@ function AccountGoalRow({ a }: { a: Account }) {
         !editing && <button type="button" className="link-btn small goal-set" onClick={() => setEditing(true)} data-testid="goal-set">Set goal</button>
       )}
       {editing && <GoalEditor a={a} onDone={() => setEditing(false)} />}
-      {open && <AccountEditor a={a} />}
+      {open && <AccountEditor a={a} choices={choices} />}
     </li>
   )
 }
@@ -230,6 +279,10 @@ export function Accounts() {
   const [showHidden, setShowHidden] = useState(false)
   const [sort, setSort] = useState<GoalSort>('funded')
   const [query, setQuery] = useState('')
+  const [groupBy, setGroupBy] = useState<'category' | 'type'>(() => readPref('davey.accounts.groupBy', ['category', 'type'], 'category'))
+  const [view, setView] = useState<'list' | 'table'>(() => readPref('davey.accounts.view', ['list', 'table'], 'list'))
+  const pickGroup = (v: 'category' | 'type') => { setGroupBy(v); writePref('davey.accounts.groupBy', v) }
+  const pickView = (v: 'list' | 'table') => { setView(v); writePref('davey.accounts.view', v) }
 
   if (!accounts) return <Spinner label="Loading accounts" />
   const shown = accounts.filter((a) => showHidden || !a.hidden)
@@ -239,6 +292,18 @@ export function Accounts() {
   const filtered = q ? shown.filter((a) => `${displayName(a)} ${a.name} ${a.institution ?? ''}`.toLowerCase().includes(q)) : shown
   const issues = connections.filter((c) => c.health !== 'ok')
   const hiddenCount = accounts.filter((a) => a.hidden).length
+  const choices = categoryChoices(accounts)
+  const byCategory = categoryGroups(visible)
+  const slices = pieSlices(byCategory)
+  const owned = slices.reduce((s, x) => s + x.cents, 0)
+  // The list's sections: your categories (largest first), or the account types.
+  const sections = groupBy === 'category'
+    ? categoryGroups(filtered).map((g) => ({ key: g.name, title: g.name, list: sortAccounts(g.accounts, sort, displayName), total: g.total, goals: g.goals }))
+    : GROUPS.map((g) => {
+      const list = sortAccounts(filtered.filter((a) => groupOf(a) === g.key), sort, displayName)
+      const total = list.reduce((s, a) => s + signedCents(a), 0)
+      return { key: g.key, title: g.title, list, total, goals: summary(list.map(goalRow), total) }
+    }).filter((g) => g.list.length)
 
   return (
     <div className="page">
@@ -274,7 +339,22 @@ export function Accounts() {
           <div className="segmented compact" role="group" aria-label="Sort">
             {SORTS.map((s) => <button key={s.key} type="button" aria-pressed={sort === s.key} onClick={() => setSort(s.key)}>{s.label}</button>)}
           </div>
+          <div className="segmented compact" role="group" aria-label="Group by">
+            <button type="button" aria-pressed={groupBy === 'category'} onClick={() => pickGroup('category')}>By category</button>
+            <button type="button" aria-pressed={groupBy === 'type'} onClick={() => pickGroup('type')}>By type</button>
+          </div>
+          <div className="segmented compact" role="group" aria-label="Layout">
+            <button type="button" aria-pressed={view === 'list'} onClick={() => pickView('list')}>List</button>
+            <button type="button" aria-pressed={view === 'table'} onClick={() => pickView('table')}>Table</button>
+          </div>
         </div>
+      )}
+
+      {slices.length > 0 && (
+        <section className="card card-pad" aria-labelledby="by-category-title">
+          <div className="card-head"><h2 id="by-category-title">By category</h2><span className="muted small">What you own; debts aren't slices</span></div>
+          <CategoryPie slices={slices} total={owned} />
+        </section>
       )}
 
       {issues.length > 0 && (
@@ -285,16 +365,17 @@ export function Accounts() {
       )}
 
 
-      {GROUPS.map((g) => {
-        const list = sortAccounts(filtered.filter((a) => groupOf(a) === g.key), sort, displayName)
-        if (!list.length) return null
-        return (
-          <section className="card" key={g.key} aria-label={g.title}>
-            <div className="group-label"><span>{g.title}</span></div>
-            <ul className="list">{list.map((a) => <AccountGoalRow key={a.id} a={a} />)}</ul>
-          </section>
-        )
-      })}
+      {view === 'table' ? (
+        <AccountsTable sections={sections} choices={choices} />
+      ) : sections.map((g) => (
+        <section className="card" key={g.key} aria-label={g.title}>
+          <div className="group-label">
+            <span>{g.title}</span>
+            <span className="group-total num">{money(g.total / 100)}{g.goals.fraction !== undefined ? ` · ${percentText(g.goals.fraction * 100)} funded` : ''}</span>
+          </div>
+          <ul className="list">{g.list.map((a) => <AccountGoalRow key={a.id} a={a} choices={choices} />)}</ul>
+        </section>
+      ))}
       {accounts.length > 0 && filtered.length === 0 && <p className="muted">No accounts match “{query}”.</p>}
       {accounts.length === 0 && (
         <section className="card"><div className="empty"><p>No accounts yet. Connect an account or add one to track balances and goals.</p><Link className="btn btn-primary" to="/connect">Connect an account</Link></div></section>
@@ -310,4 +391,63 @@ export function Accounts() {
       )}
     </div>
   )
+}
+
+type Section = { key: string; title: string; list: Account[]; total: number; goals: ReturnType<typeof summary> }
+
+/** The spreadsheet view: Bank, Account, Category, Balance, Goal, Funded, with a subtotal row per section. */
+function AccountsTable({ sections, choices }: { sections: Section[]; choices: string[] }) {
+  return (
+    <section className="card table-card" aria-label="Accounts table">
+      <div className="table-scroll">
+        <table className="accounts-table">
+          <thead>
+            <tr><th scope="col">Bank</th><th scope="col">Account</th><th scope="col">Category</th><th scope="col" className="num">Balance</th><th scope="col" className="num">Goal</th><th scope="col" className="num">Funded</th></tr>
+          </thead>
+          {sections.map((g) => (
+            <tbody key={g.key}>
+              <tr className="subtotal">
+                <th scope="row" colSpan={3}>{g.title}</th>
+                <td className="num">{money(g.total / 100)}</td>
+                <td className="num">{g.goals.goalCount ? money(g.goals.totalGoals / 100) : '—'}</td>
+                <td className="num">{g.goals.fraction !== undefined ? percentText(g.goals.fraction * 100) : '—'}</td>
+              </tr>
+              {g.list.map((a) => {
+                const row = goalRow(a)
+                const f = fraction(row)
+                const debt = isLiability(a)
+                return (
+                  <tr key={a.id}>
+                    <td>{a.institution ?? (a.plaidAccountId ? '—' : 'Manual')}</td>
+                    <th scope="row">{displayName(a)}{a.mask ? <span className="muted small"> ••{a.mask}</span> : null}</th>
+                    <td className="cat-cell"><CategoryField a={a} choices={choices} compact /></td>
+                    <td className={'num ' + (debt ? 'negative' : '')}>{money(debt ? -Math.abs(a.balance) : a.balance, a.currency)}</td>
+                    <td className="num">{row.goal !== undefined ? (debt && row.goal === 0 ? 'Pay off' : money(row.goal / 100)) : '—'}</td>
+                    <td className="num">{f !== undefined ? percentText(f * 100) : '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          ))}
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function readPref<T extends string>(key: string, allowed: T[], fallback: T): T {
+  try {
+    const v = localStorage.getItem(key) as T | null
+    return v && allowed.includes(v) ? v : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* private mode */
+  }
 }
