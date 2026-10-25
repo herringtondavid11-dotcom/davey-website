@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import { CategoryManager } from '../components/CategoryManager'
 import { ConnectionRow } from '../components/ConnectionStatus'
 import { InstallApp } from '../components/InstallApp'
 import { ACTION_LABEL, describeAgent, fetchLoginActivity, type LoginEvent } from '../lib/activity'
@@ -167,6 +168,8 @@ export function Settings() {
         {issues.length ? issues.map((c) => <ConnectionRow key={c.id} c={c} />) : <p className="muted card-notice">All bank connections are working.</p>}
         <div className="settings-row"><div><strong>Account names and Business/Personal</strong><p className="muted small">Set them per account.</p></div><Link className="btn btn-secondary btn-sm" to="/accounts">Open Accounts</Link></div>
       </section>
+
+      <CategoryManager />
 
       <section className="card" aria-labelledby="look-title">
         <div className="card-head"><h2 id="look-title">Appearance</h2></div>

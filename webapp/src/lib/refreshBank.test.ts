@@ -56,7 +56,7 @@ describe('reconnect (update mode): the same Item, from its cursor', () => {
 })
 
 describe('the same bank connected again as a new Item', () => {
-  const data: DaveyData = { accounts: [], transactions: [], budgets: [], connections: [], records: new Map([bank, checking, card, oldTx].map((r) => [`${r.entity}:${r.id}`, r])) }
+  const data: DaveyData = { accounts: [], transactions: [], budgets: [], connections: [], accountCategories: [], records: new Map([bank, checking, card, oldTx].map((r) => [`${r.entity}:${r.id}`, r])) }
 
   it('is found by institution and a shared account mask', () => {
     expect(findSameBank(data, 'ins_penfed', 'item-new', ['1234'])?.id).toBe('bank-penfed')

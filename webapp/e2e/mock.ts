@@ -170,7 +170,7 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
       nextPaymentDueDate: a.next_payment_due_date ? localMidnight(String(a.next_payment_due_date)) : null,
       linkedPropertyID: a.property_value !== undefined ? `${a.id}-home` : null,
       goalTarget: a.goal_target ?? null, goalStart: a.goal_start ?? null, goalTargetDate: a.goal_target_date ?? null,
-      rollupCategory: a.rollup_category ?? null,
+      rollupCategory: a.rollup_category ?? null, accountCategoryID: a.account_category_id ?? null,
     })
     // Davey keeps a mortgage's home as its own (real estate) account.
     if (a.property_value !== undefined) {
@@ -238,6 +238,10 @@ export interface MockOptions {
   wfLoginFixed?: boolean
   /** SoFi is flagged "Connection problem" (status error) but syncs fine now (a passing outage). */
   sofiError?: boolean
+  /** Account categories already in the household (entity accountCategory), e.g. renamed on another device. */
+  accountCategories?: { id: string; payload: Row }[]
+  /** Account fields to set on the fixture accounts (by id), e.g. { 'acc-1': { account_category_id: '…' } }. */
+  accountFields?: Record<string, Row>
 }
 
 /** A manual "Gold & Coins" account as the app shares it: account, holding and daily values (HouseholdSyncCodec). */
@@ -283,6 +287,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     signUpBody: null as Row | null,
   }
   const now = new Date().toISOString()
+  for (const [id, fields] of Object.entries(opts.accountFields ?? {})) Object.assign(state.accounts.find((a) => a.id === id) ?? {}, fields)
   if (opts.sofiError) state.extra.plaid_items.push({ id: 'item-row-4', plaid_item_id: 'item-sofi', institution_name: 'SoFi', status: 'error', error_code: null, last_synced_at: new Date(Date.now() - 86400_000).toISOString() })
   if ((opts.mfa ?? 'verified') === 'verified') {
     state.factors.push({ id: 'f-primary', friendly_name: 'Davey authenticator', factor_type: 'totp', status: 'verified', created_at: now, updated_at: now })
@@ -421,7 +426,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       const entity = url.searchParams.get('entity')?.replace(/^eq\./, '')
       // A pushed record replaces the fixture's copy (last write wins, like push_household_records); deleted ones go.
       const pushed = new Map(state.pushed.map((r) => [`${r.entity}:${r.id}`, r]))
-      const all = [...householdRecords(state), ...(opts.manualInvestments ? manualInvestmentRecords() : [])]
+      const categories = (opts.accountCategories ?? []).map((c) => ({ household_id: HOUSEHOLD, entity: 'accountCategory', id: c.id, payload: c.payload, updated_at: '2026-10-01T00:00:00Z' }))
+      const all = [...householdRecords(state), ...(opts.manualInvestments ? manualInvestmentRecords() : []), ...categories]
         .filter((r) => !pushed.has(`${r.entity}:${r.id}`)).concat(state.pushed)
       const rows = all.filter((r) => r.entity === entity && !(r as { deleted?: boolean }).deleted)
       const offset = Number(url.searchParams.get('offset') ?? 0)
@@ -445,6 +451,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
           nickname: r.payload.nickname ?? null, is_business: r.payload.isBusiness === true,
           goal_target: r.payload.goalTarget ?? null, goal_start: r.payload.goalStart ?? null, goal_target_date: r.payload.goalTargetDate ?? null,
           ...('rollupCategory' in r.payload ? { rollup_category: r.payload.rollupCategory } : {}),
+          ...('accountCategoryID' in r.payload ? { account_category_id: r.payload.accountCategoryID } : {}),
         })
         else if (tx) {
           const category = householdRecords(state).find((c) => c.entity === 'category' && c.id === r.payload.categoryID)

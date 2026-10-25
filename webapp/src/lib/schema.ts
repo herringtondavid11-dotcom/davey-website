@@ -99,6 +99,13 @@ export interface Account {
   goalTargetDate?: string
   /** The user's own category for rolling accounts up (Ops Cash, Retirement, Emergency…); unset = by account type. */
   rollupCategory?: string
+  /** The account's category (household entity "accountCategory"); unset = automatic from its type. */
+  accountCategoryID?: string
+  officialName?: string
+  /** Loans: mortgage, auto, student… (the app's loanKind). */
+  loanKind?: string
+  /** The bank's brand colour (#RRGGBB), for its badge. */
+  bankColor?: string
   raw: Row
 }
 
@@ -160,6 +167,10 @@ export function normalizeAccount(row: Row): Account {
     goalStart: optNum(row.goal_start),
     goalTargetDate: str(row.goal_target_date)?.slice(0, 10),
     rollupCategory: str(row.rollup_category)?.trim() || undefined,
+    accountCategoryID: str(row.account_category_id),
+    officialName: str(row.official_name),
+    loanKind: str(row.loan_kind),
+    bankColor: str(row.bank_color),
     raw: row,
   }
 }

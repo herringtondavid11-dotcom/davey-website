@@ -1,6 +1,19 @@
 # Next Mac rebuild (one Claude Code paste)
 
-## Account categories (2026-10-25)
+## Account categories, round 2 (2026-10-25, do this first)
+
+davey-ios release-candidate fd4d4cf (CI green): household-managed categories (new SwiftData model
+AccountCategoryRecord, synced as `accountCategory`; Account.accountCategoryID), Settings › Account Categories (add,
+rename, colour, drag to reorder, swipe to remove with reassign), Accounts tab chart (donut/bar) that filters, Group /
+Sort menus, category and bank chips, collapsible sections, Bank | Account | Category in every row, Mac sortable table.
+No server change. Steps:
+1. Rebuild and install on the Mac, David's iPhone and Allie's iPhone (cable install keeps data), usual paste.
+2. On each: Accounts tab → the chart and sections appear; Settings › Account Categories lists the 16 built-ins.
+3. Rename one category on the iPhone; within a minute the web (daveypersonalfinance.com/app, Settings) and Allie's
+   iPhone show the new name. Pick a category for an account on the web; the iPhone moves it.
+4. Run Davey's UI tests on the Mac once (AccountsTabUITests, MacDesktopUITests updated for the new controls).
+
+## Account categories, round 1 (2026-10-25, superseded by round 2)
 
 davey-ios release-candidate e103a57: Account.rollupCategory (optional field, migrates by itself), Accounts tab
 grouped by category with totals and a pie, Category field on account detail. Rebuild and install on the Mac, David's

@@ -9,7 +9,7 @@ test('accounts: nickname and Business toggle on every account, connection issues
   await expect(page.getByText('Needs you to sign in again').first()).toBeVisible()
 
   const row = page.getByRole('region', { name: 'Savings' }).locator('.goal-row').filter({ hasText: 'Plaid Saving' })
-  await row.locator('.goal-row-head').click()
+  await row.locator('.acct-name').click()
   const saving = row.locator('.account-editor')
   await saving.getByRole('textbox').fill('Rainy day')
   await saving.getByRole('button', { name: 'Save' }).click()
@@ -156,7 +156,7 @@ test('goals: set a savings goal and a payoff goal inline; header totals % funded
   const state = await mockBackend(page, { signedIn: true })
   await page.goto('/app/accounts')
   await expect(page.getByText('Set a goal on any account')).toBeVisible()
-  for (const g of ['Cash', 'Savings', 'Credit Cards', 'Loans & Mortgages', 'Investments']) await expect(page.getByRole('region', { name: g, exact: true })).toBeVisible()
+  for (const g of ['Checking', 'Savings', 'Credit Cards', 'Mortgage', 'Loans', 'Investments', 'Real Estate/Rental']) await expect(page.getByRole('region', { name: g, exact: true })).toBeVisible()
 
   // Plaid Saving: 25,000 toward a 50,000 goal → 50% funded (Gold band).
   const saving = page.getByRole('region', { name: 'Savings' }).locator('.goal-row').filter({ hasText: 'Plaid Saving' })
@@ -190,13 +190,13 @@ test('goals: set a savings goal and a payoff goal inline; header totals % funded
 test('accounts: sort and search', async ({ page }) => {
   await mockBackend(page, { signedIn: true })
   await page.goto('/app/accounts')
-  await page.getByRole('group', { name: 'Sort' }).getByRole('button', { name: 'Name' }).click()
+  await page.getByLabel('Sort by').selectOption('name')
   await page.getByLabel('Search accounts').fill('saving')
   await expect(page.locator('.goal-row')).toHaveCount(1)
   await expect(page.locator('.goal-row')).toContainText('Plaid Saving')
 })
 
-test('Accounts tab: no Connect an account / Add Account card; the sort control is directly under the total (all widths)', async ({ page }) => {
+test('Accounts tab: no Connect an account / Add Account card; the category chart, then the tools, right under the total (all widths)', async ({ page }) => {
   await mockBackend(page, { signedIn: true })
   for (const width of [360, 1280]) {
     await page.setViewportSize({ width, height: 900 })
@@ -205,10 +205,11 @@ test('Accounts tab: no Connect an account / Add Account card; the sort control i
     await expect(main.getByRole('heading', { name: 'Accounts', level: 1 })).toBeVisible()
     await expect(main.getByRole('link', { name: 'Connect an account' })).toHaveCount(0)
     await expect(main.getByRole('button', { name: 'Add Account' })).toHaveCount(0)
-    // The total card is followed immediately by search + the % Funded / Balance / Name sort.
-    const next = await page.locator('section.goals-head').evaluate((el) => el.nextElementSibling?.className ?? '')
-    expect(next).toContain('goals-tools')
-    await expect(page.getByRole('group', { name: 'Sort' }).getByRole('button')).toHaveText(['% Funded', 'Balance', 'Name'])
+    // The total card, then the chart by category, then search + group + sort.
+    const next = await page.locator('section.goals-head').evaluate((el) => [el.nextElementSibling?.getAttribute('aria-labelledby'), el.nextElementSibling?.nextElementSibling?.className])
+    expect(next).toEqual(['by-category-title', expect.stringContaining('goals-tools')])
+    await expect(page.getByLabel('Sort by').locator('option')).toHaveText(['Balance', 'Name', 'Bank', '% Funded', 'Recently updated'])
+    await expect(page.getByLabel('Group by').locator('option')).toHaveText(['Category', 'Bank', 'None'])
   }
 })
 

@@ -647,3 +647,14 @@ the GitHub Pages run instead.
   parallel run (container CPU contention). Passed 3/3 alone and in a full rerun; heap 13 MB and DOM 372 nodes flat
   across all ten rounds, so no slowdown over time. Watching it; no code change.
 - Counts: Vitest 133/133; Playwright Chromium 141 passed, 0 failed (rerun).
+
+## Account categories round 2 + loop 91 – 2026-10-25 20:25 UTC
+- Bank | Account | Category as separate columns (bank left, logo/initials); household-managed categories (16
+  built-ins with fixed IDs + the household's own; add, rename, colour, reorder, remove with reassign) in Settings
+  and inline; automatic category from Plaid type/subtype; chart donut/bar with total, % of net worth, count, %
+  funded, filtering on click; group Category/Bank/None; sort Balance/Name/Bank/% Funded/Recently updated; chips;
+  collapsible sections; search incl. last 4 and category; sortable table with Updated; prefs per user.
+- Fixed on the way: legend roles + accessible names (axe), bank badge text contrast, first-load budget (Accounts
+  CSS moved to its own chunk), `.chip` class clash.
+- Parity: account-categories.fixture.json read by web and app tests. iPhone/Mac fd4d4cf CI green.
+- Counts: Vitest 141/141; Playwright Chromium 146 passed, 0 failed.

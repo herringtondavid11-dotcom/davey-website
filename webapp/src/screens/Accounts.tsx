@@ -1,79 +1,51 @@
+import '../styles/accounts.css'
 import { useMemo, useState, type FormEvent } from 'react'
-
 import { Link } from 'react-router-dom'
-import { CategoryPie } from '../components/CategoryPie'
+import { useAuth } from '../auth/AuthProvider'
+import { BankBadge } from '../components/BankBadge'
+import { CategoryChart } from '../components/CategoryChart'
+import { CategoryPicker } from '../components/CategoryPicker'
 import { ConnectionRow } from '../components/ConnectionStatus'
 import { GoalBar } from '../components/GoalBar'
 import { ChevronIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
-import { GROUPS, fraction, goalRow, groupOf, signedCents, sortAccounts, summary, type GoalSort } from '../lib/accountGoals'
-import { categoryChoices, categoryGroups, categoryOf, cleanCategory, MAX_CATEGORY_LENGTH, pieSlices } from '../lib/accountCategories'
+import {
+  BUILT_IN, categoryTotals, filterRows, rowsFor, sections as groupRows, sortRows, suggestion,
+  type AccountCategory, type GroupBy, type Row, type Section, type SortBy,
+} from '../lib/accountCategories'
+import { fraction, goalRow, signedCents, summary } from '../lib/accountGoals'
 import { useData } from '../lib/DataProvider'
-import { refreshData, updateAccountCategory, updateAccountGoal, updateAccountNickname, updateAccountUsage } from '../lib/data'
+import { refreshData, setAccountCategory, updateAccountGoal, updateAccountNickname, updateAccountUsage } from '../lib/data'
 import { isLiability } from '../lib/finance'
-import { displayName, maskLabel, money, percentText, typeLabel } from '../lib/format'
+import { displayName, maskLabel, money, percentText, shortDateTime, typeLabel } from '../lib/format'
 import type { Account, Usage } from '../lib/schema'
 import { createManualAccount } from '../lib/serverData'
 import { normalizeItem } from '../lib/tables'
+import { useAccountCategories } from '../lib/useAccountCategories'
 import { useConnectionCheck } from '../lib/useConnectionCheck'
 import { useTable } from '../lib/useTable'
 
-// The Accounts tab (same as the app's AccountsTabView): every account with its goal. The header totals the balances
-// and the goals (cumulative % funded, accounts with a goal only); rows are grouped Cash, Savings, Credit Cards, Loans &
-// Mortgages, Investments, Other. Debts have payoff goals ("paid off"). Goals sync with the app through household data.
+// The Accounts tab (same as the app's AccountsTabView): every account with its bank, name and category in their own
+// columns, rolled up by the household's account categories (Settings › Account categories). A chart of what's owned
+// by category sits on top; choosing a category there filters the list. Group by category, bank or nothing; sort; filter
+// by category and bank chips; collapse sections. Each person's choices are remembered in this browser.
 
-const SORTS: { key: GoalSort; label: string }[] = [
-  { key: 'funded', label: '% Funded' },
+const SORTS: { key: SortBy; label: string }[] = [
   { key: 'balance', label: 'Balance' },
   { key: 'name', label: 'Name' },
+  { key: 'bank', label: 'Bank' },
+  { key: 'funded', label: '% Funded' },
+  { key: 'updated', label: 'Recently updated' },
 ]
 
-/** The account's category, saved as you leave the field (or press Enter). Suggestions: categories in use, then defaults. */
-function CategoryField({ a, choices, compact }: { a: Account; choices: string[]; compact?: boolean }) {
-  const { replaceAccount } = useData()
-  const [value, setValue] = useState(a.rollupCategory ?? '')
-  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const listId = `cats-${a.id}`
-  async function save() {
-    // An existing category in any case ("ops cash") is saved with the spelling already in use ("Ops Cash").
-    const typed = cleanCategory(value) ?? ''
-    const chosen = choices.find((c) => c.toLowerCase() === typed.toLowerCase()) ?? typed
-    if (chosen === (a.rollupCategory ?? '')) { setValue(chosen); return }
-    setState('saving')
-    try {
-      const next = await updateAccountCategory(a, chosen)
-      replaceAccount(next)
-      setValue(next.rollupCategory ?? '')
-      setState('saved')
-    } catch {
-      setState('error')
-    }
-  }
-  const input = (
-    <input
-      className="input"
-      list={listId}
-      maxLength={MAX_CATEGORY_LENGTH}
-      placeholder={categoryOf({ ...a, rollupCategory: undefined })}
-      value={value}
-      aria-label={`Category for ${displayName(a)}`}
-      onChange={(e) => { setValue(e.target.value); setState('idle') }}
-      onBlur={() => void save()}
-      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() } }}
-    />
-  )
-  return (
-    <>
-      {compact ? input : <label className="field grow"><span>Category</span>{input}</label>}
-      <datalist id={listId}>{choices.map((c) => <option key={c} value={c} />)}</datalist>
-      {state === 'saving' && <span className="muted small">Saving…</span>}
-      {state === 'error' && <span className="error small" role="alert">Couldn't save. Try again.</span>}
-      {state === 'saved' && !compact && <span className="success small" role="status">Saved</span>}
-    </>
-  )
+/** What Automatic gives this account (the category its type suggests). */
+function suggestedName(a: Account, categories: AccountCategory[]): string | undefined {
+  const key = suggestion({ daveyType: a.subtype, type: a.type, name: a.name, officialName: a.officialName, loanKind: a.loanKind })
+  const id = BUILT_IN.find((b) => b.key === key)?.id
+  return categories.find((c) => c.id === id)?.name ?? categories.find((c) => c.id === BUILT_IN.at(-1)!.id)?.name
 }
 
-function AccountEditor({ a, choices }: { a: Account; choices: string[] }) {
+function AccountEditor({ a }: { a: Account }) {
   const { replaceAccount } = useData()
   const [value, setValue] = useState(a.nickname ?? '')
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -123,7 +95,6 @@ function AccountEditor({ a, choices }: { a: Account; choices: string[] }) {
           </div>
         </div>
       </form>
-      <div className="account-editor-fields"><CategoryField a={a} choices={choices} /></div>
       {state === 'saved' && <span className="success small" role="status">Saved</span>}
       {state === 'error' && <span className="error small" role="alert">Couldn't save. Try again.</span>}
     </div>
@@ -180,19 +151,25 @@ function GoalEditor({ a, onDone }: { a: Account; onDone: () => void }) {
   )
 }
 
-function AccountGoalRow({ a, choices }: { a: Account; choices: string[] }) {
+/** One account: Bank | Account | Category, then the balance; its goal below. The name opens nickname and use. */
+function AccountRow({ r, categories, onPick }: { r: Row; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void> }) {
+  const a = r.account
   const [editing, setEditing] = useState(false)
   const [open, setOpen] = useState(false)
   const row = goalRow(a)
   const f = fraction(row)
   const debt = isLiability(a)
   return (
-    <li className="goal-row">
-      <button type="button" className="goal-row-head" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        <span className="row-title">{displayName(a)}</span>
-        <span className={'row-amount ' + (debt ? 'negative' : '')}>{money(debt ? -Math.abs(a.balance) : a.balance, a.currency)}</span>
-        <ChevronIcon className={open ? 'chev open' : 'chev'} />
-      </button>
+    <li className="goal-row" data-testid={`account-${a.id}`}>
+      <div className="acct-row">
+        <span className="acct-bank"><BankBadge name={r.bank} color={a.bankColor} /><span className="acct-bank-name">{r.bank}</span></span>
+        <button type="button" className="acct-name" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          <span className="row-title">{displayName(a)}</span>{a.mask && <span className="muted small"> ••{a.mask}</span>}
+          <ChevronIcon className={open ? 'chev open' : 'chev'} />
+        </button>
+        <span className="acct-cat"><CategoryPicker label={displayName(a)} value={r.picked ? r.category?.id : undefined} categories={categories} suggested={suggestedName(a, categories)} onPick={(id) => onPick(a, id)} /></span>
+        <span className={'row-amount acct-amount ' + (debt ? 'negative' : '')}>{money(debt ? -Math.abs(a.balance) : a.balance, a.currency)}</span>
+      </div>
       {f !== undefined && row.goal !== undefined ? (
         <>
           <GoalBar fraction={f} label={`${displayName(a)} goal progress`} />
@@ -208,7 +185,7 @@ function AccountGoalRow({ a, choices }: { a: Account; choices: string[] }) {
         !editing && <button type="button" className="link-btn small goal-set" onClick={() => setEditing(true)} data-testid="goal-set">Set goal</button>
       )}
       {editing && <GoalEditor a={a} onDone={() => setEditing(false)} />}
-      {open && <AccountEditor a={a} choices={choices} />}
+      {open && <AccountEditor a={a} />}
     </li>
   )
 }
@@ -271,44 +248,68 @@ export function AddAccount({ onClose }: { onClose: () => void }) {
   )
 }
 
+interface Prefs {
+  group: GroupBy
+  sort: SortBy
+  dir: 1 | -1
+  view: 'list' | 'table'
+  chart: 'donut' | 'bar'
+  categories: string[]
+  banks: string[]
+  collapsed: string[]
+}
+const DEFAULT_PREFS: Prefs = { group: 'category', sort: 'balance', dir: 1, view: 'list', chart: 'donut', categories: [], banks: [], collapsed: [] }
+
+/** Each person's grouping, sort, filters and layout, kept in this browser. */
+function usePrefs(userId: string | undefined): [Prefs, (change: Partial<Prefs>) => void] {
+  const key = `davey.accounts.prefs.${userId ?? 'anon'}`
+  const [prefs, setPrefs] = useState<Prefs>(() => {
+    try {
+      return { ...DEFAULT_PREFS, ...(JSON.parse(localStorage.getItem(key) ?? '{}') as Partial<Prefs>) }
+    } catch {
+      return DEFAULT_PREFS
+    }
+  })
+  const update = (change: Partial<Prefs>) => setPrefs((p) => {
+    const next = { ...p, ...change }
+    try { localStorage.setItem(key, JSON.stringify(next)) } catch { /* private mode */ }
+    return next
+  })
+  return [prefs, update]
+}
+
+const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
+
 export function Accounts() {
-  const { accounts } = useData()
+  const { accounts, replaceAccount } = useData()
+  const { session } = useAuth()
+  const { categories } = useAccountCategories()
   const items = useTable('items')
   const connections = useMemo(() => (items.result?.rows ?? []).map(normalizeItem), [items.result])
   const check = useConnectionCheck(connections, items.reload)
   const [showHidden, setShowHidden] = useState(false)
-  const [sort, setSort] = useState<GoalSort>('funded')
   const [query, setQuery] = useState('')
-  const [groupBy, setGroupBy] = useState<'category' | 'type'>(() => readPref('davey.accounts.groupBy', ['category', 'type'], 'category'))
-  const [view, setView] = useState<'list' | 'table'>(() => readPref('davey.accounts.view', ['list', 'table'], 'list'))
-  const pickGroup = (v: 'category' | 'type') => { setGroupBy(v); writePref('davey.accounts.groupBy', v) }
-  const pickView = (v: 'list' | 'table') => { setView(v); writePref('davey.accounts.view', v) }
+  const [prefs, setPrefs] = usePrefs(session?.user.id)
 
-  if (!accounts) return <Spinner label="Loading accounts" />
+  if (!accounts || !categories) return <Spinner label="Loading accounts" />
   const shown = accounts.filter((a) => showHidden || !a.hidden)
   const visible = accounts.filter((a) => !a.hidden)
   const totals = summary(visible.map(goalRow), visible.reduce((s, a) => s + signedCents(a), 0))
-  const q = query.trim().toLowerCase()
-  const filtered = q ? shown.filter((a) => `${displayName(a)} ${a.name} ${a.institution ?? ''}`.toLowerCase().includes(q)) : shown
   const issues = connections.filter((c) => c.health !== 'ok')
   const hiddenCount = accounts.filter((a) => a.hidden).length
-  const choices = categoryChoices(accounts)
-  const byCategory = categoryGroups(visible)
-  const slices = pieSlices(byCategory)
-  const owned = slices.reduce((s, x) => s + x.cents, 0)
-  // The list's sections: your categories (largest first), or the account types.
-  const sections = groupBy === 'category'
-    ? categoryGroups(filtered).map((g) => ({ key: g.name, title: g.name, list: sortAccounts(g.accounts, sort, displayName), total: g.total, goals: g.goals }))
-    : GROUPS.map((g) => {
-      const list = sortAccounts(filtered.filter((a) => groupOf(a) === g.key), sort, displayName)
-      const total = list.reduce((s, a) => s + signedCents(a), 0)
-      return { key: g.key, title: g.title, list, total, goals: summary(list.map(goalRow), total) }
-    }).filter((g) => g.list.length)
+  const allRows = rowsFor(shown, categories)
+  const chartTotals = categoryTotals(rowsFor(visible, categories), categories)
+  const rows = sortRows(filterRows(allRows, { query, categories: prefs.categories, banks: prefs.banks }), prefs.sort, prefs.dir)
+  const secs = groupRows(rows, prefs.group, categories)
+  const banks = [...new Set(allRows.map((r) => r.bank))].sort((a, b) => a.localeCompare(b))
+  const usedCategories = chartTotals.map((t) => ({ id: t.id, name: t.name, color: t.color }))
+  const filtering = prefs.categories.length > 0 || prefs.banks.length > 0 || query.trim() !== ''
+  const pick = async (a: Account, id: string | null) => replaceAccount(await setAccountCategory(a, id))
 
   return (
     <div className="page">
       <div className="page-head">
-        <div><h1>Accounts</h1><p>Balances and goals for every account. Goals sync with the Davey app.</p></div>
+        <div><h1>Accounts</h1><p>Balances, goals and categories for every account. Shared with the Davey app and your household.</p></div>
       </div>
 
       <section className="card networth goals-head" aria-labelledby="goals-total">
@@ -332,29 +333,54 @@ export function Accounts() {
         )}
       </section>
 
-      {/* Sort (and search) directly under the total, like the app. Connecting and adding live elsewhere. */}
+      {chartTotals.length > 0 && (
+        <section className="card card-pad" aria-labelledby="by-category-title">
+          <div className="card-head">
+            <h2 id="by-category-title">By category</h2>
+            <div className="segmented compact" role="group" aria-label="Chart">
+              <button type="button" aria-pressed={prefs.chart === 'donut'} onClick={() => setPrefs({ chart: 'donut' })}>Donut</button>
+              <button type="button" aria-pressed={prefs.chart === 'bar'} onClick={() => setPrefs({ chart: 'bar' })}>Bar</button>
+            </div>
+          </div>
+          <CategoryChart totals={chartTotals} mode={prefs.chart} selected={prefs.categories} onToggle={(id) => setPrefs({ categories: toggle(prefs.categories, id) })} />
+          <p className="muted small">The chart shows what you own; debts appear in the list with their totals. Choose a category to show only its accounts.</p>
+        </section>
+      )}
+
       {accounts.length > 0 && (
-        <div className="goals-tools">
-          <input className="input" type="search" placeholder="Search accounts" aria-label="Search accounts" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <div className="segmented compact" role="group" aria-label="Sort">
-            {SORTS.map((s) => <button key={s.key} type="button" aria-pressed={sort === s.key} onClick={() => setSort(s.key)}>{s.label}</button>)}
-          </div>
-          <div className="segmented compact" role="group" aria-label="Group by">
-            <button type="button" aria-pressed={groupBy === 'category'} onClick={() => pickGroup('category')}>By category</button>
-            <button type="button" aria-pressed={groupBy === 'type'} onClick={() => pickGroup('type')}>By type</button>
-          </div>
+        <div className="goals-tools accounts-tools">
+          <input className="input" type="search" placeholder="Search bank, name, last 4, category" aria-label="Search accounts" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <label className="inline-select"><span>Group</span>
+            <select className="input" aria-label="Group by" value={prefs.group} onChange={(e) => setPrefs({ group: e.target.value as GroupBy })}>
+              <option value="category">Category</option><option value="bank">Bank</option><option value="none">None</option>
+            </select>
+          </label>
+          <label className="inline-select"><span>Sort</span>
+            <select className="input" aria-label="Sort by" value={prefs.sort} onChange={(e) => setPrefs({ sort: e.target.value as SortBy, dir: 1 })}>
+              {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          </label>
           <div className="segmented compact" role="group" aria-label="Layout">
-            <button type="button" aria-pressed={view === 'list'} onClick={() => pickView('list')}>List</button>
-            <button type="button" aria-pressed={view === 'table'} onClick={() => pickView('table')}>Table</button>
+            <button type="button" aria-pressed={prefs.view === 'list'} onClick={() => setPrefs({ view: 'list' })}>List</button>
+            <button type="button" aria-pressed={prefs.view === 'table'} onClick={() => setPrefs({ view: 'table' })}>Table</button>
           </div>
+          <Link className="btn btn-secondary btn-sm" to="/settings#account-categories">Manage categories</Link>
         </div>
       )}
 
-      {slices.length > 0 && (
-        <section className="card card-pad" aria-labelledby="by-category-title">
-          <div className="card-head"><h2 id="by-category-title">By category</h2><span className="muted small">What you own; debts aren't slices</span></div>
-          <CategoryPie slices={slices} total={owned} />
-        </section>
+      {accounts.length > 0 && (
+        <div className="filter-chips" role="group" aria-label="Filter accounts">
+          {usedCategories.map((c) => (
+            <button key={c.id} type="button" className="filter-chip" aria-pressed={prefs.categories.includes(c.id)} onClick={() => setPrefs({ categories: toggle(prefs.categories, c.id) })}>
+              <i className={`swatch cc-${c.color}`} aria-hidden="true" />{c.name}
+            </button>
+          ))}
+          <span className="chip-sep" aria-hidden="true" />
+          {banks.map((b) => (
+            <button key={b} type="button" className="filter-chip" aria-pressed={prefs.banks.includes(b)} onClick={() => setPrefs({ banks: toggle(prefs.banks, b) })}>{b}</button>
+          ))}
+          {filtering && <button type="button" className="link-btn small" onClick={() => { setQuery(''); setPrefs({ categories: [], banks: [] }) }}>Clear filters</button>}
+        </div>
       )}
 
       {issues.length > 0 && (
@@ -364,19 +390,23 @@ export function Accounts() {
         </section>
       )}
 
-
-      {view === 'table' ? (
-        <AccountsTable sections={sections} choices={choices} />
-      ) : sections.map((g) => (
-        <section className="card" key={g.key} aria-label={g.title}>
-          <div className="group-label">
-            <span>{g.title}</span>
-            <span className="group-total num">{money(g.total / 100)}{g.goals.fraction !== undefined ? ` · ${percentText(g.goals.fraction * 100)} funded` : ''}</span>
-          </div>
-          <ul className="list">{g.list.map((a) => <AccountGoalRow key={a.id} a={a} choices={choices} />)}</ul>
-        </section>
-      ))}
-      {accounts.length > 0 && filtered.length === 0 && <p className="muted">No accounts match “{query}”.</p>}
+      {prefs.view === 'table' ? (
+        <AccountsTable secs={secs} grouped={prefs.group !== 'none'} categories={categories} onPick={pick}
+          sort={prefs.sort} dir={prefs.dir} onSort={(sort) => setPrefs(sort === prefs.sort ? { dir: prefs.dir === 1 ? -1 : 1 } : { sort, dir: 1 })} />
+      ) : secs.map((g) => {
+        const collapsed = prefs.collapsed.includes(g.key)
+        return (
+          <section className="card" key={g.key} aria-label={g.title}>
+            <button type="button" className="group-label group-toggle" aria-expanded={!collapsed} onClick={() => setPrefs({ collapsed: toggle(prefs.collapsed, g.key) })}>
+              <span className="group-title">{g.category && <i className={`swatch cc-${g.category.color}`} aria-hidden="true" />}{g.title}<span className="muted"> · {g.rows.length}</span></span>
+              <span className="group-total num">{money(g.total / 100)}{g.goals.fraction !== undefined ? ` · ${percentText(g.goals.fraction * 100)} funded` : ''}</span>
+              <ChevronIcon className={collapsed ? 'chev' : 'chev open'} />
+            </button>
+            {!collapsed && <ul className="list">{g.rows.map((r) => <AccountRow key={r.account.id} r={r} categories={categories} onPick={pick} />)}</ul>}
+          </section>
+        )
+      })}
+      {accounts.length > 0 && rows.length === 0 && <p className="muted">No accounts match. <button type="button" className="link-btn" onClick={() => { setQuery(''); setPrefs({ categories: [], banks: [] }) }}>Clear filters</button></p>}
       {accounts.length === 0 && (
         <section className="card"><div className="empty"><p>No accounts yet. Connect an account or add one to track balances and goals.</p><Link className="btn btn-primary" to="/connect">Connect an account</Link></div></section>
       )}
@@ -393,37 +423,61 @@ export function Accounts() {
   )
 }
 
-type Section = { key: string; title: string; list: Account[]; total: number; goals: ReturnType<typeof summary> }
+const COLUMNS: { key: SortBy | 'category' | 'goal'; label: string; num?: boolean }[] = [
+  { key: 'bank', label: 'Bank' },
+  { key: 'name', label: 'Account' },
+  { key: 'category', label: 'Category' },
+  { key: 'balance', label: 'Balance', num: true },
+  { key: 'goal', label: 'Goal', num: true },
+  { key: 'funded', label: '% Funded', num: true },
+  { key: 'updated', label: 'Updated', num: true },
+]
 
-/** The spreadsheet view: Bank, Account, Category, Balance, Goal, Funded, with a subtotal row per section. */
-function AccountsTable({ sections, choices }: { sections: Section[]; choices: string[] }) {
+/** The spreadsheet view: sortable Bank | Account | Category | Balance | Goal | % Funded | Updated, subtotal per section. */
+function AccountsTable({ secs, grouped, categories, onPick, sort, dir, onSort }: {
+  secs: Section[]; grouped: boolean; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void>
+  sort: SortBy; dir: 1 | -1; onSort: (s: SortBy) => void
+}) {
   return (
     <section className="card table-card" aria-label="Accounts table">
       <div className="table-scroll">
         <table className="accounts-table">
           <thead>
-            <tr><th scope="col">Bank</th><th scope="col">Account</th><th scope="col">Category</th><th scope="col" className="num">Balance</th><th scope="col" className="num">Goal</th><th scope="col" className="num">Funded</th></tr>
+            <tr>{COLUMNS.map((c) => {
+              const sortable = c.key !== 'category' && c.key !== 'goal'
+              const active = sortable && c.key === sort
+              return (
+                <th key={c.key} scope="col" className={c.num ? 'num' : undefined} aria-sort={active ? (dir === 1 ? 'descending' : 'ascending') : undefined}>
+                  {sortable ? <button type="button" className="th-sort" onClick={() => onSort(c.key as SortBy)}>{c.label}{active ? (dir === 1 ? ' ↓' : ' ↑') : ''}</button> : c.label}
+                </th>
+              )
+            })}</tr>
           </thead>
-          {sections.map((g) => (
+          {secs.map((g) => (
             <tbody key={g.key}>
-              <tr className="subtotal">
-                <th scope="row" colSpan={3}>{g.title}</th>
-                <td className="num">{money(g.total / 100)}</td>
-                <td className="num">{g.goals.goalCount ? money(g.goals.totalGoals / 100) : '—'}</td>
-                <td className="num">{g.goals.fraction !== undefined ? percentText(g.goals.fraction * 100) : '—'}</td>
-              </tr>
-              {g.list.map((a) => {
+              {grouped && (
+                <tr className="subtotal">
+                  <th scope="row" colSpan={3}>{g.category && <i className={`swatch cc-${g.category.color}`} aria-hidden="true" />}{g.title} <span className="muted small">· {g.rows.length}</span></th>
+                  <td className="num">{money(g.total / 100)}</td>
+                  <td className="num">{g.goals.goalCount ? money(g.goals.totalGoals / 100) : '—'}</td>
+                  <td className="num">{g.goals.fraction !== undefined ? percentText(g.goals.fraction * 100) : '—'}</td>
+                  <td />
+                </tr>
+              )}
+              {g.rows.map((r) => {
+                const a = r.account
                 const row = goalRow(a)
                 const f = fraction(row)
                 const debt = isLiability(a)
                 return (
                   <tr key={a.id}>
-                    <td>{a.institution ?? (a.plaidAccountId ? '—' : 'Manual')}</td>
+                    <td><span className="acct-bank"><BankBadge name={r.bank} color={a.bankColor} /><span className="acct-bank-name">{r.bank}</span></span></td>
                     <th scope="row">{displayName(a)}{a.mask ? <span className="muted small"> ••{a.mask}</span> : null}</th>
-                    <td className="cat-cell"><CategoryField a={a} choices={choices} compact /></td>
+                    <td className="cat-cell"><CategoryPicker label={displayName(a)} value={r.picked ? r.category?.id : undefined} categories={categories} suggested={suggestedName(a, categories)} onPick={(id) => onPick(a, id)} /></td>
                     <td className={'num ' + (debt ? 'negative' : '')}>{money(debt ? -Math.abs(a.balance) : a.balance, a.currency)}</td>
                     <td className="num">{row.goal !== undefined ? (debt && row.goal === 0 ? 'Pay off' : money(row.goal / 100)) : '—'}</td>
                     <td className="num">{f !== undefined ? percentText(f * 100) : '—'}</td>
+                    <td className="num muted small" title={a.lastSynced ? shortDateTime(a.lastSynced) : undefined}>{a.lastSynced ? new Date(a.lastSynced).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
                   </tr>
                 )
               })}
@@ -435,19 +489,3 @@ function AccountsTable({ sections, choices }: { sections: Section[]; choices: st
   )
 }
 
-function readPref<T extends string>(key: string, allowed: T[], fallback: T): T {
-  try {
-    const v = localStorage.getItem(key) as T | null
-    return v && allowed.includes(v) ? v : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function writePref(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    /* private mode */
-  }
-}

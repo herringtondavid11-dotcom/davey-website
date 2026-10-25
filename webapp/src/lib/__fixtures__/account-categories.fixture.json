@@ -1,0 +1,225 @@
+{
+  "about": "Account categories parity (web accountCategories.test.ts and app AccountCategoriesTests.swift read the same data). Demo data only.",
+  "records": [
+    {
+      "id": "acc0ca7e-0000-4000-8000-000000000003",
+      "payload": {
+        "name": "Operating Cash",
+        "colorName": "teal",
+        "sortOrder": 5,
+        "removed": false
+      }
+    },
+    {
+      "id": "acc0ca7e-0000-4000-8000-000000000013",
+      "payload": {
+        "name": "Counseling",
+        "colorName": "clay",
+        "sortOrder": 120,
+        "removed": true
+      }
+    },
+    {
+      "id": "5f1e2d3c-4b5a-4968-8776-655443322110",
+      "payload": {
+        "name": "Kids 529",
+        "colorName": "gold",
+        "sortOrder": 75,
+        "removed": false
+      }
+    }
+  ],
+  "accounts": [
+    {
+      "id": "a1",
+      "type": "checking",
+      "name": "Everyday Checking",
+      "bank": "Summit Bank",
+      "balance": 1200000,
+      "accountCategoryID": "acc0ca7e-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "a2",
+      "type": "savings",
+      "name": "High Yield Savings",
+      "bank": "Harbor Credit Union",
+      "balance": 2500000,
+      "goal": 5000000
+    },
+    {
+      "id": "a3",
+      "type": "investment",
+      "name": "Roth IRA",
+      "bank": "Summit Bank",
+      "balance": 2711100
+    },
+    {
+      "id": "a4",
+      "type": "investment",
+      "name": "Brokerage",
+      "bank": "Summit Bank",
+      "balance": 1000000
+    },
+    {
+      "id": "a5",
+      "type": "loan",
+      "name": "Home Loan",
+      "loanKind": "mortgage",
+      "bank": "Harbor Credit Union",
+      "balance": -41230000
+    },
+    {
+      "id": "a6",
+      "type": "creditCard",
+      "name": "Northstar Card",
+      "bank": "Northstar",
+      "balance": -50000
+    },
+    {
+      "id": "a7",
+      "type": "checking",
+      "name": "Giving Jar",
+      "bank": "Manual",
+      "balance": 40000,
+      "rollupCategory": "giving"
+    },
+    {
+      "id": "a8",
+      "type": "checking",
+      "name": "Counseling Checking",
+      "bank": "Summit Bank",
+      "balance": 665000,
+      "accountCategoryID": "acc0ca7e-0000-4000-8000-000000000013"
+    },
+    {
+      "id": "a9",
+      "type": "investment",
+      "name": "College 529",
+      "bank": "Summit Bank",
+      "balance": 1676200,
+      "accountCategoryID": "5F1E2D3C-4B5A-4968-8776-655443322110"
+    },
+    {
+      "id": "a10",
+      "type": "property",
+      "name": "Maple Street Rental",
+      "bank": "Manual",
+      "balance": 50000000
+    }
+  ],
+  "expected": {
+    "categoryNames": [
+      "Checking",
+      "Operating Cash",
+      "Savings",
+      "Emergency Fund",
+      "Credit Cards",
+      "Debt Payoff",
+      "Investments",
+      "Retirement",
+      "Kids 529",
+      "Mortgage",
+      "Loans",
+      "Real Estate/Rental",
+      "Business",
+      "Entertainment",
+      "Giving",
+      "Other"
+    ],
+    "accountCategory": {
+      "a1": [
+        "Operating Cash",
+        true
+      ],
+      "a2": [
+        "Savings",
+        false
+      ],
+      "a3": [
+        "Retirement",
+        false
+      ],
+      "a4": [
+        "Investments",
+        false
+      ],
+      "a5": [
+        "Mortgage",
+        false
+      ],
+      "a6": [
+        "Credit Cards",
+        false
+      ],
+      "a7": [
+        "Giving",
+        true
+      ],
+      "a8": [
+        "Checking",
+        false
+      ],
+      "a9": [
+        "Kids 529",
+        true
+      ],
+      "a10": [
+        "Real Estate/Rental",
+        false
+      ]
+    },
+    "totals": [
+      [
+        "Checking",
+        665000,
+        1
+      ],
+      [
+        "Operating Cash",
+        1200000,
+        1
+      ],
+      [
+        "Savings",
+        2500000,
+        1
+      ],
+      [
+        "Credit Cards",
+        -50000,
+        1
+      ],
+      [
+        "Investments",
+        1000000,
+        1
+      ],
+      [
+        "Retirement",
+        2711100,
+        1
+      ],
+      [
+        "Kids 529",
+        1676200,
+        1
+      ],
+      [
+        "Mortgage",
+        -41230000,
+        1
+      ],
+      [
+        "Real Estate/Rental",
+        50000000,
+        1
+      ],
+      [
+        "Giving",
+        40000,
+        1
+      ]
+    ],
+    "savingsFunded": 0.5
+  }
+}

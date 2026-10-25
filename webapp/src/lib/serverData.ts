@@ -75,6 +75,8 @@ export interface DaveyData {
   budgets: Row[]
   connections: Row[]
   records: Map<string, HouseholdRecord>
+  /** Account categories the household changed or added (entity "accountCategory"); built-ins need no record. */
+  accountCategories: HouseholdRecord[]
 }
 
 /**
@@ -87,11 +89,12 @@ export function toRows(input: {
   categories: HouseholdRecord[]
   connections: HouseholdRecord[]
   budgets: HouseholdRecord[]
+  accountCategories?: HouseholdRecord[]
   /** Holdings value in cents per account id (Davey's id or Plaid's), from `holdingValues`. */
   holdingValues?: Map<string, number>
 }): DaveyData {
   const records = new Map<string, HouseholdRecord>()
-  for (const list of [input.accounts, input.transactions, input.categories, input.connections, input.budgets]) {
+  for (const list of [input.accounts, input.transactions, input.categories, input.connections, input.budgets, input.accountCategories ?? []]) {
     for (const r of list) records.set(`${r.entity}:${r.id}`, r)
   }
   const categoryName = new Map(input.categories.map((c) => [c.id, text(c.payload.name) ?? 'Uncategorized']))
@@ -153,6 +156,9 @@ export function toRows(input: {
       goal_start: optMinor(p.goalStart),
       goal_target_date: localDay(p.goalTargetDate),
       rollup_category: text(p.rollupCategory),
+      account_category_id: text(p.accountCategoryID),
+      loan_kind: text(p.loanKind),
+      bank_color: text(bank?.brandColorHex),
       household_id: a.household_id,
     } as Row
   })
@@ -191,7 +197,7 @@ export function toRows(input: {
     status: c.payload.status === 'needsReauth' ? 'login_required' : c.payload.status === 'error' ? 'error' : 'ok',
     last_synced_at: text(c.payload.lastSyncedAt),
   }))
-  return { accounts, transactions, budgets, connections, records }
+  return { accounts, transactions, budgets, connections, records, accountCategories: input.accountCategories ?? [] }
 }
 
 const WEB_SECURITY_TYPE: Record<string, string> = {
@@ -259,11 +265,11 @@ let cache: Promise<DaveyData> | null = null
 /** Everything the screens read, loaded once per session (call `reloadDaveyData` after a write or a new bank). */
 export function loadDaveyData(): Promise<DaveyData> {
   cache ??= (async () => {
-    const [[accounts, transactions, categories, connections, budgets, holdings], server] = await Promise.all([
-      Promise.all(['account', 'transaction', 'category', 'bankConnection', 'budget', 'holding'].map(fetchRecords)),
+    const [[accounts, transactions, categories, connections, budgets, holdings, accountCategories], server] = await Promise.all([
+      Promise.all(['account', 'transaction', 'category', 'bankConnection', 'budget', 'holding', 'accountCategory'].map(fetchRecords)),
       serverHoldings(),
     ])
-    return toRows({ accounts, transactions, categories, connections, budgets, holdingValues: holdingValues(server, holdings) })
+    return toRows({ accounts, transactions, categories, connections, budgets, accountCategories, holdingValues: holdingValues(server, holdings) })
   })().catch((error) => {
     cache = null
     throw error
@@ -274,6 +280,36 @@ export function loadDaveyData(): Promise<DaveyData> {
 export function reloadDaveyData(): Promise<DaveyData> {
   cache = null
   return loadDaveyData()
+}
+
+/** Pushes whole records of one entity (new or changed) to the household; the app applies them on its next sync. */
+export async function pushRecords(entity: string, list: { id: string; payload: Row; deleted?: boolean }[]): Promise<void> {
+  if (!list.length) return
+  const data = await loadDaveyData()
+  let household: string | undefined
+  for (const r of data.records.values()) { household = r.household_id; break }
+  if (!household) {
+    const { data: rows } = await supabase.from('household_members').select('household_id').limit(1)
+    household = rows?.[0]?.household_id as string | undefined
+  }
+  if (!household) throw new Error("This isn't shared with a household yet, so it can't be saved here.")
+  const updatedAt = new Date().toISOString()
+  const { error } = await supabase.rpc('push_household_records', {
+    p_household: household,
+    p_records: list.map((r) => ({ entity, id: r.id, payload: r.payload, updated_at: updatedAt, deleted: r.deleted === true })),
+  })
+  if (error) throw new Error(error.code === '42501' ? 'Your household is read-only right now.' : error.message)
+  for (const r of list) {
+    const key = `${entity}:${r.id}`
+    const existing = data.records.get(key)
+    const record = { household_id: household, entity, id: r.id, payload: r.payload, updated_at: updatedAt }
+    data.records.set(key, existing ? { ...existing, ...record } : record)
+    if (entity === 'accountCategory') {
+      const i = data.accountCategories.findIndex((c) => c.id === r.id)
+      if (i >= 0) data.accountCategories[i] = record
+      else data.accountCategories.push(record)
+    }
+  }
 }
 
 /**
