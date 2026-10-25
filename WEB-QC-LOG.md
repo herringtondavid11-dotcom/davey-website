@@ -624,3 +624,9 @@ the GitHub Pages run instead.
   category (validated slots; legend with % and amount). Choices remembered per browser.
 - Tests: accountCategories.test.ts (4), e2e/account-categories.spec.ts (3).
 - Counts: Vitest 133/133; Playwright Chromium 141 passed, 0 failed.
+
+## Loop 87 – 2026-10-25 15:48 UTC
+- No new commits from other sessions; main 19989a0 (account categories) deployed: success. davey-ios
+  release-candidate b39f6f9: CI green.
+- Issues found: 0. Fixed: 0.
+- Counts: Vitest 133/133; Playwright Chromium 141 passed, 0 failed.
