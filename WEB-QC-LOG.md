@@ -640,3 +640,10 @@ the GitHub Pages run instead.
 - No new commits on main since 42b6996 or on davey-ios release-candidate (b39f6f9, CI green); Pages run: success.
 - Issues found: 0. Fixed: 0.
 - Counts: Vitest 133/133; Playwright Chromium 141 passed, 0 failed.
+
+## Loop 90 – 2026-10-25 19:08 UTC
+- No new commits on main since bb2766b or on davey-ios release-candidate (b39f6f9, CI green); Pages run: success.
+- One transient failure: sustained.spec "ten rounds (phone)" missed its round-time check once during the full
+  parallel run (container CPU contention). Passed 3/3 alone and in a full rerun; heap 13 MB and DOM 372 nodes flat
+  across all ten rounds, so no slowdown over time. Watching it; no code change.
+- Counts: Vitest 133/133; Playwright Chromium 141 passed, 0 failed (rerun).
