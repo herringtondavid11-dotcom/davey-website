@@ -37,12 +37,15 @@ describe('Plaid OAuth resume', () => {
     expect(readPendingLink(localStorage, Date.parse('2026-10-22T03:59:00Z'))?.linkToken).toBe('old')
     expect(readPendingLink(localStorage, Date.parse('2026-10-22T04:01:00Z'))).toBeNull()
   })
-  it('a new Link session can be resumed again', () => {
+  it('a new Link token never re-opens an OAuth return that was already used (Chase invalid_grant audit)', () => {
     localStorage.clear()
     const url = 'https://daveypersonalfinance.com/app/oauth?oauth_state_id=same'
     savePendingLink({ linkToken: 'a', startedAt: '' })
     expect(claimOAuthResume(url)).toBe(true)
+    // The Connect screen fetched its next token meanwhile: the old return still can't be replayed.
     savePendingLink({ linkToken: 'b', startedAt: '' })
-    expect(claimOAuthResume(url)).toBe(true)
+    expect(claimOAuthResume(url)).toBe(false)
+    // A new OAuth attempt has its own state id.
+    expect(claimOAuthResume('https://daveypersonalfinance.com/app/oauth?oauth_state_id=next')).toBe(true)
   })
 })

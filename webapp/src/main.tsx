@@ -8,12 +8,16 @@ import './styles/app.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { handOffOAuthPopup } from './lib/plaid'
 import { registerPwa } from './lib/pwa'
 import { applyTheme, readTheme } from './lib/theme'
 
 // frame-ancestors can't be set from a <meta> CSP: refuse to render inside another site's frame.
 if (window.top !== window.self) {
   document.body.textContent = 'Davey can only be opened directly at daveypersonalfinance.com/app.'
+} else if (handOffOAuthPopup()) {
+  document.body.textContent = 'Back from your bank. Davey is finishing in your other window; you can close this one.'
+  setTimeout(() => window.close(), 400)
 } else {
   // GitHub Pages fallback: the root 404.html sends unknown /app/* paths here as /app/?p=<path>.
   const p = new URLSearchParams(window.location.search).get('p')

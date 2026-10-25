@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CheckIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
-import { claimOAuthResume } from '../lib/plaid'
+import { claimOAuthResume, logClientLinkEvent } from '../lib/plaid'
 import { AddAccount } from './Accounts'
 import { NameAccounts } from './NameAccounts'
 import { usePlaidFlow, type FlowState } from './usePlaidFlow'
@@ -142,6 +142,7 @@ export function OAuthReturn() {
     if (ran.current) return
     ran.current = true
     const href = window.location.href
+    void logClientLinkEvent('DAVEY_OAUTH_RETURN', { view_name: 'same_tab' })
     if (!claimOAuthResume(href)) {
       navigate('/connect', { replace: true })
       return

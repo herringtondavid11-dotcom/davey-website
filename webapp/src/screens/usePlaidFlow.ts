@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useData } from '../lib/DataProvider'
 import { fetchAccounts } from '../lib/data'
 import { loadDaveyData, reloadDaveyData } from '../lib/serverData'
@@ -7,6 +7,8 @@ import { adoptNewItem, findSameBank, refreshBank } from '../lib/refreshBank'
 import { clearTableCache } from '../lib/useTable'
 import { newAccountsFromLink } from '../lib/linkFlow'
 import {
+  OAUTH_HANDOFF,
+  claimOAuthResume,
   clearPendingLink,
   createLinkToken,
   exchangePublicToken,
@@ -174,18 +176,40 @@ export function usePlaidFlow() {
 
   // Assigned each render so Link's callbacks see the latest finishers without an await before open().
   const mountRef = useRef<(opts: { token: string; receivedRedirectUri?: string; updateItemId?: string }) => void>(() => {})
+  // An OAuth return handed over by /oauth in a pop-up (see OAUTH_HANDOFF), not yet used.
+  const handoff = useRef<string | null>(null)
+  const handoffTimer = useRef<number | undefined>(undefined)
+  const resumeRef = useRef<(href: string) => Promise<void>>(async () => {})
+  /** Continues a handed-over return exactly once (shared one-shot guard with /oauth: claimOAuthResume). */
+  const continueHandoff = (): boolean => {
+    const href = handoff.current
+    handoff.current = null
+    window.clearTimeout(handoffTimer.current)
+    if (!href || !claimOAuthResume(href)) return false
+    void logClientLinkEvent('DAVEY_OAUTH_RETURN', { view_name: 'handoff_resumed' })
+    void resumeRef.current(href)
+    return true
+  }
   mountRef.current = (opts) => {
+    handoff.current = null
+    window.clearTimeout(handoffTimer.current)
     handler.current?.destroy()
     handler.current = window.Plaid!.create({
       token: opts.token,
       receivedRedirectUri: opts.receivedRedirectUri,
-      onSuccess: (publicToken, metadata) =>
-        void (opts.updateItemId ? finishUpdate(opts.updateItemId, metadata) : finish(publicToken, metadata)),
+      onSuccess: (publicToken, metadata) => {
+        // Link finished the OAuth return itself: the handed-over copy must never be used (a second redemption).
+        handoff.current = null
+        window.clearTimeout(handoffTimer.current)
+        void (opts.updateItemId ? finishUpdate(opts.updateItemId, metadata) : finish(publicToken, metadata))
+      },
       onEvent: (eventName, metadata) => {
         void logClientLinkEvent(eventName, metadata)
       },
       onExit: (err, metadata) => {
         void logClientLinkEvent('EXIT', metadata, err)
+        // Link closed while a pop-up return was waiting: nothing else will use it, so continue with it now.
+        if (handoff.current && continueHandoff()) return
         clearPendingLink()
         const ids = {
           mode: mode.current,
@@ -304,6 +328,7 @@ export function usePlaidFlow() {
 
   /** Called once by /oauth after an OAuth bank redirects back. The pop-up already happened; this continues it. */
   const resume = useCallback(async (receivedRedirectUri: string) => {
+    window.clearTimeout(handoffTimer.current)
     resumed.current = true
     const pending = pendingLinkFor(await currentUserId())
     if (!pending) {
@@ -316,6 +341,28 @@ export function usePlaidFlow() {
       mountRef.current({ token: pending.linkToken, receivedRedirectUri, updateItemId: pending.updateItemId })
     } catch (e) {
       setState({ step: 'error', message: (e as Error).message })
+    }
+  }, [])
+
+  resumeRef.current = resume
+
+  // /oauth loaded in a pop-up (desktop OAuth) and handed the return to this window. Plaid's open Link normally
+  // finishes it by itself; only if it hasn't within 20 s (or Link closes, above) does this window continue it, once.
+  const linkingRef = useRef(false)
+  linkingRef.current = state.step === 'linking'
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin || e.data?.type !== OAUTH_HANDOFF || typeof e.data.href !== 'string') return
+      handoff.current = e.data.href
+      void logClientLinkEvent('DAVEY_OAUTH_RETURN', { view_name: linkingRef.current ? 'popup_handoff_link_open' : 'popup_handoff_link_closed' })
+      window.clearTimeout(handoffTimer.current)
+      if (!linkingRef.current) continueHandoff()
+      else handoffTimer.current = window.setTimeout(() => { if (linkingRef.current) { handler.current?.destroy(); continueHandoff() } }, 20_000)
+    }
+    window.addEventListener('message', onMessage)
+    return () => {
+      window.removeEventListener('message', onMessage)
+      window.clearTimeout(handoffTimer.current)
     }
   }, [])
 

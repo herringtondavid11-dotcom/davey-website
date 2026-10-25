@@ -1,5 +1,54 @@
 # Next Mac rebuild (one Claude Code paste)
 
+## Chase audit (2026-10-25): queries, Dashboard checklist, Plaid message
+
+Web change only (davey-website main): /app/oauth never starts a second Link inside a bank pop-up, and every web OAuth
+return is logged (client_diagnostics event DAVEY_OAUTH_RETURN: same_tab, popup_handoff_link_open / _closed,
+handoff_resumed). No server or iPhone/Mac change for Chase; nothing to rebuild for it.
+
+**1. Latest Chase sessions (read-only, Terminal on the Mac):**
+
+```sh
+supabase db query --linked "select created_at, platform, mode, config, link_session_id, request_id, error_type, error_code, exit_status, app_version from plaid_link_events where institution_id = 'ins_56' or institution_name ilike '%chase%' order by created_at desc limit 20;"
+supabase db query --linked "select created_at, app_version, payload->>'event' as event, payload->>'view_name' as view, payload->>'link_session_id' as session, payload->>'request_id' as request, payload->>'error_code' as code, payload->>'exit_status' as status, left(payload->>'user_agent', 60) as agent from client_diagnostics where kind = 'link_event' and (payload->>'institution_id' = 'ins_56' or payload->>'institution_name' ilike '%chase%' or payload->>'event' = 'DAVEY_OAUTH_RETURN') order by created_at desc limit 40;"
+```
+
+Read it as: OPEN_OAUTH → (DAVEY_OAUTH_RETURN only if Plaid sent the browser to /app/oauth) → ERROR/EXIT. An
+ERROR right after OPEN_OAUTH with no DAVEY_OAUTH_RETURN means Chase/Plaid failed before Davey's page was involved.
+
+**2. Plaid Dashboard (dashboard.plaid.com, Production):**
+- Developers › API › **Allowed redirect URIs**: exactly `https://daveypersonalfinance.com/app/oauth` and
+  `https://herringtondavid11-dotcom.github.io/plaid/oauth` (no trailing slash, https, no `app.` subdomain).
+- **Link › OAuth institutions** (or Compliance / Institution access): Chase (ins_56) row must say **Enabled / Live**
+  for Production, not "Pending", "Action required" or "Registration in progress". Note the date it went live: Chase
+  can take days to propagate after approval.
+- **Application profile / Security questionnaire** (Chase requires both): status Complete and Approved; company
+  name, logo and support contact filled in.
+- **Link › Customization › Data Transparency Messaging** use cases set (otherwise INVALID_LINK_CUSTOMIZATION).
+- Team settings › Products: Transactions enabled for Production.
+- Screenshot the Chase row and the questionnaire status for the Plaid ticket.
+
+**3. Message to Plaid support (fill the session rows from query 1):**
+
+> Subject: Chase (ins_56) OAuth fails for client "Davey" on web, iOS and Mac (invalid_grant / Unauthorized Client)
+>
+> Hello. Chase OAuth fails for our Production client on all three of our integrations, while other OAuth banks
+> (Wells Fargo, Bank of America) succeed for the same client and the same user's Chase login works in another app.
+> - Web (Link JS, desktop Chrome/Safari): link_session_id [WEB-SESSION-ID], request_id [REQUEST-ID], [UTC time]
+> - iOS (LinkKit 7.2.2, universal link redirect): link_session_id [IOS-SESSION-ID] and 01a15f27-e041-7e7f-8120-f21a21251309
+> - Mac (Hosted Link, no redirect_uri): link_session_id [MAC-SESSION-ID]; Chase's page showed "Unauthorized Client"
+> - Earlier case: 01a14aee-87bc-79fa-85b4-21fbf07ed973, where you found Chase issued a code and your exchange got
+>   invalid_grant.
+> Our link tokens: products ["transactions"] only, no optional/additional consented products, no account_filters,
+> country_codes ["US"], language "en", redirect_uri exactly as registered (web:
+> https://daveypersonalfinance.com/app/oauth). Each attempt uses one link token; the web reinitializes Link once
+> with receivedRedirectUri, and never inside the OAuth pop-up.
+> "Unauthorized Client" at Chase's authorize step points at our client's Chase registration. Please check: (1) is
+> Chase OAuth fully approved and live for our client_id in Production, and is anything outstanding (security
+> questionnaire, app profile, Chase review)? (2) for the sessions above, was Chase's code redeemed more than once or
+> late, and which redirect/client_type did you record? (3) is there anything we must change on our side?
+> Thank you. — [Your name], Davey
+
 ## Connection badges (2026-10-25)
 
 davey-ios release-candidate: a passing sync failure (network, sync_busy, 5xx) no longer marks a bank "Connection

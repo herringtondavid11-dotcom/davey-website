@@ -626,6 +626,12 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
         frame.title = 'Plaid Link';
         frame.setAttribute('style', 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;border:0;display:block');
         document.body.appendChild(frame);
+        window.__plaidSucceed = function () {
+          opts.onSuccess('public-production-abc', {
+            institution: { institution_id: 'ins_56', name: 'Chase' },
+            accounts: [{ id: 'p-new-1', name: 'Plaid Checking', mask: '4321', type: 'depository', subtype: 'checking' }],
+            link_session_id: 'ls-held' });
+        };
         window.__plaidClose = function (status, institutionName) {
           opts.onExit(null, {
             status: arguments.length ? status : 'requires_credentials',

@@ -554,3 +554,19 @@ the GitHub Pages run instead.
 - No new commits from other sessions; main head 45902e1 (SoFi/PenFed badge fix) deployed: success.
 - Full suites ran on this head minutes ago (badge fix): issues found 0 beyond that fix.
 - Counts: Vitest 129/129; Playwright Chromium 134 passed, 0 failed.
+
+## Chase OAuth audit (web) – 2026-10-25
+- Already right: one link token per attempt, stored before Link opens and reused on return; receivedRedirectUri =
+  full href incl. oauth_state_id; one-shot claim per oauth_state_id (StrictMode/double mount, reload, back);
+  query kept through the access/login redirect; redirect_uri exactly https://daveypersonalfinance.com/app/oauth;
+  server token transactions-only, no account_filters/optional/additional products, US/en. CSP allows Plaid's
+  iframe and pop-up; no COOP header.
+- Fixed: /app/oauth inside a bank pop-up (desktop) no longer starts a second Link; it hands the return to the
+  window that opened Link, which continues it only if Plaid's own Link didn't (closed, or nothing in 20 s), once.
+  Saving a new link token no longer re-arms an already used oauth_state_id. Every return is logged
+  (DAVEY_OAUTH_RETURN in client_diagnostics).
+- Evidence: Chase fails on three independent clients (iOS LinkKit, Mac Hosted Link with no redirect_uri, web Link)
+  while WF/BofA OAuth work, and Chase showed "Unauthorized Client" at its authorize step: Chase's registration for
+  this Plaid client, not Davey's return handling. Dashboard checklist, queries and Plaid message: MAC-REBUILD-NEXT.md.
+- Tests: e2e/oauth.spec.ts (pop-up hand-off, Plaid finishes itself, two tabs one exchange, token body); idle.test.
+- Counts: Vitest 129/129; Playwright Chromium 138 passed, 0 failed.

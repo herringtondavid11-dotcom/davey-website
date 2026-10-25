@@ -65,8 +65,9 @@ export interface PendingLink {
 }
 
 export function savePendingLink(p: PendingLink, storage: Storage = store()) {
+  // The last resumed oauth_state_id stays recorded: state IDs are unique per session, so a new token never needs it
+  // cleared, and clearing it let a reopened /oauth tab replay a return after the Connect screen fetched a new token.
   storage.setItem(OAUTH_KEY, JSON.stringify(p))
-  storage.removeItem(RESUMED_KEY)
 }
 
 export function readPendingLink(storage: Storage = store(), now = Date.now()): PendingLink | null {
@@ -103,6 +104,31 @@ export function claimOAuthResume(href: string, storage: Storage = store()): bool
   if (!state) return false
   if (storage.getItem(RESUMED_KEY) === state) return false
   storage.setItem(RESUMED_KEY, state)
+  return true
+}
+
+/** Sent by /oauth when it loads in a pop-up opened from Davey: the original window finishes, never the pop-up. */
+export const OAUTH_HANDOFF = 'davey.oauth-return'
+
+/** This window is a pop-up opened by a Davey page (same origin), e.g. Plaid's OAuth window. */
+export function openedByDavey(win: Window = window): boolean {
+  try {
+    return !!win.opener && win.opener !== win && win.opener.location.origin === win.location.origin
+  } catch {
+    return false // cross-origin opener: not ours
+  }
+}
+
+/**
+ * Runs before the app starts. When /oauth loads inside a pop-up opened from Davey (a bank's OAuth window on
+ * desktop), it never starts a second Link: a second Link continuing the same oauth_state_id is how a bank's code gets
+ * redeemed twice (invalid_grant). It hands the return to the window that opened Link and says so. True if handed off.
+ */
+export function handOffOAuthPopup(win: Window = window): boolean {
+  const url = new URL(win.location.href)
+  if (!/\/oauth\/?$/.test(url.pathname) || !url.searchParams.has('oauth_state_id') || !openedByDavey(win)) return false
+  win.opener!.postMessage({ type: OAUTH_HANDOFF, href: url.href }, win.location.origin)
+  win.history.replaceState(null, '', url.pathname)
   return true
 }
 
