@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { BankBadge } from '../components/BankBadge'
 import { CategoryChart } from '../components/CategoryChart'
+import { CategoryManagerDialog } from '../components/CategoryManager'
 import { CategoryPicker } from '../components/CategoryPicker'
 import { ConnectionRow } from '../components/ConnectionStatus'
 import { GoalBar } from '../components/GoalBar'
@@ -152,7 +153,7 @@ function GoalEditor({ a, onDone }: { a: Account; onDone: () => void }) {
 }
 
 /** One account: Bank | Account | Category, then the balance; its goal below. The name opens nickname and use. */
-function AccountRow({ r, categories, onPick }: { r: Row; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void> }) {
+function AccountRow({ r, categories, onPick, onManage }: { r: Row; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void>; onManage: () => void }) {
   const a = r.account
   const [editing, setEditing] = useState(false)
   const [open, setOpen] = useState(false)
@@ -162,12 +163,12 @@ function AccountRow({ r, categories, onPick }: { r: Row; categories: AccountCate
   return (
     <li className="goal-row" data-testid={`account-${a.id}`}>
       <div className="acct-row">
-        <span className="acct-bank"><BankBadge name={r.bank} color={a.bankColor} /><span className="acct-bank-name">{r.bank}</span></span>
+        <span className="acct-bank"><BankBadge name={r.bank} color={a.bankColor} logo={a.bankLogo} /><span className="acct-bank-name">{r.bank}</span></span>
         <button type="button" className="acct-name" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           <span className="row-title">{displayName(a)}</span>{a.mask && <span className="muted small"> ••{a.mask}</span>}
           <ChevronIcon className={open ? 'chev open' : 'chev'} />
         </button>
-        <span className="acct-cat"><CategoryPicker label={displayName(a)} value={r.picked ? r.category?.id : undefined} categories={categories} suggested={suggestedName(a, categories)} onPick={(id) => onPick(a, id)} /></span>
+        <span className="acct-cat"><CategoryPicker label={displayName(a)} value={r.picked ? r.category?.id : undefined} categories={categories} suggested={suggestedName(a, categories)} onPick={(id) => onPick(a, id)} onManage={onManage} /></span>
         <span className={'row-amount acct-amount ' + (debt ? 'negative' : '')}>{money(debt ? -Math.abs(a.balance) : a.balance, a.currency)}</span>
       </div>
       {f !== undefined && row.goal !== undefined ? (
@@ -290,6 +291,7 @@ export function Accounts() {
   const [showHidden, setShowHidden] = useState(false)
   const [query, setQuery] = useState('')
   const [prefs, setPrefs] = usePrefs(session?.user.id)
+  const [managing, setManaging] = useState(false)
 
   if (!accounts || !categories) return <Spinner label="Loading accounts" />
   const shown = accounts.filter((a) => showHidden || !a.hidden)
@@ -364,7 +366,7 @@ export function Accounts() {
             <button type="button" aria-pressed={prefs.view === 'list'} onClick={() => setPrefs({ view: 'list' })}>List</button>
             <button type="button" aria-pressed={prefs.view === 'table'} onClick={() => setPrefs({ view: 'table' })}>Table</button>
           </div>
-          <Link className="btn btn-secondary btn-sm" to="/settings#account-categories">Manage categories</Link>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setManaging(true)}>Manage categories</button>
         </div>
       )}
 
@@ -391,7 +393,7 @@ export function Accounts() {
       )}
 
       {prefs.view === 'table' ? (
-        <AccountsTable secs={secs} grouped={prefs.group !== 'none'} categories={categories} onPick={pick}
+        <AccountsTable secs={secs} grouped={prefs.group !== 'none'} categories={categories} onPick={pick} onManage={() => setManaging(true)}
           sort={prefs.sort} dir={prefs.dir} onSort={(sort) => setPrefs(sort === prefs.sort ? { dir: prefs.dir === 1 ? -1 : 1 } : { sort, dir: 1 })} />
       ) : secs.map((g) => {
         const collapsed = prefs.collapsed.includes(g.key)
@@ -402,7 +404,7 @@ export function Accounts() {
               <span className="group-total num">{money(g.total / 100)}{g.goals.fraction !== undefined ? ` · ${percentText(g.goals.fraction * 100)} funded` : ''}</span>
               <ChevronIcon className={collapsed ? 'chev' : 'chev open'} />
             </button>
-            {!collapsed && <ul className="list">{g.rows.map((r) => <AccountRow key={r.account.id} r={r} categories={categories} onPick={pick} />)}</ul>}
+            {!collapsed && <ul className="list">{g.rows.map((r) => <AccountRow key={r.account.id} r={r} categories={categories} onPick={pick} onManage={() => setManaging(true)} />)}</ul>}
           </section>
         )
       })}
@@ -416,6 +418,7 @@ export function Accounts() {
           {connections.map((c) => <ConnectionRow key={c.id} c={c} checking={!!c.itemId && check.checking.has(c.itemId)} problem={c.itemId ? check.problems.get(c.itemId) : undefined} onRetry={c.itemId ? () => void check.retry(c.itemId!) : undefined} />)}
         </section>
       )}
+      {managing && <CategoryManagerDialog onClose={() => setManaging(false)} />}
       {hiddenCount > 0 && (
         <button className="link-btn" onClick={() => setShowHidden((v) => !v)}>{showHidden ? 'Hide hidden accounts' : `Show ${hiddenCount} hidden ${hiddenCount === 1 ? 'account' : 'accounts'}`}</button>
       )}
@@ -434,8 +437,8 @@ const COLUMNS: { key: SortBy | 'category' | 'goal'; label: string; num?: boolean
 ]
 
 /** The spreadsheet view: sortable Bank | Account | Category | Balance | Goal | % Funded | Updated, subtotal per section. */
-function AccountsTable({ secs, grouped, categories, onPick, sort, dir, onSort }: {
-  secs: Section[]; grouped: boolean; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void>
+function AccountsTable({ secs, grouped, categories, onPick, onManage, sort, dir, onSort }: {
+  secs: Section[]; grouped: boolean; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void>; onManage: () => void
   sort: SortBy; dir: 1 | -1; onSort: (s: SortBy) => void
 }) {
   return (
@@ -471,9 +474,9 @@ function AccountsTable({ secs, grouped, categories, onPick, sort, dir, onSort }:
                 const debt = isLiability(a)
                 return (
                   <tr key={a.id}>
-                    <td><span className="acct-bank"><BankBadge name={r.bank} color={a.bankColor} /><span className="acct-bank-name">{r.bank}</span></span></td>
+                    <td><span className="acct-bank"><BankBadge name={r.bank} color={a.bankColor} logo={a.bankLogo} /><span className="acct-bank-name">{r.bank}</span></span></td>
                     <th scope="row">{displayName(a)}{a.mask ? <span className="muted small"> ••{a.mask}</span> : null}</th>
-                    <td className="cat-cell"><CategoryPicker label={displayName(a)} value={r.picked ? r.category?.id : undefined} categories={categories} suggested={suggestedName(a, categories)} onPick={(id) => onPick(a, id)} /></td>
+                    <td className="cat-cell"><CategoryPicker label={displayName(a)} value={r.picked ? r.category?.id : undefined} categories={categories} suggested={suggestedName(a, categories)} onPick={(id) => onPick(a, id)} onManage={onManage} /></td>
                     <td className={'num ' + (debt ? 'negative' : '')}>{money(debt ? -Math.abs(a.balance) : a.balance, a.currency)}</td>
                     <td className="num">{row.goal !== undefined ? (debt && row.goal === 0 ? 'Pay off' : money(row.goal / 100)) : '—'}</td>
                     <td className="num">{f !== undefined ? percentText(f * 100) : '—'}</td>

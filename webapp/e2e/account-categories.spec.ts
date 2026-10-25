@@ -187,3 +187,22 @@ for (const theme of ['light', 'dark'] as const) {
     }
   })
 }
+
+test('manage categories over the Accounts screen (like the app’s sheet): from the tools and from an account', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true })
+  await page.goto('/app/accounts')
+  await page.getByRole('button', { name: 'Manage categories' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Manage account categories' })
+  await dialog.getByLabel('Name of Savings').fill('Reserve')
+  await dialog.getByLabel('Name of Savings').press('Enter')
+  await expect(dialog.getByLabel('Name of Reserve')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Done' }).click()
+  await expect(page).toHaveURL(/\/app\/accounts$/)
+  await expect(page.getByRole('region', { name: 'Reserve', exact: true })).toContainText('Plaid Saving')
+  expect(state.pushes.flatMap((p) => p.p_records as { entity: string; payload: Record<string, unknown> }[]).some((r) => r.entity === 'accountCategory' && r.payload.name === 'Reserve')).toBe(true)
+
+  await page.getByLabel('Category for Car').selectOption({ label: 'Manage categories…' })
+  await expect(page.getByRole('dialog', { name: 'Manage account categories' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})

@@ -159,6 +159,7 @@ export function toRows(input: {
       account_category_id: text(p.accountCategoryID),
       loan_kind: text(p.loanKind),
       bank_color: text(bank?.brandColorHex),
+      bank_logo: text(bank?.logo),
       household_id: a.household_id,
     } as Row
   })

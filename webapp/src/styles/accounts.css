@@ -88,3 +88,8 @@ path.slice[class*="cc-"] { stroke: var(--cc); cursor: pointer; }
 .cat-move { min-width: 36px; padding: 4px 8px; }
 .cat-count { min-width: 5.5em; }
 .accounts-table .cat-cell .input { min-width: 130px; max-width: 170px; }
+.bank-logo { background: #fff; object-fit: contain; padding: 3px; box-sizing: border-box; }
+.cat-dialog { border: 0; padding: 12px; background: var(--surface); color: var(--text); border-radius: var(--radius); width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; }
+.cat-dialog::backdrop { background: rgba(19, 28, 40, .55); }
+.cat-dialog .card { margin: 0; border: 0; box-shadow: none; }
+.cat-dialog-actions { justify-content: flex-end; padding: 0 20px 8px; }

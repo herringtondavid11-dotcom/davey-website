@@ -11,12 +11,14 @@ const AUTO = ''
  * One account's category: any category, Automatic (from the account's type), a new one, or Manage categories.
  * `value` is the picked category's ID; `suggested` names what Automatic gives.
  */
-export function CategoryPicker({ label, value, categories, suggested, onPick }: {
+export function CategoryPicker({ label, value, categories, suggested, onPick, onManage }: {
   label: string
   value?: string
   categories: AccountCategory[]
   suggested?: string
   onPick: (categoryId: string | null) => Promise<void>
+  /** Opens the category manager over this screen (else Settings). */
+  onManage?: () => void
 }) {
   const navigate = useNavigate()
   const [adding, setAdding] = useState(false)
@@ -69,7 +71,7 @@ export function CategoryPicker({ label, value, categories, suggested, onPick }: 
         onChange={(e) => {
           const v = e.target.value
           if (v === NEW) return setAdding(true)
-          if (v === MANAGE) return navigate('/settings#account-categories')
+          if (v === MANAGE) return onManage ? onManage() : navigate('/settings#account-categories')
           void pick(v === AUTO ? null : v)
         }}>
         <option value={AUTO}>{suggested ? `${suggested} (auto)` : 'Automatic'}</option>

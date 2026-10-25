@@ -12,6 +12,10 @@ No server change. Steps:
 3. Rename one category on the iPhone; within a minute the web (daveypersonalfinance.com/app, Settings) and Allie's
    iPhone show the new name. Pick a category for an account on the web; the iPhone moves it.
 4. Run Davey's UI tests on the Mac once (AccountsTabUITests, MacDesktopUITests updated for the new controls).
+5. Parity check on each surface (ACCOUNTS-PARITY.md): iPhone, iPad (the iPhone app), Mac, desktop browser, and
+   daveypersonalfinance.com/app in iPhone Safari and Chrome. On each: switch List/Table, sort a table column, tap a
+   chart slice, add a category from an account's menu, and confirm the same bank logo shows. davey-ios
+   release-candidate 3cc3a04 adds the iPhone/iPad table and the shared bank logo.
 
 ## Account categories, round 1 (2026-10-25, superseded by round 2)
 

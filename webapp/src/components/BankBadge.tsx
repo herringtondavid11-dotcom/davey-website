@@ -6,7 +6,9 @@ function textOn(hex: string): string {
 }
 
 /** The bank's mark: its initials on its brand colour (Plaid's), or slate for manual accounts. Decorative; the name is shown beside it. */
-export function BankBadge({ name, color }: { name: string; color?: string }) {
+export function BankBadge({ name, color, logo }: { name: string; color?: string; logo?: string }) {
+  // Plaid's logo when the app has shared it (same as the iPhone and Mac), else the initials on the brand colour.
+  if (logo && /^[A-Za-z0-9+/=]+$/.test(logo)) return <img className="bank-badge bank-logo" src={`data:image/png;base64,${logo}`} alt="" aria-hidden="true" />
   const initials = name === 'Manual' ? '✎' : name.split(/[\s&]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('')
   const bg = color && /^#?[0-9a-f]{6}$/i.test(color) ? (color.startsWith('#') ? color : `#${color}`) : undefined
   return <span className="bank-badge" aria-hidden="true" style={bg ? { background: bg, color: textOn(bg) } : undefined}>{initials}</span>

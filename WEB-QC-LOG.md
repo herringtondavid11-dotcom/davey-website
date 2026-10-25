@@ -658,3 +658,10 @@ the GitHub Pages run instead.
   CSS moved to its own chunk), `.chip` class clash.
 - Parity: account-categories.fixture.json read by web and app tests. iPhone/Mac fd4d4cf CI green.
 - Counts: Vitest 141/141; Playwright Chromium 146 passed, 0 failed.
+
+## Accounts categories parity – 2026-10-25 21:00 UTC
+- Every surface the same (ACCOUNTS-PARITY.md): web now shows the bank's Plaid logo (shared by the app) and opens
+  Manage categories in a dialog over Accounts like the app's sheet; iPhone/iPad gained the sortable table with
+  subtotals (one table for all Apple surfaces).
+- Mobile web: e2e/account-categories-mobile.spec.ts (iPhone viewport, touch) taps through every feature.
+- Counts: Vitest 141/141; Playwright Chromium 150 passed, 0 failed.

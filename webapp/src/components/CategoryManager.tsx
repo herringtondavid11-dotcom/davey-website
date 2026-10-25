@@ -24,7 +24,7 @@ function ColorPicker({ value, label, onPick }: { value: ColorName; label: string
 }
 
 /** Settings › Account categories: add, rename, recolour, reorder, and remove (moving its accounts first). Shared with the household. */
-export function CategoryManager() {
+export function CategoryManager({ inDialog }: { inDialog?: boolean } = {}) {
   const { categories, records, error: loadError } = useAccountCategories()
   const { accounts, reload } = useData()
   const [error, setError] = useState('')
@@ -37,8 +37,8 @@ export function CategoryManager() {
   const ready = categories !== null
   // "Manage categories…" from an account lands here (/settings#account-categories).
   useEffect(() => {
-    if (ready && window.location.hash === '#account-categories') ref.current?.scrollIntoView({ block: 'start' })
-  }, [ready])
+    if (ready && !inDialog && window.location.hash === '#account-categories') ref.current?.scrollIntoView({ block: 'start' })
+  }, [ready, inDialog])
 
   async function run(work: () => Promise<void>) {
     setBusy(true)
@@ -112,5 +112,20 @@ export function CategoryManager() {
         <button className="btn btn-primary btn-sm" disabled={busy || !newName.trim()}>Add category</button>
       </form>
     </section>
+  )
+}
+
+/** The manager over the current screen (the app's sheet): opened from Accounts or an account's category picker. */
+export function CategoryManagerDialog({ onClose }: { onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const d = ref.current
+    if (d && !d.open) d.showModal()
+  }, [])
+  return (
+    <dialog ref={ref} className="cat-dialog" aria-label="Manage account categories" onClose={onClose} onCancel={onClose}>
+      <CategoryManager inDialog />
+      <div className="row-actions cat-dialog-actions"><button type="button" className="btn btn-primary" onClick={() => { ref.current?.close(); onClose() }}>Done</button></div>
+    </dialog>
   )
 }

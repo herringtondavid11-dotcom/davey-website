@@ -125,6 +125,9 @@ export function extraTables(): Record<string, Row[]> {
   }
 }
 
+/** A 1×1 PNG standing in for Plaid's logo (the app shares the real one on the bank record). */
+export const CHASE_LOGO = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
 // ---- Davey's real server shape: household_records (see src/lib/serverData.ts) ----
 const HOUSEHOLD = 'house-1'
 const daveyType = (a: Row) =>
@@ -144,7 +147,8 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
     const id = `bank-${String(item.institution_name).toLowerCase().replace(/\W+/g, '-')}`
     banks.set(String(item.institution_name), id)
     add('bankConnection', id, { itemID: item.plaid_item_id, institutionName: item.institution_name, institutionID: item.institution_id ?? null,
-      cursor: item.cursor ?? null, status: item.status === 'login_required' ? 'needsReauth' : item.status === 'error' ? 'error' : 'ok', lastSyncedAt: item.last_synced_at })
+      cursor: item.cursor ?? null, status: item.status === 'login_required' ? 'needsReauth' : item.status === 'error' ? 'error' : 'ok', lastSyncedAt: item.last_synced_at,
+      ...(item.institution_name === 'Chase' ? { logo: CHASE_LOGO } : {}) })
   }
   const categories = new Set<string>()
   for (const t of state.transactions) if (t.category) categories.add(String(t.category))
