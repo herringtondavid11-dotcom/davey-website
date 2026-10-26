@@ -5,6 +5,8 @@ const { defaultBrowserType: _pixelBrowser, ...pixel5 } = devices['Pixel 5']
 
 export default defineConfig({
   testDir: 'e2e',
+  // Deep-QA probes (e2e/qa) report findings instead of asserting; run them with QA=1.
+  testIgnore: process.env.QA ? [] : ['qa/**'],
   fullyParallel: true,
   workers: process.env.CI ? 2 : 4,
   reporter: [['list']],
