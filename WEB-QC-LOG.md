@@ -726,3 +726,10 @@ the GitHub Pages run instead.
 - Syncs now lay only bank fields onto the newest copy of each record before saving, so an edit made during a sync
   (nickname, category, Hide) isn't overwritten; Refresh all waits for the one-time duplicate repair.
 - Counts: Vitest 151/151; Playwright Chromium 160 passed, 0 failed.
+
+## Loop 99 – 2026-10-26 05:31 UTC
+- Pages run success for d9b6f48; davey-ios release-candidate c3fbd77 CI green (ff8eac1 green too).
+- Found and fixed this hour (David's reports): duplicates, chart % sign, Investments layout, "Bank" orphans, sync
+  overwriting concurrent edits (entries above).
+- Counts: Vitest 151/151; Playwright Chromium 160 passed, 0 failed.
+- The hourly check now runs inside the 30-minute "Davey deep QA round" (QA-FINDINGS.md); no separate hourly re-arm.
