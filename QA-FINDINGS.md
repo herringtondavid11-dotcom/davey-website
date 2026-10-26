@@ -16,6 +16,8 @@ Status: 🔴 open · 🟡 in progress · ✅ fixed (commit)
 ## Fix log (from 2:00 AM PT)
 - 09:30 UTC: #4 Refresh all 7 reloads → 2, 5–7 s → 1.7 s (3 banks); #9/#10 (+#1) screens open at the top, Back restores the scroll position. a91c572
 
+- 10:10 UTC: #18/#19 help and Settings usable during a data outage, clearer error; #22 44 px touch targets. 2137bf0
+
 ## Fixed today (before the QA window)
 - ✅ Duplicate investment accounts from Refresh all (3dc0c9a)
 - ✅ Accounts chart % flipped sign with a negative net worth (3dc0c9a, iOS ff8eac1)
@@ -94,11 +96,11 @@ made **7 full household reloads (77 transaction-page requests)** for 3 syncs and
 | 15 | P2 | Web | Add a manual account with balance "abc": pressing Add does nothing, with no message. Show "Enter an amount like 1,250.50" next to the field. | 🔴 |
 | 16 | P3 | Web | Goal editor: invalid amounts ("abc", "-5", "0") just grey out Save without saying why; "1e9" is accepted as $1,000,000,000; "10,000.555" keeps fractions of a cent; a target date in the past is accepted. Inline messages, money parsing to cents, date ≥ today. | 🔴 |
 | 17 | P3 | Web | Offline: saving shows "Couldn't save. Try again." with no sign the device is offline, and the edit is lost on reload. Show an offline banner and offer to retry when back online. | 🔴 |
-| 18 | P2 | Web | When loading fails, every screen shows only "Couldn't load your data", including Connection help, which is static help you need most when things are broken. Keep help (and Settings › sign out) usable; show the error as a banner over cached data where there is some. | 🔴 |
-| 19 | P3 | Web | The error card repeats itself ("Couldn't load your data" as the title and again in the text). Say what to do instead: "Check your connection, then Try again. Your data is safe." | 🔴 |
+| 18 | P2 | Web | When loading fails, every screen shows only "Couldn't load your data", including Connection help, which is static help you need most when things are broken. Keep help (and Settings › sign out) usable; show the error as a banner over cached data where there is some. | ✅ 2137bf0 |
+| 19 | P3 | Web | The error card repeats itself ("Couldn't load your data" as the title and again in the text). Say what to do instead: "Check your connection, then Try again. Your data is safe." | ✅ 2137bf0 |
 | 20 | P3 | Web | Empty household: Accounts, Budget, Cash flow, Recurring and Tax show $0.00 dashboards instead of a first step. Overview, Credit cards, Loans and Investments already say "Connect an account". Make them consistent: one short line and a Connect / Add account button. | 🔴 |
 | 21 | P2 | Web ↔ app parity | Household on the web says "Turn it on in the Davey app"; starting Household Sharing isn't possible on the web. Check against the spec; either add it or link to the exact app steps. | 🔴 |
-| 22 | P2 | Web phone/tablet | Tap targets under 44 px (Apple's minimum) at 320–768: the account name buttons on Accounts are 24 px tall; Set goal, Budget Edit (24×28), Set budget, Settings Remove and Exports downloads are 28 px. Give them a 44 px hit area (padding or a pseudo-element) without changing the look. | 🔴 |
+| 22 | P2 | Web phone/tablet | Tap targets under 44 px (Apple's minimum) at 320–768: the account name buttons on Accounts are 24 px tall; Set goal, Budget Edit (24×28), Set budget, Settings Remove and Exports downloads are 28 px. Give them a 44 px hit area (padding or a pseudo-element) without changing the look. | ✅ 2137bf0 |
 | 23 | P3 | Web phone | Recurring calendar day cells are 32 px wide at 320 px (fine at 390 and up). Acceptable; note for a compact week view. | 🔴 |
 | 8 | P3 | iPhone/Mac | Check the same Refresh all cost on the app (BankSyncService.refreshAll runs banks one after another). Code review in a later round. | 🔴 |
 

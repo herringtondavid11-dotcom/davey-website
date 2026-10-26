@@ -737,3 +737,8 @@ the GitHub Pages run instead.
 ## Loop 100 – 2026-10-26 09:35 UTC (deep QA, first fix round)
 - Fixed QA #4 (Refresh all reload storm), #9/#10/#1 (scroll to top / restore on Back). a91c572.
 - Counts: Vitest 151/151; Playwright Chromium 163 passed, 0 failed.
+
+## Loop 101 – 2026-10-26 10:10 UTC (deep QA fix round 2)
+- Fixed QA #18, #19, #22 (2137bf0). Full suite caught a raw server message in Settings once it rendered during an
+  outage; fixed in the same commit.
+- Counts: Vitest 151/151; Playwright Chromium 165 passed, 0 failed.
