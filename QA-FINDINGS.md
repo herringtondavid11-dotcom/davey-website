@@ -37,6 +37,11 @@ Status: 🔴 open · 🟡 in progress · ✅ fixed (commit)
 | Tax | 27 | 16 |
 | Settings | 34 | 28 |
 
+## Empty, loading and error states (round 5, 08:00 UTC)
+Works: slow loads show a labeled spinner ("Loading accounts") within 300 ms on every screen; failed loads show an
+error with Try again on every screen; empty Overview, Credit cards, Loans and Investments say what to do.
+Problems: #18–#21.
+
 ## Forms (round 4, 07:20 UTC)
 Works: double Enter or double-click submits once (nickname, manual account); a slow save shows "Saving…" with the
 button disabled; offline saves show an error instead of hanging. Problems: #15–#17.
@@ -82,6 +87,10 @@ made **7 full household reloads (77 transaction-page requests)** for 3 syncs and
 | 15 | P2 | Web | Add a manual account with balance "abc": pressing Add does nothing, with no message. Show "Enter an amount like 1,250.50" next to the field. | 🔴 |
 | 16 | P3 | Web | Goal editor: invalid amounts ("abc", "-5", "0") just grey out Save without saying why; "1e9" is accepted as $1,000,000,000; "10,000.555" keeps fractions of a cent; a target date in the past is accepted. Inline messages, money parsing to cents, date ≥ today. | 🔴 |
 | 17 | P3 | Web | Offline: saving shows "Couldn't save. Try again." with no sign the device is offline, and the edit is lost on reload. Show an offline banner and offer to retry when back online. | 🔴 |
+| 18 | P2 | Web | When loading fails, every screen shows only "Couldn't load your data", including Connection help, which is static help you need most when things are broken. Keep help (and Settings › sign out) usable; show the error as a banner over cached data where there is some. | 🔴 |
+| 19 | P3 | Web | The error card repeats itself ("Couldn't load your data" as the title and again in the text). Say what to do instead: "Check your connection, then Try again. Your data is safe." | 🔴 |
+| 20 | P3 | Web | Empty household: Accounts, Budget, Cash flow, Recurring and Tax show $0.00 dashboards instead of a first step. Overview, Credit cards, Loans and Investments already say "Connect an account". Make them consistent: one short line and a Connect / Add account button. | 🔴 |
+| 21 | P2 | Web ↔ app parity | Household on the web says "Turn it on in the Davey app"; starting Household Sharing isn't possible on the web. Check against the spec; either add it or link to the exact app steps. | 🔴 |
 | 8 | P3 | iPhone/Mac | Check the same Refresh all cost on the app (BankSyncService.refreshAll runs banks one after another). Code review in a later round. | 🔴 |
 
 ## Enhancements (proposed)
