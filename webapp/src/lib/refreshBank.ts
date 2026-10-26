@@ -6,7 +6,7 @@
 // The household's records are the shared copy, so what's written here reaches the iPhone and Mac too.
 import { supabase } from './supabase'
 import { daveyAccountType, defaultCategoryName, isLiability, plaidDay, type AppAccount, type AppTransaction, type SyncPage } from './importBank'
-import { reloadDaveyData, type DaveyData, type HouseholdRecord } from './serverData'
+import { fetchRecordsById, type DaveyData, type HouseholdRecord } from './serverData'
 import { repairOnce } from './repairAccounts'
 
 type Row = Record<string, unknown>
@@ -274,8 +274,17 @@ export function mergeOntoLatest(changes: RecordChange[], latest: Map<string, Hou
   })
 }
 
+/** The newest copy of just the records these changes touch (not the whole household). */
+async function latestOf(changes: RecordChange[]): Promise<Map<string, HouseholdRecord>> {
+  const byEntity = new Map<string, string[]>()
+  for (const c of changes) if (!c.deleted && SYNC_FIELDS[c.entity]) byEntity.set(c.entity, [...(byEntity.get(c.entity) ?? []), c.id])
+  const latest = new Map<string, HouseholdRecord>()
+  for (const [entity, ids] of byEntity) for (const r of await fetchRecordsById(entity, ids)) latest.set(`${entity}:${r.id}`, r)
+  return latest
+}
+
 async function push(household: string, changes: RecordChange[]) {
-  changes = mergeOntoLatest(changes, (await reloadDaveyData()).records)
+  changes = mergeOntoLatest(changes, await latestOf(changes))
   const updatedAt = new Date().toISOString()
   for (let i = 0; i < changes.length; i += 200) {
     const batch = changes.slice(i, i + 200).map((c) => ({ entity: c.entity, id: c.id, payload: c.payload, updated_at: updatedAt, deleted: c.deleted === true }))
@@ -337,20 +346,29 @@ export function balanceNote(live: boolean, reason?: string): string {
 export async function refreshAllBanks(load: () => Promise<DaveyData>, opts: { realtime?: boolean; skipNeedsReauth?: boolean } = {}): Promise<RefreshResult[]> {
   // After the one-time duplicate repair (one shared promise): a sync that read the records first would write them back.
   await repairOnce(load)
-  const banks = [...(await load()).records.values()].filter((r) => r.entity === 'bankConnection' && text(r.payload.itemID) &&
+  // One load for every bank (each bank's records are its own), then each save lays its changes onto the newest copy
+  // of just the records it touches. Reloading the household per bank made 12 banks ~25 full reloads (QA #4).
+  const data = await load()
+  const banks = [...data.records.values()].filter((r) => r.entity === 'bankConnection' && text(r.payload.itemID) &&
     !(opts.skipNeedsReauth && r.payload.status === 'needsReauth'))
-  const results: RefreshResult[] = []
-  for (const bank of banks) {
-    const itemId = text(bank.payload.itemID)!
-    const institution = text(bank.payload.institutionName) ?? 'Bank'
-    try {
-      const done = await refreshBank(itemId, await load(), { realtime: opts.realtime ?? true })
-      results.push({ itemId, institution, outcome: 'updated', live: done?.balanceSource === 'live', reason: done?.balanceSource })
-    } catch (e) {
-      if (e instanceof SyncError && e.code === 'item_login_required') results.push({ itemId, institution, outcome: 'needsReconnect' })
-      else results.push({ itemId, institution, outcome: 'failed', message: (e as Error).message })
+  const results: RefreshResult[] = new Array(banks.length)
+  let next = 0
+  const worker = async () => {
+    for (let i = next++; i < banks.length; i = next++) {
+      const bank = banks[i]
+      const itemId = text(bank.payload.itemID)!
+      const institution = text(bank.payload.institutionName) ?? 'Bank'
+      try {
+        const done = await refreshBank(itemId, data, { realtime: opts.realtime ?? true })
+        results[i] = { itemId, institution, outcome: 'updated', live: done?.balanceSource === 'live', reason: done?.balanceSource }
+      } catch (e) {
+        if (e instanceof SyncError && e.code === 'item_login_required') results[i] = { itemId, institution, outcome: 'needsReconnect' }
+        else results[i] = { itemId, institution, outcome: 'failed', message: (e as Error).message }
+      }
     }
   }
+  // Three banks at a time: quicker than one by one, gentle on Plaid and the database.
+  await Promise.all(Array.from({ length: Math.min(3, banks.length) }, worker))
   return results
 }
 
@@ -380,10 +398,11 @@ export function dueForCheck(itemId: string, now = Date.now()): boolean {
  */
 export async function checkConnections(itemIds: string[], load: () => Promise<DaveyData>): Promise<Map<string, string>> {
   const problems = new Map<string, string>()
+  const data = itemIds.length ? await load() : null
   for (const itemId of itemIds) {
     checkedAt.set(itemId, Date.now())
     try {
-      const done = await refreshBank(itemId, await load())
+      const done = await refreshBank(itemId, data!)
       if (!done) problems.set(itemId, "This connection isn't shared with your household yet.")
     } catch (e) {
       problems.set(itemId, (e as Error).message)

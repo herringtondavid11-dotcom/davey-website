@@ -47,3 +47,21 @@ test('phone: the refresh button is in reach and the results fit', async ({ page 
   await expect(page.getByRole('region', { name: /^Refreshed/ })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
 })
+
+// QA #4 (2026-10-26): Refresh all reloaded the whole household before and after every bank (7 reloads for 3 banks).
+// Now one load for all banks, saves merge onto just the records they touch, and the screen reloads once.
+test('Refresh all loads the household at most twice, however many banks', async ({ page }) => {
+  await mockBackend(page, { signedIn: true, bulkTransactions: 2_000 })
+  await page.goto('/app/accounts')
+  await expect(page.getByRole('heading', { name: 'Accounts', level: 1 })).toBeVisible()
+  await page.waitForLoadState('networkidle')
+  const fullLoads: string[] = []
+  page.on('request', (r) => {
+    const u = new URL(r.url())
+    if (u.pathname === '/rest/v1/household_records' && u.searchParams.get('entity') === 'eq.bankConnection') fullLoads.push(u.search)
+  })
+  await page.getByRole('button', { name: 'Refresh all accounts' }).click()
+  await expect(page.getByRole('region', { name: /^Refreshed/ })).toBeVisible()
+  await page.waitForLoadState('networkidle')
+  expect(fullLoads.length).toBeLessThanOrEqual(2)
+})

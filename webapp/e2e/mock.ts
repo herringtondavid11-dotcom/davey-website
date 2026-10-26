@@ -463,7 +463,8 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       const categories = (opts.accountCategories ?? []).map((c) => ({ household_id: HOUSEHOLD, entity: 'accountCategory', id: c.id, payload: c.payload, updated_at: '2026-10-01T00:00:00Z' }))
       const all = [...householdRecords(state), ...(opts.manualInvestments ? manualInvestmentRecords() : []), ...categories]
         .filter((r) => !pushed.has(`${r.entity}:${r.id}`)).concat(state.pushed)
-      const rows = all.filter((r) => r.entity === entity && !(r as { deleted?: boolean }).deleted)
+      const idIn = url.searchParams.get('id')?.match(/^in\.\((.*)\)$/)?.[1]?.split(',').map((x) => x.replace(/^"|"$/g, ''))
+      const rows = all.filter((r) => r.entity === entity && !(r as { deleted?: boolean }).deleted && (!idIn || idIn.includes(r.id)))
       const offset = Number(url.searchParams.get('offset') ?? 0)
       const limit = Number(url.searchParams.get('limit') ?? rows.length)
       return json(route, rows.slice(offset, offset + limit))

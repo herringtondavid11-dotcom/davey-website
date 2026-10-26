@@ -36,6 +36,25 @@ export async function fetchRecords(entity: string): Promise<HouseholdRecord[]> {
   }
 }
 
+/**
+ * The current copy of particular records (id in …), for laying a change onto the newest version without reloading
+ * the whole household. Deleted ones are left out.
+ */
+export async function fetchRecordsById(entity: string, ids: string[]): Promise<HouseholdRecord[]> {
+  const all: HouseholdRecord[] = []
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await supabase
+      .from('household_records')
+      .select('household_id,entity,id,payload,updated_at')
+      .eq('entity', entity)
+      .eq('deleted', false)
+      .in('id', ids.slice(i, i + 100))
+    if (error) throw error
+    all.push(...((data ?? []) as HouseholdRecord[]))
+  }
+  return all
+}
+
 const minor = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v / 100 : 0)
 const optMinor = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v / 100 : undefined)
 const text = (v: unknown): string | undefined => (typeof v === 'string' && v !== '' ? v : undefined)

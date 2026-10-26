@@ -1,14 +1,13 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { ScrollManager } from './components/ScrollManager'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { Layout } from './components/Layout'
 import { FullPageSpinner } from './components/Spinner'
 import { DataProvider } from './lib/DataProvider'
 import { hashSession, supabase } from './lib/supabase'
 import { AccessCode, AccessGate } from './screens/AccessCode'
-import { ForgotPassword } from './screens/ForgotPassword'
 import { Login } from './screens/Login'
-import { ResetLinkExpired, ResetPassword } from './screens/ResetPassword'
 import { SignUp } from './screens/SignUp'
 
 // Screens load on demand, so the sign-in screens (the first visit) download only what they need.
@@ -49,6 +48,10 @@ function DocumentTitle() {
   return null
 }
 
+// Rarely used signed-out screens load on demand, keeping the first download under its budget.
+const ForgotPassword = lazy(() => import('./screens/ForgotPassword').then((m) => ({ default: m.ForgotPassword })))
+const ResetPassword = lazy(() => import('./screens/ResetPassword').then((m) => ({ default: m.ResetPassword })))
+const ResetLinkExpired = lazy(() => import('./screens/ResetPassword').then((m) => ({ default: m.ResetLinkExpired })))
 const Transactions = lazy(() => import('./screens/Transactions').then((m) => ({ default: m.Transactions })))
 const Overview = lazy(() => import('./screens/Overview').then((m) => ({ default: m.Overview })))
 const Connect = lazy(() => import('./screens/Connect').then((m) => ({ default: m.Connect })))
@@ -217,6 +220,7 @@ export function App() {
   return (
     <BrowserRouter basename="/app">
       <DocumentTitle />
+      <ScrollManager />
       <AuthProvider>
         <Suspense fallback={<FullPageSpinner />}>
           <AppRoutes />
