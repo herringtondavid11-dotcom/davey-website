@@ -4,6 +4,7 @@ import { compact } from '../components/BarChart'
 import { Stat } from '../components/Controls'
 import { Forecaster } from '../components/Forecaster'
 import { LineChart } from '../components/LineChart'
+import { RepairNotice } from '../components/RepairNotice'
 import { Spinner } from '../components/Spinner'
 import { useData } from '../lib/DataProvider'
 import { maskLabel, money, moneyWhole } from '../lib/format'
@@ -99,6 +100,7 @@ export function Investments() {
         <div><h1>Investments</h1><p>Brokerage and retirement accounts, and what's in them.</p></div>
         {invest.length > 0 && <button className="btn btn-secondary" onClick={refresh} disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>}
       </div>
+      <RepairNotice />
       {notice && <p className="muted" role="status">{notice}</p>}
       {(holdingsT.error || securitiesT.error || snapshotsT.error) && (
         <div className="banner card" role="alert">
@@ -179,7 +181,7 @@ export function Investments() {
               {byAccount.length > 1 && (
                 <>
                   <h3 className="small">By account</h3>
-                  <ul className="alloc-legend">{byAccount.map(([n, v]) => <li key={n}><span>{n}</span><b className="num">{Math.round((v / (total || 1)) * 100)}%</b><span className="muted num">{money(v)}</span></li>)}</ul>
+                  <ul className="alloc-legend by-account">{byAccount.map(([n, v]) => <li key={n}><span>{n}</span><b className="num">{Math.round((v / (total || 1)) * 100)}%</b><span className="muted num">{money(v)}</span></li>)}</ul>
                 </>
               )}
             </section>

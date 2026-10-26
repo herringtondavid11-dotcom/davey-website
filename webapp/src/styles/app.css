@@ -476,6 +476,9 @@ button.row:hover { background: var(--surface-2); }
 .alloc-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .alloc-legend li { display: grid; grid-template-columns: 14px 1fr auto auto; gap: 10px; align-items: center; font-size: .9375rem; }
 .alloc-legend b { min-width: 3.5em; text-align: right; }
+/* By account has no swatch: three columns, or the name lands in the 14px swatch column and wraps a word per line. */
+.alloc-legend.by-account li { grid-template-columns: minmax(0, 1fr) auto auto; }
+.alloc-legend li > span:first-of-type { overflow-wrap: anywhere; }
 /* Part-to-whole charts: the app's ChartStyle.categories (ChartCategory1–6 assets: blue, ochre, sage, clay, teal, olive),
    in this order; anything past six folds into Other (grid color). */
 :root { --cat-1: #2F6DB0; --cat-2: #B07A00; --cat-3: #2A8F5E; --cat-4: #B4602A; --cat-5: #0B87A8; --cat-6: #7A7A10; }

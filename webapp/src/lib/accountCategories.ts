@@ -253,21 +253,26 @@ export interface CategoryTotal {
   color: ColorName
   /** Signed cents. */
   total: number
-  /** Of net worth (all accounts in view). */
-  shareOfNetWorth?: number
+  /**
+   * Of its side: an asset category's share of everything owned, a debt category's share of everything owed. Always
+   * 0…1, so a negative net worth can't flip the signs (a share of net worth made the mortgage +370% and savings −86%).
+   */
+  share?: number
   count: number
   funded?: number
 }
 
-/** The chart's rows: every category with accounts, in category order, with its share of net worth. */
+/** The chart's rows: every category with accounts, in category order, with its share of assets or of debts. */
 export function categoryTotals(rows: Row[], categories: AccountCategory[]): CategoryTotal[] {
-  const netWorth = rows.reduce((s, r) => s + signedCents(r.account), 0)
-  return sections(rows, 'category', categories).map((s) => ({
+  const list = sections(rows, 'category', categories)
+  const owned = list.reduce((sum, s) => sum + Math.max(s.total, 0), 0)
+  const owed = list.reduce((sum, s) => sum + Math.max(-s.total, 0), 0)
+  return list.map((s) => ({
     id: s.category?.id ?? UNCATEGORIZED,
     name: s.title,
     color: s.category?.color ?? 'slate',
     total: s.total,
-    shareOfNetWorth: netWorth ? s.total / netWorth : undefined,
+    share: s.total > 0 ? (owned ? s.total / owned : undefined) : s.total < 0 ? (owed ? -s.total / owed : undefined) : undefined,
     count: s.rows.length,
     funded: s.goals.fraction,
   }))

@@ -706,3 +706,14 @@ the GitHub Pages run instead.
   frame ≥50 ms); alone it ran 16.7 ms frames 3/3. Made the check robust: at most one stray 50 ms+ frame (two or
   more is jank) and nothing over 250 ms; p95 < 34 ms unchanged. Full suite green after.
 - Counts: Vitest 142/142; Playwright Chromium 153 passed, 0 failed.
+
+## Fix – 2026-10-26 04:55 UTC (David's report: duplicates, backwards %, Investments layout)
+- Duplicate investment accounts: Refresh all (refreshRecords) added every account Plaid reported for a bank, so
+  accounts never imported (or linked under another record) appeared a second time. Syncs now match by Plaid account
+  ID household-wide and never add accounts (only a re-added login, adoptNewItem, may). One-time repair hides the
+  copies (isArchived, shared; nothing deleted) with Undo; Hide/Unhide account added to the account editor.
+- Accounts chart %: share of assets (debts: share of debts) instead of share of a negative net worth. iOS ff8eac1.
+- Investments › By account: 3-column grid (names were in the 14px swatch column, a word per line on desktop).
+- New tests: refreshBank (4), repairAccounts (3), share-of-side; e2e duplicate-repair (3) and a word-per-line
+  layout check on every screen at 1280/1920/360 with long names (it failed on the old build, passes now).
+- Counts: Vitest 149/149; Playwright Chromium 159 passed, 0 failed.

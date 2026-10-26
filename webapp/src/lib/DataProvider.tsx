@@ -2,6 +2,7 @@ import { loadErrorMessage } from './loadError'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { TRANSACTION_PAGE, fetchAccounts, fetchTransactions } from './data'
 import type { Account, Transaction } from './schema'
+import { loadDaveyData, reloadDaveyData } from './serverData'
 
 interface DataContextValue {
   accounts: Account[] | null
@@ -35,6 +36,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setHasMore(t.length === TRANSACTION_PAGE)
       setError(null)
       setStatus('ready')
+      // Accounts an earlier web sync added by mistake are hidden once (repairAccounts.ts), then the screens reload.
+      if (await (await import('./repairAccounts')).repairOnce(loadDaveyData)) {
+        await reloadDaveyData()
+        const [a2, t2] = await Promise.all([fetchAccounts(), fetchTransactions(0)])
+        setAccounts(a2)
+        setTransactions(t2)
+      }
     } catch (e) {
       // Keep whatever is already on screen. An empty list would look like a brand-new account.
       setError(loadErrorMessage(e))

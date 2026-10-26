@@ -57,14 +57,20 @@ export function findSameBank(data: DaveyData, institutionId: string | undefined,
  * - A linked account's balance follows the bank's: startingBalance = bank balance − its transactions (debts negated).
  * - The connection is marked OK, with the new cursor (an empty cursor, history not ready yet, is never saved) and
  *   lastSyncedAt.
+ * - Accounts are matched by Plaid account ID across the whole household (`household`), not only the ones pointing at
+ *   this connection record, and a sync never adds accounts: like PlaidImporter.apply, it updates only the accounts the
+ *   household already has. Accounts the user didn't pick when connecting stay out (Refresh all used to add every
+ *   account Plaid reported, so a brokerage's accounts showed up twice beside the ones added by hand; David, 2026-10-26).
  * - `newItemId` (a second Item for the same login): the connection moves to the new Item, accounts are matched by
  *   Plaid account ID, else mask and type, and transactions the new Item reports again (new IDs) are matched by account,
- *   amount and day instead of being added twice.
+ *   amount and day instead of being added twice. Only then are accounts new to the household added.
  */
 export function refreshRecords(opts: {
   bank: HouseholdRecord
   accounts: HouseholdRecord[]
   transactions: HouseholdRecord[]
+  /** Every account and transaction record in the household, to find this bank's accounts wherever they point. */
+  household?: HouseholdRecord[]
   pages: SyncPage[]
   categoryIdByName: Map<string, string>
   newItemId?: string
@@ -82,11 +88,28 @@ export function refreshRecords(opts: {
   for (const page of opts.pages) for (const a of page.accounts) plaidAccounts.set(a.account_id, a)
   const cursor = [...opts.pages].reverse().map((p) => p.next_cursor).find((c) => c)
 
+  // This bank's accounts that point elsewhere (another copy of the connection record, or none): same Plaid account ID.
+  const own = new Set(opts.accounts.map((r) => r.id))
+  const elsewhere = (opts.household ?? []).filter((r) => r.entity === 'account' && !own.has(r.id) &&
+    plaidAccounts.has(String(r.payload.externalID ?? '')))
+  if (elsewhere.length) {
+    const ids = new Set(elsewhere.map((r) => r.id))
+    const seen = new Set(opts.transactions.map((r) => r.id))
+    opts = {
+      ...opts,
+      accounts: [...opts.accounts, ...elsewhere],
+      transactions: [...opts.transactions, ...(opts.household ?? []).filter((r) => r.entity === 'transaction' && !seen.has(r.id) && ids.has(String(r.payload.accountID)))],
+    }
+  }
+
   // Accounts: Plaid account ID first; for a new Item, the same mask and type (or the same name without a mask).
   const accountFor = new Map<string, HouseholdRecord | RecordChange>()
   const unmatched = new Set(opts.accounts)
   for (const a of plaidAccounts.values()) {
-    const byId = opts.accounts.find((r) => r.payload.externalID === a.account_id)
+    // Two records for one Plaid account (an earlier Refresh all's copy): the one in use, else the oldest.
+    const byId = opts.accounts.filter((r) => r.payload.externalID === a.account_id)
+      .sort((x, y) => Number(x.payload.isArchived === true) - Number(y.payload.isArchived === true) ||
+        String(x.payload.createdAt ?? '').localeCompare(String(y.payload.createdAt ?? '')))[0]
     if (byId) { accountFor.set(a.account_id, byId); unmatched.delete(byId); continue }
     if (!opts.newItemId) continue
     const type = daveyAccountType(a.type, a.subtype)
@@ -95,8 +118,10 @@ export function refreshRecords(opts: {
   }
   const accountPayload = new Map<string, Row>()
   for (const [plaidId, r] of accountFor) accountPayload.set(r.id, { ...r.payload, externalID: plaidId })
-  for (const a of plaidAccounts.values()) {
+  for (const a of [...plaidAccounts.values()]) {
     if (accountFor.has(a.account_id)) continue
+    // An account the household doesn't have: a plain sync leaves it out (and its transactions and balance with it).
+    if (!opts.newItemId) { plaidAccounts.delete(a.account_id); continue }
     const type = daveyAccountType(a.type, a.subtype)
     const record: RecordChange = {
       entity: 'account', id: newId(),
@@ -255,7 +280,7 @@ export async function refreshBank(itemId: string, data: DaveyData, opts: { realt
     }
     throw e
   }
-  const changes = refreshRecords({ ...found, pages, categoryIdByName: categories(data) })
+  const changes = refreshRecords({ ...found, household: [...data.records.values()], pages, categoryIdByName: categories(data) })
   await push(found.bank.household_id, changes)
   return { changes: changes.length, balanceSource: (pages[0] as SyncPage & { balance_source?: string } | undefined)?.balance_source }
 }
@@ -305,7 +330,7 @@ export async function refreshAllBanks(load: () => Promise<DaveyData>): Promise<R
 export async function adoptNewItem(oldBank: HouseholdRecord, newItemId: string, data: DaveyData): Promise<{ changes: number }> {
   const found = bankRecords(data, { bankId: oldBank.id })!
   const pages = await syncPages(newItemId, undefined)
-  const changes = refreshRecords({ ...found, pages, categoryIdByName: categories(data), newItemId })
+  const changes = refreshRecords({ ...found, household: [...data.records.values()], pages, categoryIdByName: categories(data), newItemId })
   await push(oldBank.household_id, changes)
   const oldItemId = text(oldBank.payload.itemID)
   // The old login is replaced; revoke it so Plaid doesn't keep (and bill) both. Its records now belong to the new Item.

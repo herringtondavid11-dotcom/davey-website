@@ -15,7 +15,7 @@ function arc(start: number, end: number): string {
 
 /**
  * Accounts by category: a donut or a 100% bar of what's owned (each category in its own colour), and a legend row per
- * category with its total, % of net worth, accounts and goal % funded. Choosing a slice, bar segment or row filters the
+ * category with its total, share of assets (or of debts), accounts and goal % funded. Choosing a slice, bar segment or row filters the
  * list to that category; `selected` marks the filtered ones.
  */
 export function CategoryChart({ totals, mode, selected, onToggle }: {
@@ -59,14 +59,14 @@ export function CategoryChart({ totals, mode, selected, onToggle }: {
         </div>
       ))}
       <div className="cat-legend" role="list" aria-label="Categories">
-        <div className="cat-legend-head" aria-hidden="true"><span /><span>Category</span><span className="num">Total</span><span className="num">Net worth</span><span className="num">Accounts</span><span className="num">Funded</span></div>
+        <div className="cat-legend-head" aria-hidden="true"><span /><span>Category</span><span className="num">Total</span><span className="num">Share</span><span className="num">Accounts</span><span className="num">Funded</span></div>
         {totals.map((t) => (
           <div key={t.id} role="listitem"><button type="button" className={`cat-legend-row${selected.includes(t.id) ? ' on' : ''}${dim(t.id) ? ' dim' : ''}`}
             aria-pressed={selected.includes(t.id)} onClick={() => onToggle(t.id)}>
             <i className={`swatch cc-${t.color}`} />
             <span className="cat-legend-name">{t.name}</span>
             <span className={'num' + (t.total < 0 ? ' negative' : '')}>{money(t.total / 100)}</span>
-            <span className="num muted">{t.shareOfNetWorth !== undefined ? percentText(t.shareOfNetWorth * 100) : '—'}<span className="visually-hidden"> of net worth,</span></span>
+            <span className="num muted">{t.share !== undefined ? percentText(t.share * 100) : '—'}<span className="visually-hidden">{t.share === undefined ? ',' : t.total < 0 ? ' of debts,' : ' of assets,'}</span></span>
             <span className="num muted">{t.count}<span className="visually-hidden"> {t.count === 1 ? 'account' : 'accounts'},</span></span>
             <span className="num muted">{t.funded !== undefined ? percentText(t.funded * 100) : '—'}<span className="visually-hidden"> funded</span></span>
           </button></div>

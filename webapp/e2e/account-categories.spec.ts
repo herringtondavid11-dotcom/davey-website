@@ -111,7 +111,7 @@ test('chart: donut or bar, totals per category; choosing one filters the list; c
   const legend = page.getByRole('list', { name: 'Categories' })
   const savingsRow = legend.getByRole('button', { name: /^Savings \$/ })
   await expect(savingsRow).toContainText('$25,000.00')
-  await expect(savingsRow).toHaveAccessibleName(/^Savings \$25,000\.00 \d+% of net worth, 1 account, — funded$/)
+  await expect(savingsRow).toHaveAccessibleName(/^Savings \$25,000\.00 \d+% of assets, 1 account, — funded$/)
 
   await page.getByTestId('slice-Savings').click({ force: true })
   await expect(page.locator('.goal-row')).toHaveCount(1)

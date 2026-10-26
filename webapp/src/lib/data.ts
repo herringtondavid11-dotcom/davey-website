@@ -85,6 +85,13 @@ export async function setAccountCategory(a: Account, categoryId: string | null):
   return { ...a, accountCategoryID: categoryId ?? undefined, rollupCategory: undefined }
 }
 
+/** Hides an account everywhere (Account.isArchived in the app) or shows it again. */
+export async function setAccountHidden(a: Account, hidden: boolean): Promise<Account> {
+  if (!hidden) (await import('./repairAccounts')).rememberKept([a.id])
+  await pushChange('account', a.id, hidden ? { isArchived: true } : { isArchived: false, repairKept: true })
+  return { ...a, hidden }
+}
+
 export async function updateAccountUsage(a: Account, usage: Usage): Promise<Account> {
   await pushChange('account', a.id, { isBusiness: usage === 'business' })
   return { ...a, usage }

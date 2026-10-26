@@ -24,7 +24,7 @@ table.
 | 10 | One category per account; automatic suggestion from the Plaid type/subtype, always overridable | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 11 | Categories and assignments sync through household data (Allie sees the same) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 12 | Chart at the top: donut or stacked bar | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 13 | Each category's total, % of net worth, account count and goal % funded | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 13 | Each category's total, share of assets (debts: share of debts; never flips sign), account count and goal % funded | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 14 | Tapping a slice, bar segment or legend row filters the list | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 15 | Group by Category (default), Bank or None | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 16 | Sort by Balance, Name, Bank, % Funded or Recently updated | ✅ | ✅ | ✅ | ✅ | ✅ |

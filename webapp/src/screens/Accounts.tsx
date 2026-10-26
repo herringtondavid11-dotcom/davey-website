@@ -9,6 +9,7 @@ import { CategoryPicker } from '../components/CategoryPicker'
 import { ConnectionRow } from '../components/ConnectionStatus'
 import { GoalBar } from '../components/GoalBar'
 import { AlertIcon, CheckIcon, ChevronIcon, RefreshIcon } from '../components/Icons'
+import { RepairNotice } from '../components/RepairNotice'
 import { Spinner } from '../components/Spinner'
 import {
   BUILT_IN, categoryTotals, filterRows, rowsFor, sections as groupRows, sortRows, suggestion,
@@ -16,7 +17,7 @@ import {
 } from '../lib/accountCategories'
 import { fraction, goalRow, signedCents, summary } from '../lib/accountGoals'
 import { useData } from '../lib/DataProvider'
-import { refreshData, setAccountCategory, updateAccountGoal, updateAccountNickname, updateAccountUsage } from '../lib/data'
+import { refreshData, setAccountCategory, setAccountHidden, updateAccountGoal, updateAccountNickname, updateAccountUsage } from '../lib/data'
 import { isLiability } from '../lib/finance'
 import { displayName, maskLabel, money, percentText, shortDateTime, typeLabel } from '../lib/format'
 import type { Account, Usage } from '../lib/schema'
@@ -97,6 +98,10 @@ function AccountEditor({ a }: { a: Account }) {
           </div>
         </div>
       </form>
+      <button type="button" className="link-btn small" disabled={usageBusy}
+        onClick={async () => { setUsageBusy(true); try { replaceAccount(await setAccountHidden(a, !a.hidden)) } catch { setState('error') } finally { setUsageBusy(false) } }}>
+        {a.hidden ? 'Unhide account' : 'Hide account'}
+      </button>
       {state === 'saved' && <span className="success small" role="status">Saved</span>}
       {state === 'error' && <span className="error small" role="alert">Couldn't save. Try again.</span>}
     </div>
@@ -337,6 +342,7 @@ export function Accounts() {
         )}
       </div>
 
+      <RepairNotice />
       {refreshing && <p className="card card-pad muted" role="status">Refreshing {connections.length} {connections.length === 1 ? 'bank' : 'banks'}…</p>}
       {!refreshing && refreshed && (
         <section className="card refresh-results" aria-labelledby="refresh-title">

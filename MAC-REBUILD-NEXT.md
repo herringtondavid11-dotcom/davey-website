@@ -1,5 +1,16 @@
 # Next Mac rebuild (one Claude Code paste)
 
+## Duplicate accounts, chart shares, Investments layout (2026-10-26, do this first)
+- Cause of the doubled Raymond James accounts: the web's Refresh all added every account Plaid reported for a bank,
+  including ones never imported (the app only imports the accounts picked when connecting). Fixed on the web: a sync
+  now updates only accounts the household has, matched by Plaid account ID household-wide, and never adds one.
+  The app never did this (PlaidImporter.apply only touches the connection's accounts).
+- The copies were hidden once (isArchived, shared; nothing deleted) when the web next loaded, with Undo. Hidden
+  accounts appear under Settings › Accounts › Hidden on the iPhone/Mac; swipe to show one again.
+- Accounts chart: the % column is now each category's share of assets (debts: share of debts), so a negative net
+  worth can't flip the signs. iPhone/Mac: release-candidate ff8eac1 (pull and rebuild).
+- Web Investments › By account: names no longer wrap one word per line on a desktop browser.
+
 ## Refresh all (2026-10-25, do this first)
 
 The Accounts tab's circular arrow (web: live now; iPhone/Mac: davey-ios release-candidate 71110d9) syncs every bank

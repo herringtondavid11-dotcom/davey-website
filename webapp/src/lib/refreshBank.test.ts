@@ -2,7 +2,7 @@
 // again must update the existing accounts instead of adding a second copy.
 import { describe, expect, it } from 'vitest'
 import { findSameBank, refreshRecords } from './refreshBank'
-import type { SyncPage } from './importBank'
+import { plaidDay, type SyncPage } from './importBank'
 import type { DaveyData, HouseholdRecord } from './serverData'
 
 const rec = (entity: string, id: string, payload: Record<string, unknown>): HouseholdRecord => ({
@@ -106,5 +106,43 @@ describe('Refresh all wording (same as the app: BankSyncService.balanceNote)', (
     expect(balanceNote(false, 'unavailable')).toBe("The bank didn't answer a live check; showing Plaid's latest balance")
     expect(balanceNote(false, 'off')).toBe("Plaid's latest balance (live checks are off)")
     expect(balanceNote(false)).toBe("Plaid's latest balance (live checks are off)")
+  })
+})
+
+// Refresh all added every account Plaid reported, so a brokerage's accounts showed up twice beside the ones the
+// household already had (David, Raymond James, 2026-10-26).
+describe('a sync never adds accounts the household didn\'t pick', () => {
+  const rj = rec('bankConnection', 'bank-rj', { itemID: 'item-rj', institutionName: 'Raymond James', cursor: 'c1', status: 'ok', createdAt: '2026-10-01T00:00:00Z' })
+  const ira = rec('account', 'acc-ira', { name: 'Roth IRA', type: 'investment', mask: '1111', externalID: 'plaid-ira', bankConnectionID: 'bank-rj', startingBalance: 500_000 })
+  // Linked once, but its record points at no connection (or another copy of it): still the same Plaid account.
+  const brokerage = rec('account', 'acc-brk', { name: 'Brokerage', type: 'investment', mask: '2222', externalID: 'plaid-brk', bankConnectionID: null, startingBalance: 900_000, createdAt: '2026-10-02T00:00:00Z' })
+  const brkTx = rec('transaction', 'tx-brk', { accountID: 'acc-brk', amount: 10_000, date: plaidDay('2026-10-05'), payee: 'Deposit', externalID: 'plaid-dep', isPending: false })
+  const page: SyncPage = {
+    added: [tx('plaid-dep', 'plaid-brk', 10_000, '2026-10-05', 'Deposit'), tx('plaid-x', 'plaid-skipped', -500, '2026-10-20', 'Fee')],
+    modified: [], removed: [],
+    accounts: [acct('plaid-ira', '1111', 'investment', 'roth', 600_000), acct('plaid-brk', '2222', 'investment', 'brokerage', 950_000), acct('plaid-skipped', '3333', 'investment', '401k', 70_000)],
+    next_cursor: 'c2', has_more: false,
+  }
+  const changes = refreshRecords({ bank: rj, accounts: [ira], transactions: [], household: [rj, ira, brokerage, brkTx], pages: [page], categoryIdByName: new Map(), newId: ids() })
+
+  it('adds no account and no transaction for an account the household never imported', () => {
+    expect(changes.filter((c) => c.entity === 'account').map((c) => c.id).sort()).toEqual(['acc-brk', 'acc-ira'])
+    expect(changes.some((c) => c.entity === 'transaction')).toBe(false) // the deposit is already there; the fee's account isn't
+  })
+
+  it('finds an account by its Plaid ID wherever its record points, and updates its balance', () => {
+    expect(changes.find((c) => c.id === 'acc-brk')?.payload.startingBalance).toBe(950_000 - 10_000)
+  })
+
+  it('updates the account in use when two records share a Plaid ID', () => {
+    const copy = rec('account', 'acc-copy', { name: 'Brokerage', type: 'investment', mask: '2222', externalID: 'plaid-brk', bankConnectionID: 'bank-rj', startingBalance: 0, createdAt: '2026-10-25T22:00:00Z', isArchived: true })
+    const again = refreshRecords({ bank: rj, accounts: [ira, copy], transactions: [], household: [rj, ira, copy, brokerage, brkTx], pages: [page], categoryIdByName: new Map(), newId: ids() })
+    expect(again.find((c) => c.id === 'acc-brk')).toBeDefined()
+    expect(again.find((c) => c.id === 'acc-copy')).toBeUndefined()
+  })
+
+  it('still adds a new account when the same login comes back as a new Item', () => {
+    const adopted = refreshRecords({ bank: rj, accounts: [ira], transactions: [], household: [rj, ira], pages: [page], categoryIdByName: new Map(), newItemId: 'item-rj2', newId: ids() })
+    expect(adopted.filter((c) => c.entity === 'account').length).toBe(3)
   })
 })

@@ -148,6 +148,7 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
     banks.set(String(item.institution_name), id)
     add('bankConnection', id, { itemID: item.plaid_item_id, institutionName: item.institution_name, institutionID: item.institution_id ?? null,
       cursor: item.cursor ?? null, status: item.status === 'login_required' ? 'needsReauth' : item.status === 'error' ? 'error' : 'ok', lastSyncedAt: item.last_synced_at,
+      createdAt: '2026-01-02T00:00:00Z',
       ...(item.institution_name === 'Chase' ? { logo: CHASE_LOGO } : {}) })
   }
   const categories = new Set<string>()
@@ -196,6 +197,11 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
 }
 
 export interface MockOptions {
+  /**
+   * What an earlier web Refresh all left behind (2026-10-25): a second record for the Fidelity brokerage (same Plaid
+   * account) and a 401(k) the household never imported, both added a day ago. Fidelity's sync also reports that 401(k).
+   */
+  strayCopies?: boolean
   /** Plaid Link fails the first standard session with API_ERROR (Shellpoint); the fallback token succeeds. */
   apiErrorFirst?: boolean
   /** plaid-link-token answers mode:'update' for reconnects (the server change is deployed). */
@@ -293,6 +299,12 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     signUpBody: null as Row | null,
   }
   const now = new Date().toISOString()
+  if (opts.strayCopies) {
+    const stray = (id: string, payload: Row) => state.pushed.push({ household_id: HOUSEHOLD, entity: 'account', id, updated_at: '2026-10-25T22:00:00Z',
+      payload: { source: 'plaid', type: 'investment', bankConnectionID: 'bank-fidelity', nickname: null, isArchived: false, createdAt: '2026-10-25T22:00:00.000Z', ...payload } })
+    stray('acc-copy', { name: 'Brokerage', mask: '4444', externalID: 'p-4', startingBalance: 51_264_055 })
+    stray('acc-401k', { name: 'Fidelity 401(k) Plan', mask: '9401', externalID: 'p-401k', startingBalance: 7_000_000 })
+  }
   for (const [id, fields] of Object.entries(opts.accountFields ?? {})) Object.assign(state.accounts.find((a) => a.id === id) ?? {}, fields)
   if (opts.sofiError) state.extra.plaid_items.push({ id: 'item-row-4', plaid_item_id: 'item-sofi', institution_name: 'SoFi', status: 'error', error_code: null, last_synced_at: new Date(Date.now() - 86400_000).toISOString() })
   if ((opts.mfa ?? 'verified') === 'verified') {
@@ -456,6 +468,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
         else if (account) Object.assign(account, {
           nickname: r.payload.nickname ?? null, is_business: r.payload.isBusiness === true,
           goal_target: r.payload.goalTarget ?? null, goal_start: r.payload.goalStart ?? null, goal_target_date: r.payload.goalTargetDate ?? null,
+          ...('isArchived' in r.payload ? { is_hidden: r.payload.isArchived === true } : {}),
           ...('rollupCategory' in r.payload ? { rollup_category: r.payload.rollupCategory } : {}),
           ...('accountCategoryID' in r.payload ? { account_category_id: r.payload.accountCategoryID } : {}),
         })
@@ -587,7 +600,10 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
             account_id: a.plaid_account_id, name: a.name, official_name: null, mask: a.mask, type: kind(a), subtype: a.subtype,
             current_balance_cents: Math.round(Number(a.current_balance) * 100) + (a.id === 'acc-1' ? 10_000 : 0),
             available_balance_cents: null, limit_cents: null,
-          })),
+          })).concat(institution === 'Fidelity'
+            // A 401(k) at the same login that nobody picked when connecting: a sync must not add it.
+            ? [{ account_id: 'p-401k', name: 'Fidelity 401(k) Plan', official_name: null, mask: '9401', type: 'investment', subtype: '401k', current_balance_cents: 7_000_000, available_balance_cents: null, limit_cents: null }]
+            : []),
           ...(body.realtime ? { balance_source: opts.realtimeBalance ? 'live' : 'off' } : {}),
         })
       }
