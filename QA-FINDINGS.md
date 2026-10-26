@@ -18,6 +18,8 @@ Status: 🔴 open · 🟡 in progress · ✅ fixed (commit)
 
 - 10:10 UTC: #18/#19 help and Settings usable during a data outage, clearer error; #22 44 px touch targets. 2137bf0
 
+- 10:50 UTC: #11 focus on new screens, #13 Transactions filters in the URL, #15/#16 + E3 amount fields. 8571a00
+
 ## Fixed today (before the QA window)
 - ✅ Duplicate investment accounts from Refresh all (3dc0c9a)
 - ✅ Accounts chart % flipped sign with a negative net worth (3dc0c9a, iOS ff8eac1)
@@ -89,11 +91,11 @@ made **7 full household reloads (77 transaction-page requests)** for 3 syncs and
 | 7 | P3 | Web | Investment holdings are fetched twice on cold load (`investment_holdings`, `household_records?holding`). | 🔴 |
 | 9 | **P1** | Web phone | Opening a screen from a link lower on the page keeps the old scroll position: Budget opened 685 px down, so the top (title, summary) is off-screen. New screens must start at the top. | ✅ a91c572 |
 | 10 | P2 | Web | Back doesn't restore the scroll position anywhere (Transactions 1200 → 0 on desktop and phone). Extends #1. Restore per history entry; new navigations go to the top. | ✅ a91c572 |
-| 11 | P2 | Web | Focus after navigation: it stays on the clicked link (desktop) or falls to `body` (phone), so screen readers don't announce the new screen. Move focus to the new screen's `h1` (tabindex -1) and announce the title. | 🔴 |
+| 11 | P2 | Web | Focus after navigation: it stays on the clicked link (desktop) or falls to `body` (phone), so screen readers don't announce the new screen. Move focus to the new screen's `h1` (tabindex -1) and announce the title. | ✅ 8571a00 |
 | 12 | P2 | Web phone | Back with a dialog open (Manage categories) leaves the screen instead of closing the dialog. On phones, Back should close dialogs, sheets and the account editor first. | 🔴 |
-| 13 | P2 | Web | Transactions search and filters are lost on Back (the URL stays /transactions). `?q=` already works as a deep link, so write the search and filters to the URL (replace) to make Back, refresh and shared links keep them. | 🔴 |
+| 13 | P2 | Web | Transactions search and filters are lost on Back (the URL stays /transactions). `?q=` already works as a deep link, so write the search and filters to the URL (replace) to make Back, refresh and shared links keep them. | ✅ 8571a00 |
 | 14 | P3 | Web | Unknown address (/app/does-not-exist) shows Overview but keeps the wrong URL, with no "page not found" note. Redirect to /app/ (replace) and show a one-line notice. | 🔴 |
-| 15 | P2 | Web | Add a manual account with balance "abc": pressing Add does nothing, with no message. Show "Enter an amount like 1,250.50" next to the field. | 🔴 |
+| 15 | P2 | Web | Add a manual account with balance "abc": pressing Add does nothing, with no message. Show "Enter an amount like 1,250.50" next to the field. | ✅ 8571a00 |
 | 16 | P3 | Web | Goal editor: invalid amounts ("abc", "-5", "0") just grey out Save without saying why; "1e9" is accepted as $1,000,000,000; "10,000.555" keeps fractions of a cent; a target date in the past is accepted. Inline messages, money parsing to cents, date ≥ today. | 🔴 |
 | 17 | P3 | Web | Offline: saving shows "Couldn't save. Try again." with no sign the device is offline, and the edit is lost on reload. Show an offline banner and offer to retry when back online. | 🔴 |
 | 18 | P2 | Web | When loading fails, every screen shows only "Couldn't load your data", including Connection help, which is static help you need most when things are broken. Keep help (and Settings › sign out) usable; show the error as a banner over cached data where there is some. | ✅ 2137bf0 |
@@ -108,7 +110,7 @@ made **7 full household reloads (77 transaction-page requests)** for 3 syncs and
 | # | Idea | Why |
 |---|---|---|
 | E1 | Refresh all shows per-bank progress (✓ Chase, … Wells Fargo) while it runs | It takes seconds with many banks; today it's one "Refreshing N banks…" line |
-| E3 | Shared money input (parse "$1,250.50", reject "1e9", round to cents, inline error) for every amount field | One rule everywhere; fixes #15/#16 together |
+| E3 | Shared money input (parse "$1,250.50", reject "1e9", round to cents, inline error) for every amount field | One rule everywhere; fixes #15/#16 together | ✅ 8571a00
 | E2 | Instant first paint from a cached copy (IndexedDB), then refresh in place | Cold load is 2–3 s for a heavy household |
 
 ## David's Mac (needs a device)

@@ -742,3 +742,7 @@ the GitHub Pages run instead.
 - Fixed QA #18, #19, #22 (2137bf0). Full suite caught a raw server message in Settings once it rendered during an
   outage; fixed in the same commit.
 - Counts: Vitest 151/151; Playwright Chromium 165 passed, 0 failed.
+
+## Loop 102 – 2026-10-26 10:50 UTC (deep QA fix round 3)
+- Fixed QA #11, #13, #15, #16 (+E3 shared money parser) (8571a00).
+- Counts: Vitest 154/154; Playwright Chromium 168 passed, 0 failed.
