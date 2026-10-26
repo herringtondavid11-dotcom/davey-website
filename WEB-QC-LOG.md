@@ -756,3 +756,7 @@ the GitHub Pages run instead.
 ## Loop 104 – 2026-10-26 12:25 UTC (deep QA fix round 5)
 - Fixed QA #6, improved #5 (0cf3ef3): per-call date formatters were the Investments stall (CPU profile with source maps).
 - Counts: Vitest 154/154; Playwright Chromium 170 passed, 0 failed.
+
+## Loop 105 – 2026-10-26 13:00 UTC (deep QA fix round 6)
+- Fixed QA #3 (web bf498b3, iOS 179a542) and #17 (bf498b3).
+- Counts: Vitest 154/154; Playwright Chromium 172 passed, 0 failed.
