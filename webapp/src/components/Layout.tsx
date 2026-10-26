@@ -43,6 +43,20 @@ function DataNotice({ banner = false }: { banner?: boolean }) {
   )
 }
 
+/** Says when the device is offline, so a failed save isn't a mystery (QA #17). */
+function OfflineBanner() {
+  const [online, setOnline] = useState(() => navigator.onLine)
+  useEffect(() => {
+    const on = () => setOnline(true)
+    const off = () => setOnline(false)
+    addEventListener('online', on)
+    addEventListener('offline', off)
+    return () => { removeEventListener('online', on); removeEventListener('offline', off) }
+  }, [])
+  if (online) return null
+  return <div className="banner card" role="status">You're offline. Changes can't be saved until you're back online.</div>
+}
+
 export function Layout() {
   const { email, signOut } = useAuth()
   const { accounts, transactions, status } = useData()
@@ -106,6 +120,7 @@ export function Layout() {
         </NavLink>
       </header>
       <main className="main" id="main">
+        <OfflineBanner />
         {blocked ? <DataNotice /> : (
           <Suspense fallback={<Spinner />}>
             <DataNotice banner={dataFree} />

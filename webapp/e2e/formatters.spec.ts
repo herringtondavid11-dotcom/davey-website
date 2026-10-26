@@ -10,7 +10,7 @@ test('screens reuse date formatters instead of building one per row or point', a
     w.__fmt = 0
     const Original = Intl.DateTimeFormat
     const Counting = function (this: unknown, ...args: ConstructorParameters<typeof Intl.DateTimeFormat>) { w.__fmt++; return new Original(...args) } as unknown as typeof Intl.DateTimeFormat
-    Counting.prototype = Original.prototype
+    Object.defineProperty(Counting, "prototype", { value: Original.prototype })
     Counting.supportedLocalesOf = Original.supportedLocalesOf
     Intl.DateTimeFormat = Counting
     const toLocale = Date.prototype.toLocaleDateString

@@ -179,7 +179,7 @@ export interface Row {
 export function rowsFor(accounts: Account[], categories: AccountCategory[]): Row[] {
   return accounts.map((a) => {
     const { category, picked } = categoryFor({ accountCategoryID: a.accountCategoryID, rollupCategory: a.rollupCategory, daveyType: a.subtype, type: a.type, name: a.name, officialName: a.officialName, loanKind: a.loanKind }, categories)
-    return { account: a, bank: a.institution ?? (a.plaidAccountId ? 'Bank' : 'Manual'), category, picked }
+    return { account: a, bank: a.institution ?? (a.plaidAccountId ? UNLINKED_BANK : 'Manual'), category, picked }
   })
 }
 
@@ -246,6 +246,12 @@ export function sections(rows: Row[], by: GroupBy, categories: AccountCategory[]
   if (none.length) out.push(make(UNCATEGORIZED, UNCATEGORIZED, none))
   return out
 }
+
+/**
+ * A bank account whose connection isn't in the household's shared records (linked on a device that never shared it,
+ * or the connection was removed): there's no bank name or logo to show (QA #3). Same words on the iPhone and Mac.
+ */
+export const UNLINKED_BANK = 'Bank not shared'
 
 export interface CategoryTotal {
   id: string

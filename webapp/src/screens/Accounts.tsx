@@ -71,6 +71,13 @@ function AccountEditor({ a }: { a: Account }) {
   return (
     <div className="account-editor">
       <div className="row-sub">{[a.name !== displayName(a) ? a.name : null, a.institution, maskLabel(a.mask), typeLabel(a.type)].filter(Boolean).join(' · ')}</div>
+      {a.plaidAccountId && !a.institution && (
+        <p className="muted small" data-testid="bank-not-shared">
+          This account came from a bank connection that isn't shared with your household, so Davey can't show the bank or
+          keep its balance up to date here. Open Davey on the device that connected it and tap Refresh all, or connect the
+          bank again under <Link to="/connect">Connect an account</Link>.
+        </p>
+      )}
       <form
         className="account-editor-fields"
         onSubmit={async (e) => {

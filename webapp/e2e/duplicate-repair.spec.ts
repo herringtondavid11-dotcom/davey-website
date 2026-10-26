@@ -76,3 +76,14 @@ test('linked accounts that lost their bank get its name and logo back without pr
   const saving = page.locator('.goal-row').filter({ has: page.locator('.acct-name', { hasText: 'Plaid Saving' }) })
   await expect(saving.locator('.acct-bank-name')).toHaveText('Chase')
 })
+
+// QA #3: an account whose bank connection isn't shared with the household says so, and the details say how to fix it.
+test('an account from an unshared bank connection says so and how to fix it', async ({ page }) => {
+  await mockBackend(page, { signedIn: true })
+  await page.goto('/app/accounts')
+  const row = page.getByTestId('account-acc-7') // Blue Cash Everyday: linked on a device that never shared its bank
+  await expect(row.locator('.acct-bank-name')).toHaveText('Bank not shared')
+  await row.locator('.acct-name').click()
+  await expect(row.getByTestId('bank-not-shared')).toContainText('Refresh all')
+  await expect(row.getByRole('link', { name: 'Connect an account' })).toHaveAttribute('href', '/app/connect')
+})
