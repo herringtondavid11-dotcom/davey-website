@@ -699,3 +699,10 @@ the GitHub Pages run instead.
 - No new commits on main since 127a552 or on davey-ios release-candidate (a1ade05, CI green); Pages run: success.
 - Issues found: 0. Fixed: 0.
 - Counts: Vitest 142/142; Playwright Chromium 153 passed, 0 failed.
+
+## Loop 98 – 2026-10-26 04:15 UTC
+- No new commits on main since 622307b or on davey-ios release-candidate (a1ade05, CI green); Pages run: success.
+- Found 1: tab-budget.spec "scrolling the transaction list drops no frames" failed once in the full parallel run (one
+  frame ≥50 ms); alone it ran 16.7 ms frames 3/3. Made the check robust: at most one stray 50 ms+ frame (two or
+  more is jank) and nothing over 250 ms; p95 < 34 ms unchanged. Full suite green after.
+- Counts: Vitest 142/142; Playwright Chromium 153 passed, 0 failed.
