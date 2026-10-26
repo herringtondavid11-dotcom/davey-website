@@ -37,6 +37,11 @@ Status: 🔴 open · 🟡 in progress · ✅ fixed (commit)
 | Tax | 27 | 16 |
 | Settings | 34 | 28 |
 
+## Navigation (round 3, 06:40 UTC)
+Works: deep links to all 18 screens (fresh load) land on the right screen and title; signed out → `/login?next=…`;
+the Accounts chart filter and group/sort survive Back (saved prefs); `?q=` on Transactions fills the search.
+Problems: #9–#14 below.
+
 ## Speed with a heavy household (10,000 transactions, web Chromium, round 2, 06:05 UTC)
 | Step | Desktop | Phone |
 |---|---|---|
@@ -63,6 +68,12 @@ made **7 full household reloads (77 transaction-page requests)** for 3 syncs and
 | 5 | P2 | Web | Cold load with 10k transactions: 1.8–2.7 s and long tasks up to 168 ms (record parsing and toRows). Fix: build rows in one pass, defer non-visible work, and cache the last load (IndexedDB) for an instant first paint. | 🔴 |
 | 6 | P2 | Web | Investments: 155 ms long task on open (10k). Fix: memoize the history/performance series and compute it off the first render. | 🔴 |
 | 7 | P3 | Web | Investment holdings are fetched twice on cold load (`investment_holdings`, `household_records?holding`). | 🔴 |
+| 9 | **P1** | Web phone | Opening a screen from a link lower on the page keeps the old scroll position: Budget opened 685 px down, so the top (title, summary) is off-screen. New screens must start at the top. | 🔴 |
+| 10 | P2 | Web | Back doesn't restore the scroll position anywhere (Transactions 1200 → 0 on desktop and phone). Extends #1. Restore per history entry; new navigations go to the top. | 🔴 |
+| 11 | P2 | Web | Focus after navigation: it stays on the clicked link (desktop) or falls to `body` (phone), so screen readers don't announce the new screen. Move focus to the new screen's `h1` (tabindex -1) and announce the title. | 🔴 |
+| 12 | P2 | Web phone | Back with a dialog open (Manage categories) leaves the screen instead of closing the dialog. On phones, Back should close dialogs, sheets and the account editor first. | 🔴 |
+| 13 | P2 | Web | Transactions search and filters are lost on Back (the URL stays /transactions). `?q=` already works as a deep link, so write the search and filters to the URL (replace) to make Back, refresh and shared links keep them. | 🔴 |
+| 14 | P3 | Web | Unknown address (/app/does-not-exist) shows Overview but keeps the wrong URL, with no "page not found" note. Redirect to /app/ (replace) and show a one-line notice. | 🔴 |
 | 8 | P3 | iPhone/Mac | Check the same Refresh all cost on the app (BankSyncService.refreshAll runs banks one after another). Code review in a later round. | 🔴 |
 
 ## Enhancements (proposed)
