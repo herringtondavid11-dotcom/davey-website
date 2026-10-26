@@ -23,6 +23,10 @@ const shortInstitution = (name: string) => name.split(' ').slice(0, 2).join(' ')
 
 type SortKey = 'value' | 'gain' | 'ticker' | 'share'
 
+// One formatter for every chart label: toLocaleDateString with options builds a new one per call, which made opening
+// Investments a 150-250 ms stall with a year of daily values (QA #6).
+const SHORT_DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+
 export function Investments() {
   const { accounts } = useData()
   const holdingsT = useTable('holdings')
@@ -138,7 +142,7 @@ export function Investments() {
               <>
                 <p className="muted small">{rangeChange !== undefined && `${rangeChange >= 0 ? '+' : ''}${moneyWhole(rangeChange)} · `}{pct(rangeReturn)} time-weighted (deposits and withdrawals left out)</p>
                 <LineChart fitRange label={`Portfolio value, ${range}`} format={compact}
-                  points={window.map((p) => ({ label: new Date(p.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }), title: `${p.date}: ${moneyWhole(p.value)}`, values: { value: p.value } }))}
+                  points={window.map((p) => ({ label: SHORT_DAY.format(new Date(p.date + 'T12:00:00Z')), title: `${p.date}: ${moneyWhole(p.value)}`, values: { value: p.value } }))}
                   series={[{ key: 'value', name: 'Value', className: 'mark-gold' }]} />
               </>
             ) : <p className="muted">History appears after the first sync{setupNeeded.length ? ' (finish setup above)' : ''}.</p>}

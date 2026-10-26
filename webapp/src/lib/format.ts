@@ -24,13 +24,12 @@ export function maskLabel(mask?: string): string {
 export function shortDate(iso: string, now = new Date()): string {
   const [y, m, d] = iso.split('-').map(Number)
   if (!y || !m || !d) return iso
-  const date = new Date(y, m - 1, d)
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    ...(y !== now.getFullYear() ? { year: 'numeric' } : {}),
-  })
+  return (y !== now.getFullYear() ? DAY_YEAR : DAY).format(new Date(y, m - 1, d))
 }
+
+// Shared formatters: toLocaleDateString with options builds a new formatter on every call (slow in long lists).
+const DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+const DAY_YEAR = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 export function typeLabel(type: string): string {
   const labels: Record<string, string> = {

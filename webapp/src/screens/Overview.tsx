@@ -17,6 +17,8 @@ import type { Transaction } from '../lib/schema'
 import { normalizeBudget } from '../lib/tables'
 import { useTable } from '../lib/useTable'
 
+const SHORT_DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+
 // The redesigned Overview (same cards as the app's OverviewView): net worth trend, this week, cash flow with net
 // savings, spending by category vs last month, the monthly budget, goals snapshot, and the 5 latest transactions.
 // The account list lives on the Accounts tab.
@@ -100,7 +102,7 @@ export function Overview() {
           </div>
           {series.length > 1 && (
             <LineChart fitRange label={`Net worth, ${range}`} height={170} format={compact}
-              points={series.map((p) => ({ label: new Date(`${p.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), title: `${p.date}: ${moneyWhole(p.net)}`, values: { net: p.net } }))}
+              points={series.map((p) => ({ label: SHORT_DAY.format(new Date(`${p.date}T12:00:00`)), title: `${p.date}: ${moneyWhole(p.net)}`, values: { net: p.net } }))}
               series={[{ key: 'net', name: 'Net worth', className: 'mark-gold' }]} />
           )}
           <div className="split">
