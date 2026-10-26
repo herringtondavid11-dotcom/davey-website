@@ -698,3 +698,8 @@ body.plaid-open iframe[id^="plaid-link-iframe"] {
 }
 body.plaid-open { overflow: hidden; }
 body.plaid-open .ai-fab { display: none !important; }
+/* Touch: every control gets a 44 px hit area (Apple's minimum) without changing how it looks (QA #22). */
+@media (pointer: coarse), (max-width: 768px) {
+  main button, main .btn, main .link-btn, main a.btn { min-height: 44px !important; min-width: 44px; }
+  main .link-btn { display: inline-flex; align-items: center; }
+}

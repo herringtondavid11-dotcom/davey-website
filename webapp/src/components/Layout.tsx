@@ -21,15 +21,15 @@ function Retry({ primary, onRetry }: { primary?: boolean; onRetry: () => Promise
 }
 
 /** Full page when the first load failed; a banner when a later refresh failed and the last data is still on screen. */
-function DataNotice() {
+function DataNotice({ banner = false }: { banner?: boolean }) {
   const { error, status, accounts, reload } = useData()
   if (!error) return null
-  if (status === 'error' && !accounts) {
+  if (status === 'error' && !accounts && !banner) {
     return (
       <div className="page">
-        <div className="page-head"><div><h1>Couldn't load your data</h1></div></div>
+        <div className="page-head"><div><h1>Can't show your accounts right now</h1></div></div>
         <section className="card card-pad load-failure">
-          <p className="error" role="alert">{error}</p>
+          <p className="error" role="alert">{error} Your data is safe.</p>
           <Retry primary onRetry={reload} />
         </section>
       </div>
@@ -52,7 +52,10 @@ export function Layout() {
   const business = useMemo(() => hasBusiness(accounts ?? [], transactions ?? []), [accounts, transactions])
   useEffect(() => { prefetchTabScreens() }, [])
   const inMore = !TAB_ITEMS.some((t) => (t.end ? location.pathname === t.to : location.pathname.startsWith(t.to)))
-  const blocked = status === 'error' && !accounts
+  // Help, Settings and More don't need the household's data: when it can't load they still work (with a banner),
+  // since that's when Connection help is needed most (QA #18).
+  const dataFree = ['/help', '/settings', '/profile', '/more'].some((p) => location.pathname.startsWith(p))
+  const blocked = status === 'error' && !accounts && !dataFree
 
   return (
     <div className="shell">
@@ -105,7 +108,7 @@ export function Layout() {
       <main className="main" id="main">
         {blocked ? <DataNotice /> : (
           <Suspense fallback={<Spinner />}>
-            <DataNotice />
+            <DataNotice banner={dataFree} />
             <Outlet />
           </Suspense>
         )}

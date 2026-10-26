@@ -1,3 +1,4 @@
+import { loadErrorMessage } from './loadError'
 import { useCallback, useEffect, useState } from 'react'
 import { effectiveCategories, type AccountCategory, type CategoryChange, type CategoryRecord } from './accountCategories'
 import { loadDaveyData, pushRecords } from './serverData'
@@ -17,7 +18,7 @@ export function useAccountCategories(): { categories: AccountCategory[] | null; 
     loadDaveyData().then(
       (d) => setState({ categories: effectiveCategories(d.accountCategories), records: d.accountCategories.map((r) => ({ id: r.id, payload: r.payload })) }),
       // Without household data the built-ins still work (nothing to save them to, though).
-      (e: Error) => setState({ categories: effectiveCategories([]), records: [], error: e.message }),
+      (e: Error) => setState({ categories: effectiveCategories([]), records: [], error: loadErrorMessage(e) }),
     )
   }, [])
   useEffect(() => {
