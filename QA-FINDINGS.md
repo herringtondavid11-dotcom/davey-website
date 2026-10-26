@@ -22,6 +22,8 @@ Status: 🔴 open · 🟡 in progress · ✅ fixed (commit)
 
 - 11:35 UTC: #12 Back closes dialogs and sheets; #14 verified OK; household-parity test made robust. a20737d
 
+- 12:25 UTC: #6 Investments 216 → ~50 ms (shared date formatters); cold load 2.7 → 1.8 s; #2 downgraded to P3 after profiling. 0cf3ef3
+
 ## Fixed today (before the QA window)
 - ✅ Duplicate investment accounts from Refresh all (3dc0c9a)
 - ✅ Accounts chart % flipped sign with a negative net worth (3dc0c9a, iOS ff8eac1)
@@ -85,11 +87,11 @@ made **7 full household reloads (77 transaction-page requests)** for 3 syncs and
 | # | P | Surface | Finding | Status |
 |---|---|---|---|---|
 | 1 | P2 | Web phone | Back to Transactions loses the scroll position (1500 px → top). | ✅ a91c572 |
-| 2 | P2 | Web | Household is the slowest screen to open (122–174 ms; the others are under 80 ms). | 🔴 |
+| 2 | P3 | Web | Household is the slowest screen to open (122–174 ms; the others are under 80 ms). | 🔴 (profiled: no CPU cost; it waits on one backend call, so prefetch it) |
 | 3 | P2 | Web | Accounts linked to a bank the household doesn't share still show "Bank". Show the institution Plaid reports, or "Linked bank (not shared)" with a fix-it link. | 🔴 |
 | 4 | **P1** | Web | Refresh all reloads every household record before and after each bank (7 reloads, 77 requests for 3 banks; 5–7 s with an instant mock). With ~12 real banks that's ~25 reloads and several hundred requests. Fix: load once, sync banks in parallel (2–3 at a time), merge onto the latest copy of just the changed records, reload once at the end. The background relink has the same cost. | ✅ a91c572 |
-| 5 | P2 | Web | Cold load with 10k transactions: 1.8–2.7 s and long tasks up to 168 ms (record parsing and toRows). Fix: build rows in one pass, defer non-visible work, and cache the last load (IndexedDB) for an instant first paint. | 🔴 |
-| 6 | P2 | Web | Investments: 155 ms long task on open (10k). Fix: memoize the history/performance series and compute it off the first render. | 🔴 |
+| 5 | P2 | Web | Cold load with 10k transactions: 1.8–2.7 s and long tasks up to 168 ms (record parsing and toRows). Fix: build rows in one pass, defer non-visible work, and cache the last load (IndexedDB) for an instant first paint. | 🟡 0cf3ef3: 2.7 s → 1.8 s, longest task 168 → 77 ms; cached first paint (E2) still open |
+| 6 | P2 | Web | Investments: 155 ms long task on open (10k). Fix: memoize the history/performance series and compute it off the first render. | ✅ 0cf3ef3 |
 | 7 | P3 | Web | Investment holdings are fetched twice on cold load (`investment_holdings`, `household_records?holding`). | 🔴 |
 | 9 | **P1** | Web phone | Opening a screen from a link lower on the page keeps the old scroll position: Budget opened 685 px down, so the top (title, summary) is off-screen. New screens must start at the top. | ✅ a91c572 |
 | 10 | P2 | Web | Back doesn't restore the scroll position anywhere (Transactions 1200 → 0 on desktop and phone). Extends #1. Restore per history entry; new navigations go to the top. | ✅ a91c572 |

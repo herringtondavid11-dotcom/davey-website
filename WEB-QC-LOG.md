@@ -752,3 +752,7 @@ the GitHub Pages run instead.
 - Found 1: household-parity.spec failed once in a full parallel run (read between two data arrivals); now waits
   for the settled total and a stable net worth; 10/10 under 6 workers. A second full run was green.
 - Counts: Vitest 154/154; Playwright Chromium 169 passed, 0 failed.
+
+## Loop 104 – 2026-10-26 12:25 UTC (deep QA fix round 5)
+- Fixed QA #6, improved #5 (0cf3ef3): per-call date formatters were the Investments stall (CPU profile with source maps).
+- Counts: Vitest 154/154; Playwright Chromium 170 passed, 0 failed.
