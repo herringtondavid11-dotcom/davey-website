@@ -19,6 +19,7 @@ import { fraction, goalRow, signedCents, summary } from '../lib/accountGoals'
 import { useData } from '../lib/DataProvider'
 import { refreshData, setAccountCategory, setAccountHidden, updateAccountGoal, updateAccountNickname, updateAccountUsage } from '../lib/data'
 import { isLiability } from '../lib/finance'
+import { moneyProblem, parseMoney } from '../lib/parseMoney'
 import { displayName, maskLabel, money, percentText, shortDateTime, typeLabel } from '../lib/format'
 import type { Account, Usage } from '../lib/schema'
 import { balanceNote, refreshAllBanks, relinkOrphansOnce, type RefreshResult } from '../lib/refreshBank'
@@ -116,8 +117,11 @@ function GoalEditor({ a, onDone }: { a: Account; onDone: () => void }) {
   const [date, setDate] = useState(a.goalTargetDate ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const value = amount.trim() === '' ? (debt ? 0 : NaN) : Number(amount.replace(/[$,\s]/g, ''))
-  const valid = Number.isFinite(value) && (debt ? value >= 0 : value > 0)
+  const value = amount.trim() === '' ? (debt ? 0 : NaN) : parseMoney(amount) ?? NaN
+  const today = new Date().toLocaleDateString('en-CA')
+  const amountProblem = moneyProblem(amount, debt ? { min: 0 } : { positive: true })
+  const dateProblem = date && date < today ? 'Pick today or a later date' : ''
+  const valid = Number.isFinite(value) && (debt ? value >= 0 : value > 0) && !dateProblem
 
   async function save(target: number | undefined) {
     setBusy(true)
@@ -141,12 +145,15 @@ function GoalEditor({ a, onDone }: { a: Account; onDone: () => void }) {
     <form className="goal-editor" onSubmit={submit} aria-label={`Goal for ${displayName(a)}`}>
       <label className="field">
         <span>{debt ? 'Target balance (0 = paid off)' : 'Goal amount'}</span>
-        <input className="input" inputMode="decimal" autoFocus value={amount} placeholder={debt ? '0' : '10,000'} onChange={(e) => setAmount(e.target.value)} data-testid="goal-amount" />
+        <input className="input" inputMode="decimal" autoFocus value={amount} placeholder={debt ? '0' : '10,000'} onChange={(e) => setAmount(e.target.value)} data-testid="goal-amount"
+          aria-invalid={amountProblem ? true : undefined} />
       </label>
+      {amountProblem && <p className="error small" data-testid="goal-amount-problem">{amountProblem}</p>}
       <label className="field">
         <span>Target date (optional)</span>
-        <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <input className="input" type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} aria-invalid={dateProblem ? true : undefined} />
       </label>
+      {dateProblem && <p className="error small">{dateProblem}</p>}
       <p className="muted small">{debt ? "Payoff goals track what you've paid down from today's balance." : 'Progress is the balance divided by the goal.'}</p>
       {error && <p className="error small" role="alert">{error}</p>}
       <div className="row-actions">
@@ -211,7 +218,8 @@ export function AddAccount({ onClose }: { onClose: () => void }) {
   const [balance, setBalance] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const amount = Number(balance.replace(/[$,\s]/g, '') || '0')
+  const amount = balance.trim() ? parseMoney(balance) ?? NaN : 0
+  const balanceProblem = moneyProblem(balance)
   return (
     <section className="card card-pad" aria-labelledby="add-title">
       <form
@@ -243,11 +251,13 @@ export function AddAccount({ onClose }: { onClose: () => void }) {
           </label>
         </div>
         <label className="field"><span>{type === 'creditCard' || type === 'loan' || type === 'otherLiability' ? 'Amount owed' : 'Balance'}</span>
-          <input className="input" inputMode="decimal" value={balance} placeholder="0.00" onChange={(e) => setBalance(e.target.value)} />
+          <input className="input" inputMode="decimal" value={balance} placeholder="0.00" onChange={(e) => setBalance(e.target.value)}
+            aria-invalid={balanceProblem ? true : undefined} aria-describedby={balanceProblem ? 'add-balance-problem' : undefined} />
         </label>
+        {balanceProblem && <p className="error small" id="add-balance-problem">{balanceProblem}</p>}
         {error && <p className="error small" role="alert">{error}</p>}
         <div className="row-actions">
-          <button className="btn btn-primary" disabled={busy || !name.trim()}>{busy ? 'Adding…' : 'Add Account'}</button>
+          <button className="btn btn-primary" disabled={busy || !name.trim() || !!balanceProblem}>{busy ? 'Adding…' : 'Add Account'}</button>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
         </div>
       </form>

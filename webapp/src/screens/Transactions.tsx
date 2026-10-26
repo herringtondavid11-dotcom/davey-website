@@ -11,10 +11,27 @@ import { EditTransaction } from './EditTransaction'
 
 const VISIBLE_STEP = 100
 
+const FILTER_PARAMS: [keyof TransactionFilter, string][] = [
+  ['search', 'q'], ['accountId', 'account'], ['category', 'category'], ['usage', 'usage'], ['from', 'from'], ['to', 'to'], ['direction', 'direction'],
+]
+
 export function Transactions() {
   const { accounts, transactions, hasMore, loadMore, replaceTransaction } = useData()
   const [params, setParams] = useSearchParams()
-  const [filter, setFilter] = useState<TransactionFilter>(() => ({ ...EMPTY_FILTER, search: params.get('q') ?? '', category: params.get('category') ?? '' }))
+  // Search and filters live in the address (replace, not push), so Back, a reload and a shared link keep them (QA #13).
+  const [filter, setFilter] = useState<TransactionFilter>(() => {
+    const f = { ...EMPTY_FILTER }
+    for (const [key, param] of FILTER_PARAMS) (f as Record<string, string>)[key] = params.get(param) ?? ''
+    return f
+  })
+  useEffect(() => {
+    const next = new URLSearchParams(params)
+    for (const [key, param] of FILTER_PARAMS) {
+      const v = filter[key]
+      if (v) next.set(param, String(v)); else next.delete(param)
+    }
+    if (next.toString() !== params.toString()) setParams(next, { replace: true })
+  }, [filter]) // eslint-disable-line react-hooks/exhaustive-deps
   const onlyIds = useMemo(() => (params.get('ids') ? new Set(params.get('ids')!.split(',')) : null), [params])
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [visible, setVisible] = useState(VISIBLE_STEP)
@@ -113,7 +130,7 @@ export function Transactions() {
               {filtered.length} {filtered.length === 1 ? 'transaction' : 'transactions'} · net <span className="num">{money(total, 'USD', { sign: true })}</span>
             </span>
             {(active || filter.search || onlyIds) && (
-              <button type="button" className="link-btn" onClick={() => { setFilter(EMPTY_FILTER); if (params.toString()) setParams({}, { replace: true }) }}>
+              <button type="button" className="link-btn" onClick={() => { setFilter(EMPTY_FILTER); if (params.has('ids')) setParams({}, { replace: true }) }}>
                 {onlyIds ? `Showing ${onlyIds.size} from Davey AI · Clear` : 'Clear filters'}
               </button>
             )}
