@@ -37,6 +37,11 @@ Status: 🔴 open · 🟡 in progress · ✅ fixed (commit)
 | Tax | 27 | 16 |
 | Settings | 34 | 28 |
 
+## Forms (round 4, 07:20 UTC)
+Works: double Enter or double-click submits once (nickname, manual account); a slow save shows "Saving…" with the
+button disabled; offline saves show an error instead of hanging. Problems: #15–#17.
+Probe note: Playwright's offline switch doesn't block mocked requests, so the offline check aborts them instead.
+
 ## Navigation (round 3, 06:40 UTC)
 Works: deep links to all 18 screens (fresh load) land on the right screen and title; signed out → `/login?next=…`;
 the Accounts chart filter and group/sort survive Back (saved prefs); `?q=` on Transactions fills the search.
@@ -74,12 +79,16 @@ made **7 full household reloads (77 transaction-page requests)** for 3 syncs and
 | 12 | P2 | Web phone | Back with a dialog open (Manage categories) leaves the screen instead of closing the dialog. On phones, Back should close dialogs, sheets and the account editor first. | 🔴 |
 | 13 | P2 | Web | Transactions search and filters are lost on Back (the URL stays /transactions). `?q=` already works as a deep link, so write the search and filters to the URL (replace) to make Back, refresh and shared links keep them. | 🔴 |
 | 14 | P3 | Web | Unknown address (/app/does-not-exist) shows Overview but keeps the wrong URL, with no "page not found" note. Redirect to /app/ (replace) and show a one-line notice. | 🔴 |
+| 15 | P2 | Web | Add a manual account with balance "abc": pressing Add does nothing, with no message. Show "Enter an amount like 1,250.50" next to the field. | 🔴 |
+| 16 | P3 | Web | Goal editor: invalid amounts ("abc", "-5", "0") just grey out Save without saying why; "1e9" is accepted as $1,000,000,000; "10,000.555" keeps fractions of a cent; a target date in the past is accepted. Inline messages, money parsing to cents, date ≥ today. | 🔴 |
+| 17 | P3 | Web | Offline: saving shows "Couldn't save. Try again." with no sign the device is offline, and the edit is lost on reload. Show an offline banner and offer to retry when back online. | 🔴 |
 | 8 | P3 | iPhone/Mac | Check the same Refresh all cost on the app (BankSyncService.refreshAll runs banks one after another). Code review in a later round. | 🔴 |
 
 ## Enhancements (proposed)
 | # | Idea | Why |
 |---|---|---|
 | E1 | Refresh all shows per-bank progress (✓ Chase, … Wells Fargo) while it runs | It takes seconds with many banks; today it's one "Refreshing N banks…" line |
+| E3 | Shared money input (parse "$1,250.50", reject "1e9", round to cents, inline error) for every amount field | One rule everywhere; fixes #15/#16 together |
 | E2 | Instant first paint from a cached copy (IndexedDB), then refresh in place | Cold load is 2–3 s for a heavy household |
 
 ## David's Mac (needs a device)
