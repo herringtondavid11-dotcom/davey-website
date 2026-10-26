@@ -37,6 +37,10 @@ Status: 🔴 open · 🟡 in progress · ✅ fixed (commit)
 | Tax | 27 | 16 |
 | Settings | 34 | 28 |
 
+## Responsive and themes (round 6, 08:35 UTC)
+18 screens at 320/390/768/1280/1920 in light and dark mode. No contrast failures (axe), no text under 11 px, no
+clipped money amounts, and nothing wider than the screen (overflow spec). 1280 and 1920 are clean. Problems: #22–#23 (tap targets on touch sizes).
+
 ## Empty, loading and error states (round 5, 08:00 UTC)
 Works: slow loads show a labeled spinner ("Loading accounts") within 300 ms on every screen; failed loads show an
 error with Try again on every screen; empty Overview, Credit cards, Loans and Investments say what to do.
@@ -91,6 +95,8 @@ made **7 full household reloads (77 transaction-page requests)** for 3 syncs and
 | 19 | P3 | Web | The error card repeats itself ("Couldn't load your data" as the title and again in the text). Say what to do instead: "Check your connection, then Try again. Your data is safe." | 🔴 |
 | 20 | P3 | Web | Empty household: Accounts, Budget, Cash flow, Recurring and Tax show $0.00 dashboards instead of a first step. Overview, Credit cards, Loans and Investments already say "Connect an account". Make them consistent: one short line and a Connect / Add account button. | 🔴 |
 | 21 | P2 | Web ↔ app parity | Household on the web says "Turn it on in the Davey app"; starting Household Sharing isn't possible on the web. Check against the spec; either add it or link to the exact app steps. | 🔴 |
+| 22 | P2 | Web phone/tablet | Tap targets under 44 px (Apple's minimum) at 320–768: the account name buttons on Accounts are 24 px tall; Set goal, Budget Edit (24×28), Set budget, Settings Remove and Exports downloads are 28 px. Give them a 44 px hit area (padding or a pseudo-element) without changing the look. | 🔴 |
+| 23 | P3 | Web phone | Recurring calendar day cells are 32 px wide at 320 px (fine at 390 and up). Acceptable; note for a compact week view. | 🔴 |
 | 8 | P3 | iPhone/Mac | Check the same Refresh all cost on the app (BankSyncService.refreshAll runs banks one after another). Code review in a later round. | 🔴 |
 
 ## Enhancements (proposed)
