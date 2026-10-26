@@ -746,3 +746,9 @@ the GitHub Pages run instead.
 ## Loop 102 – 2026-10-26 10:50 UTC (deep QA fix round 3)
 - Fixed QA #11, #13, #15, #16 (+E3 shared money parser) (8571a00).
 - Counts: Vitest 154/154; Playwright Chromium 168 passed, 0 failed.
+
+## Loop 103 – 2026-10-26 11:35 UTC (deep QA fix round 4)
+- Fixed QA #12 (a20737d); #14 verified OK.
+- Found 1: household-parity.spec failed once in a full parallel run (read between two data arrivals); now waits
+  for the settled total and a stable net worth; 10/10 under 6 workers. A second full run was green.
+- Counts: Vitest 154/154; Playwright Chromium 169 passed, 0 failed.
