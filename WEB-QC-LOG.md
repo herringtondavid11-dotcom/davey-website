@@ -733,3 +733,7 @@ the GitHub Pages run instead.
   overwriting concurrent edits (entries above).
 - Counts: Vitest 151/151; Playwright Chromium 160 passed, 0 failed.
 - The hourly check now runs inside the 30-minute "Davey deep QA round" (QA-FINDINGS.md); no separate hourly re-arm.
+
+## Loop 100 – 2026-10-26 09:35 UTC (deep QA, first fix round)
+- Fixed QA #4 (Refresh all reload storm), #9/#10/#1 (scroll to top / restore on Back). a91c572.
+- Counts: Vitest 151/151; Playwright Chromium 163 passed, 0 failed.

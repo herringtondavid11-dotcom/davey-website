@@ -13,6 +13,9 @@ Scope and how it's tested here:
 
 Status: 🔴 open · 🟡 in progress · ✅ fixed (commit)
 
+## Fix log (from 2:00 AM PT)
+- 09:30 UTC: #4 Refresh all 7 reloads → 2, 5–7 s → 1.7 s (3 banks); #9/#10 (+#1) screens open at the top, Back restores the scroll position. a91c572
+
 ## Fixed today (before the QA window)
 - ✅ Duplicate investment accounts from Refresh all (3dc0c9a)
 - ✅ Accounts chart % flipped sign with a negative net worth (3dc0c9a, iOS ff8eac1)
@@ -75,15 +78,15 @@ made **7 full household reloads (77 transaction-page requests)** for 3 syncs and
 ## Findings
 | # | P | Surface | Finding | Status |
 |---|---|---|---|---|
-| 1 | P2 | Web phone | Back to Transactions loses the scroll position (1500 px → top). | 🔴 |
+| 1 | P2 | Web phone | Back to Transactions loses the scroll position (1500 px → top). | ✅ a91c572 |
 | 2 | P2 | Web | Household is the slowest screen to open (122–174 ms; the others are under 80 ms). | 🔴 |
 | 3 | P2 | Web | Accounts linked to a bank the household doesn't share still show "Bank". Show the institution Plaid reports, or "Linked bank (not shared)" with a fix-it link. | 🔴 |
-| 4 | **P1** | Web | Refresh all reloads every household record before and after each bank (7 reloads, 77 requests for 3 banks; 5–7 s with an instant mock). With ~12 real banks that's ~25 reloads and several hundred requests. Fix: load once, sync banks in parallel (2–3 at a time), merge onto the latest copy of just the changed records, reload once at the end. The background relink has the same cost. | 🔴 |
+| 4 | **P1** | Web | Refresh all reloads every household record before and after each bank (7 reloads, 77 requests for 3 banks; 5–7 s with an instant mock). With ~12 real banks that's ~25 reloads and several hundred requests. Fix: load once, sync banks in parallel (2–3 at a time), merge onto the latest copy of just the changed records, reload once at the end. The background relink has the same cost. | ✅ a91c572 |
 | 5 | P2 | Web | Cold load with 10k transactions: 1.8–2.7 s and long tasks up to 168 ms (record parsing and toRows). Fix: build rows in one pass, defer non-visible work, and cache the last load (IndexedDB) for an instant first paint. | 🔴 |
 | 6 | P2 | Web | Investments: 155 ms long task on open (10k). Fix: memoize the history/performance series and compute it off the first render. | 🔴 |
 | 7 | P3 | Web | Investment holdings are fetched twice on cold load (`investment_holdings`, `household_records?holding`). | 🔴 |
-| 9 | **P1** | Web phone | Opening a screen from a link lower on the page keeps the old scroll position: Budget opened 685 px down, so the top (title, summary) is off-screen. New screens must start at the top. | 🔴 |
-| 10 | P2 | Web | Back doesn't restore the scroll position anywhere (Transactions 1200 → 0 on desktop and phone). Extends #1. Restore per history entry; new navigations go to the top. | 🔴 |
+| 9 | **P1** | Web phone | Opening a screen from a link lower on the page keeps the old scroll position: Budget opened 685 px down, so the top (title, summary) is off-screen. New screens must start at the top. | ✅ a91c572 |
+| 10 | P2 | Web | Back doesn't restore the scroll position anywhere (Transactions 1200 → 0 on desktop and phone). Extends #1. Restore per history entry; new navigations go to the top. | ✅ a91c572 |
 | 11 | P2 | Web | Focus after navigation: it stays on the clicked link (desktop) or falls to `body` (phone), so screen readers don't announce the new screen. Move focus to the new screen's `h1` (tabindex -1) and announce the title. | 🔴 |
 | 12 | P2 | Web phone | Back with a dialog open (Manage categories) leaves the screen instead of closing the dialog. On phones, Back should close dialogs, sheets and the account editor first. | 🔴 |
 | 13 | P2 | Web | Transactions search and filters are lost on Back (the URL stays /transactions). `?q=` already works as a deep link, so write the search and filters to the URL (replace) to make Back, refresh and shared links keep them. | 🔴 |
