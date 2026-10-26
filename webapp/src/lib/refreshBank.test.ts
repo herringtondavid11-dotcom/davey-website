@@ -1,7 +1,7 @@
 // A reconnect on the web must bring the bank up to date everywhere (PenFed, 2026-10-25), and connecting the same bank
 // again must update the existing accounts instead of adding a second copy.
 import { describe, expect, it } from 'vitest'
-import { findSameBank, refreshRecords } from './refreshBank'
+import { findSameBank, mergeOntoLatest, refreshRecords } from './refreshBank'
 import { plaidDay, type SyncPage } from './importBank'
 import type { DaveyData, HouseholdRecord } from './serverData'
 
@@ -134,6 +134,10 @@ describe('a sync never adds accounts the household didn\'t pick', () => {
     expect(changes.find((c) => c.id === 'acc-brk')?.payload.startingBalance).toBe(950_000 - 10_000)
   })
 
+  it('attaches an account that lost its connection to the bank Plaid reports it under (bank name and logo again)', () => {
+    expect(changes.find((c) => c.id === 'acc-brk')?.payload.bankConnectionID).toBe('bank-rj')
+  })
+
   it('updates the account in use when two records share a Plaid ID', () => {
     const copy = rec('account', 'acc-copy', { name: 'Brokerage', type: 'investment', mask: '2222', externalID: 'plaid-brk', bankConnectionID: 'bank-rj', startingBalance: 0, createdAt: '2026-10-25T22:00:00Z', isArchived: true })
     const again = refreshRecords({ bank: rj, accounts: [ira, copy], transactions: [], household: [rj, ira, copy, brokerage, brkTx], pages: [page], categoryIdByName: new Map(), newId: ids() })
@@ -144,5 +148,20 @@ describe('a sync never adds accounts the household didn\'t pick', () => {
   it('still adds a new account when the same login comes back as a new Item', () => {
     const adopted = refreshRecords({ bank: rj, accounts: [ira], transactions: [], household: [rj, ira], pages: [page], categoryIdByName: new Map(), newItemId: 'item-rj2', newId: ids() })
     expect(adopted.filter((c) => c.entity === 'account').length).toBe(3)
+  })
+})
+
+describe('a sync never writes over an edit made while it ran', () => {
+  it('lays only the bank fields onto the newest copy', () => {
+    const edited = rec('account', 'acc-checking', { ...checking.payload, nickname: 'Joint', isArchived: true })
+    const tx = rec('transaction', 'tx-1', { ...oldTx.payload, categoryID: 'cat-new', note: 'changed on the phone' })
+    const merged = mergeOntoLatest([
+      { entity: 'account', id: 'acc-checking', payload: { ...checking.payload, startingBalance: 1, bankConnectionID: 'bank-penfed' } },
+      { entity: 'transaction', id: 'tx-1', payload: { ...oldTx.payload, amount: -999 } },
+      { entity: 'transaction', id: 'new-1', payload: { amount: 5 } },
+    ], new Map([[`account:acc-checking`, edited], ['transaction:tx-1', tx]]))
+    expect(merged[0].payload).toMatchObject({ startingBalance: 1, nickname: 'Joint', isArchived: true })
+    expect(merged[1].payload).toMatchObject({ amount: -999, categoryID: 'cat-new', note: 'changed on the phone' })
+    expect(merged[2].payload).toEqual({ amount: 5 })
   })
 })

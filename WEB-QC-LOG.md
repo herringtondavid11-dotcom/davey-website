@@ -717,3 +717,12 @@ the GitHub Pages run instead.
 - New tests: refreshBank (4), repairAccounts (3), share-of-side; e2e duplicate-repair (3) and a word-per-line
   layout check on every screen at 1280/1920/360 with long names (it failed on the old build, passes now).
 - Counts: Vitest 149/149; Playwright Chromium 159 passed, 0 failed.
+
+## Fix – 2026-10-26 05:20 UTC (accounts showing "Bank", stale balance)
+- Linked accounts whose record lost its bank connection showed "Bank" (no name/logo) and never got balance updates
+  (a sync only touched the connection's own accounts; 204 #B Rental showed $9,469.75, bank ~$2K). Syncs now attach
+  any account the bank reports (same Plaid account ID) to that connection. Accounts runs this once in the background
+  (no billed live check, skips banks needing a sign-in, at most every 6 h). iOS PlaidImporter does the same (c3fbd77).
+- Syncs now lay only bank fields onto the newest copy of each record before saving, so an edit made during a sync
+  (nickname, category, Hide) isn't overwritten; Refresh all waits for the one-time duplicate repair.
+- Counts: Vitest 151/151; Playwright Chromium 160 passed, 0 failed.

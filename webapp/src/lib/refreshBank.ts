@@ -6,7 +6,8 @@
 // The household's records are the shared copy, so what's written here reaches the iPhone and Mac too.
 import { supabase } from './supabase'
 import { daveyAccountType, defaultCategoryName, isLiability, plaidDay, type AppAccount, type AppTransaction, type SyncPage } from './importBank'
-import type { DaveyData, HouseholdRecord } from './serverData'
+import { reloadDaveyData, type DaveyData, type HouseholdRecord } from './serverData'
+import { repairOnce } from './repairAccounts'
 
 type Row = Record<string, unknown>
 
@@ -117,7 +118,9 @@ export function refreshRecords(opts: {
     if (same) { accountFor.set(a.account_id, same); unmatched.delete(same) }
   }
   const accountPayload = new Map<string, Row>()
-  for (const [plaidId, r] of accountFor) accountPayload.set(r.id, { ...r.payload, externalID: plaidId })
+  // Plaid says which Item an account belongs to: an account whose record lost its connection (no bank name or logo
+  // on any device) is attached to this one again.
+  for (const [plaidId, r] of accountFor) accountPayload.set(r.id, { ...r.payload, externalID: plaidId, bankConnectionID: opts.bank.id })
   for (const a of [...plaidAccounts.values()]) {
     if (accountFor.has(a.account_id)) continue
     // An account the household doesn't have: a plain sync leaves it out (and its transactions and balance with it).
@@ -196,7 +199,7 @@ export function refreshRecords(opts: {
     payload.availableBalance = a.available_balance_cents
     if (type === 'creditCard' && a.limit_cents != null) payload.creditLimit = a.limit_cents
     const before = 'household_id' in record ? record.payload : null
-    const changed = !before || ['startingBalance', 'availableBalance', 'creditLimit', 'externalID'].some((k) => payload[k] !== before[k])
+    const changed = !before || ['startingBalance', 'availableBalance', 'creditLimit', 'externalID', 'bankConnectionID'].some((k) => payload[k] !== before[k])
     if (changed) changes.push({ entity: 'account', id: record.id, payload })
   }
 
@@ -250,7 +253,29 @@ async function syncPages(itemId: string, cursor: string | undefined, realtime = 
   return pages
 }
 
+/** The fields a sync owns. Everything else (nickname, category, note, goal, hidden…) is the household's. */
+const SYNC_FIELDS: Record<string, string[]> = {
+  account: ['startingBalance', 'availableBalance', 'creditLimit', 'externalID', 'bankConnectionID'],
+  transaction: ['amount', 'date', 'payee', 'isPending', 'externalID'],
+}
+
+/**
+ * A sync's changes laid onto the newest copy of each record, so an edit made on any device while the bank was syncing
+ * (a nickname, a category, Hide) isn't written back over. New records and deletions go as they are.
+ */
+export function mergeOntoLatest(changes: RecordChange[], latest: Map<string, HouseholdRecord>): RecordChange[] {
+  return changes.map((c) => {
+    const fields = SYNC_FIELDS[c.entity]
+    const now = latest.get(`${c.entity}:${c.id}`)
+    if (!fields || !now || c.deleted) return c
+    const payload: Row = { ...now.payload }
+    for (const f of fields) if (f in c.payload) payload[f] = c.payload[f]
+    return { ...c, payload }
+  })
+}
+
 async function push(household: string, changes: RecordChange[]) {
+  changes = mergeOntoLatest(changes, (await reloadDaveyData()).records)
   const updatedAt = new Date().toISOString()
   for (let i = 0; i < changes.length; i += 200) {
     const batch = changes.slice(i, i + 200).map((c) => ({ entity: c.entity, id: c.id, payload: c.payload, updated_at: updatedAt, deleted: c.deleted === true }))
@@ -309,14 +334,17 @@ export function balanceNote(live: boolean, reason?: string): string {
  * Accounts › Refresh all: syncs every bank in the household now (transactions and balances, a live balance where
  * that's switched on) and shares the results, one bank after another. Banks that need a sign-in are tried too.
  */
-export async function refreshAllBanks(load: () => Promise<DaveyData>): Promise<RefreshResult[]> {
-  const banks = [...(await load()).records.values()].filter((r) => r.entity === 'bankConnection' && text(r.payload.itemID))
+export async function refreshAllBanks(load: () => Promise<DaveyData>, opts: { realtime?: boolean; skipNeedsReauth?: boolean } = {}): Promise<RefreshResult[]> {
+  // After the one-time duplicate repair (one shared promise): a sync that read the records first would write them back.
+  await repairOnce(load)
+  const banks = [...(await load()).records.values()].filter((r) => r.entity === 'bankConnection' && text(r.payload.itemID) &&
+    !(opts.skipNeedsReauth && r.payload.status === 'needsReauth'))
   const results: RefreshResult[] = []
   for (const bank of banks) {
     const itemId = text(bank.payload.itemID)!
     const institution = text(bank.payload.institutionName) ?? 'Bank'
     try {
-      const done = await refreshBank(itemId, await load(), { realtime: true })
+      const done = await refreshBank(itemId, await load(), { realtime: opts.realtime ?? true })
       results.push({ itemId, institution, outcome: 'updated', live: done?.balanceSource === 'live', reason: done?.balanceSource })
     } catch (e) {
       if (e instanceof SyncError && e.code === 'item_login_required') results.push({ itemId, institution, outcome: 'needsReconnect' })
@@ -367,4 +395,28 @@ export async function checkConnections(itemIds: string[], load: () => Promise<Da
 /** Tests only. */
 export function resetConnectionChecks() {
   checkedAt.clear()
+}
+
+/**
+ * Bank accounts whose record lost its connection show "Bank" with no name or logo. Once per page load, sync the
+ * household's banks (Plaid's latest balances, no billed live check) so each account is attached to its bank again.
+ */
+let relinked: Promise<boolean> | null = null
+const RELINK_KEY = 'davey.relink.at'
+const RELINK_EVERY_MS = 6 * 3_600_000
+/** At most every 6 hours per browser: an account whose bank isn't shared with the household stays unlinked anyway. */
+function relinkDue(now = Date.now()) {
+  try { return now - Number(localStorage.getItem(RELINK_KEY) ?? 0) >= RELINK_EVERY_MS } catch { return true }
+}
+export function relinkOrphansOnce(orphans: number, load: () => Promise<DaveyData>): Promise<boolean> {
+  // Only the first caller hears "changed" (and reloads); later ones get false, so a reload can't start another.
+  if (!orphans || relinked || !relinkDue()) return Promise.resolve(false)
+  try { localStorage.setItem(RELINK_KEY, String(Date.now())) } catch { /* private window: once per page load */ }
+  relinked = refreshAllBanks(load, { realtime: false, skipNeedsReauth: true }).then((r) => r.some((x) => x.outcome === 'updated'), () => false)
+  return relinked
+}
+
+/** Tests only. */
+export function resetRelink() {
+  relinked = null
 }

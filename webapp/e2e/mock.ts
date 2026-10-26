@@ -139,7 +139,7 @@ const categoryId = (name: string) => `cat-${name.toLowerCase().replace(/[^a-z0-9
 const localMidnight = (day: string) => { const [y, m, d] = day.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d, 12)).toISOString() }
 
 /** The fixtures (web-shaped rows) as the app's household records: what production actually serves. */
-export function householdRecords(state: { accounts: Row[]; transactions: Row[]; extra: Record<string, Row[]> }) {
+export function householdRecords(state: { accounts: Row[]; transactions: Row[]; extra: Record<string, Row[]>; orphans?: Set<string> }) {
   const records: { household_id: string; entity: string; id: string; payload: Row; updated_at: string }[] = []
   const add = (entity: string, id: string, payload: Row) => records.push({ household_id: HOUSEHOLD, entity, id, payload, updated_at: '2026-10-01T00:00:00Z' })
   const banks = new Map<string, string>()
@@ -163,7 +163,7 @@ export function householdRecords(state: { accounts: Row[]; transactions: Row[]; 
     add('account', String(a.id), {
       name: a.name, nickname: a.nickname ?? null, mask: a.mask, type, externalID: a.plaid_account_id ?? null, source: 'plaid',
       startingBalance: balance - (sums.get(String(a.id)) ?? 0), availableBalance: a.available_balance === undefined ? null : cents(a.available_balance),
-      bankConnectionID: banks.get(String(a.institution_name)) ?? null, isBusiness: a.is_business === true, isArchived: a.is_hidden === true,
+      bankConnectionID: state.orphans?.has(String(a.id)) ? null : banks.get(String(a.institution_name)) ?? null, isBusiness: a.is_business === true, isArchived: a.is_hidden === true,
       createdAt: a.created_at,
       creditLimit: a.credit_limit === undefined ? null : cents(a.credit_limit),
       aprBasisPoints: a.apr ?? a.interest_rate ? Math.round(Number(a.apr ?? a.interest_rate) * 100) : null,
@@ -202,6 +202,8 @@ export interface MockOptions {
    * account) and a 401(k) the household never imported, both added a day ago. Fidelity's sync also reports that 401(k).
    */
   strayCopies?: boolean
+  /** These accounts' records lost their bank connection (no bank name or logo) until a sync attaches them again. */
+  orphans?: string[]
   /** Plaid Link fails the first standard session with API_ERROR (Shellpoint); the fallback token succeeds. */
   apiErrorFirst?: boolean
   /** plaid-link-token answers mode:'update' for reconnects (the server change is deployed). */
@@ -297,6 +299,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     otpSends: [] as Row[],
     metadata: (opts.passInMetadata ? { first_name: 'Alex', access_pass: TEST_PASS } : {}) as Row,
     signUpBody: null as Row | null,
+    orphans: new Set(opts.orphans ?? []),
   }
   const now = new Date().toISOString()
   if (opts.strayCopies) {
@@ -469,6 +472,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
           nickname: r.payload.nickname ?? null, is_business: r.payload.isBusiness === true,
           goal_target: r.payload.goalTarget ?? null, goal_start: r.payload.goalStart ?? null, goal_target_date: r.payload.goalTargetDate ?? null,
           ...('isArchived' in r.payload ? { is_hidden: r.payload.isArchived === true } : {}),
+          ...(r.payload.bankConnectionID ? (state.orphans.delete(r.id), {}) : {}),
           ...('rollupCategory' in r.payload ? { rollup_category: r.payload.rollupCategory } : {}),
           ...('accountCategoryID' in r.payload ? { account_category_id: r.payload.accountCategoryID } : {}),
         })
@@ -714,6 +718,9 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
       localStorage.setItem('davey.accessPass', JSON.stringify({ pass, expiresAt: new Date(Date.now() + 30 * 86_400_000).toISOString() }))
     }, TEST_PASS)
   }
+  // The fixture has linked accounts with no shared bank (Rocket Mortgage, Amex, Capital One), which would start the
+  // background relink in every test; only the tests about it (orphans) let it run.
+  if (!opts.orphans) await page.addInitScript(() => { if (!localStorage.getItem('davey.relink.at')) localStorage.setItem('davey.relink.at', String(Date.now())) })
   if (opts.signedIn) {
     state.aal = 'aal2'
     await page.addInitScript((s) => {

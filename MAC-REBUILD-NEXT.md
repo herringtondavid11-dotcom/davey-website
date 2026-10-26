@@ -10,6 +10,8 @@
 - Accounts chart: the % column is now each category's share of assets (debts: share of debts), so a negative net
   worth can't flip the signs. iPhone/Mac: release-candidate ff8eac1 (pull and rebuild).
 - Web Investments › By account: names no longer wrap one word per line on a desktop browser.
+- Accounts showing "Bank" (no name/logo, stale balance): a sync now re-attaches an account the bank reports to its
+  connection (PlaidImporter.relinkOrphans, release-candidate c3fbd77). Press Refresh all once after rebuilding.
 
 ## Refresh all (2026-10-25, do this first)
 

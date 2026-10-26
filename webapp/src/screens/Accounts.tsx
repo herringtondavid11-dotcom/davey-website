@@ -1,5 +1,5 @@
 import '../styles/accounts.css'
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { BankBadge } from '../components/BankBadge'
@@ -21,7 +21,7 @@ import { refreshData, setAccountCategory, setAccountHidden, updateAccountGoal, u
 import { isLiability } from '../lib/finance'
 import { displayName, maskLabel, money, percentText, shortDateTime, typeLabel } from '../lib/format'
 import type { Account, Usage } from '../lib/schema'
-import { balanceNote, refreshAllBanks, type RefreshResult } from '../lib/refreshBank'
+import { balanceNote, refreshAllBanks, relinkOrphansOnce, type RefreshResult } from '../lib/refreshBank'
 import { createManualAccount, reloadDaveyData } from '../lib/serverData'
 import { normalizeItem } from '../lib/tables'
 import { useAccountCategories } from '../lib/useAccountCategories'
@@ -300,6 +300,16 @@ export function Accounts() {
   const [managing, setManaging] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshed, setRefreshed] = useState<{ at: string; results: RefreshResult[] } | null>(null)
+
+  // Linked accounts with no bank name: attach them to their bank again in the background (refreshBank.ts).
+  const orphans = (accounts ?? []).filter((a) => a.plaidAccountId && !a.institution).length
+  useEffect(() => {
+    void relinkOrphansOnce(orphans, reloadDaveyData).then(async (changed) => {
+      if (!changed) return
+      await reloadDaveyData()
+      await reload()
+    })
+  }, [orphans, reload])
 
   async function refreshAll() {
     setRefreshing(true)

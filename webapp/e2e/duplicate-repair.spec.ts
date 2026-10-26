@@ -61,3 +61,18 @@ test('Hide account and Unhide from the account editor, shared with the app', asy
   await expect.poll(() => pushedPayloads(state, 'account', (x) => x === 'acc-3').at(-1)?.isArchived).toBe(false)
   await expect(hidden.getByRole('button', { name: 'Hide account' })).toBeVisible()
 })
+
+// "Bank" with no name or logo (David, 2026-10-26): linked accounts whose record lost its bank connection. Opening
+// Accounts syncs the banks once in the background (no billed live check) and Plaid's answer attaches them again.
+test('linked accounts that lost their bank get its name and logo back without pressing anything', async ({ page }) => {
+  const state = await mockBackend(page, { signedIn: true, orphans: ['acc-1', 'acc-2'] })
+  await page.goto('/app/accounts')
+  const joint = page.locator('.goal-row').filter({ has: page.locator('.acct-name', { hasText: 'Joint checking' }) })
+  await expect(joint.locator('.acct-bank-name')).toHaveText('Chase')
+  await expect(joint.locator('.acct-bank img')).toBeVisible() // Chase's logo
+  for (const id of ['acc-1', 'acc-2']) expect(pushedPayloads(state, 'account', (x) => x === id).at(-1)).toMatchObject({ bankConnectionID: 'bank-chase' })
+  // Plaid's latest balances only: the relink never asks for a live (billed) check.
+  expect(state.syncBodies.some((b) => b.realtime === true)).toBe(false)
+  const saving = page.locator('.goal-row').filter({ has: page.locator('.acct-name', { hasText: 'Plaid Saving' }) })
+  await expect(saving.locator('.acct-bank-name')).toHaveText('Chase')
+})
