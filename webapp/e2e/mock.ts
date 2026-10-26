@@ -204,6 +204,8 @@ export interface MockOptions {
   strayCopies?: boolean
   /** These accounts' records lost their bank connection (no bank name or logo) until a sync attaches them again. */
   orphans?: string[]
+  /** Extra transactions spread over two years (speed checks with a heavy household, e.g. 10_000). */
+  bulkTransactions?: number
   /** Plaid Link fails the first standard session with API_ERROR (Shellpoint); the fallback token succeeds. */
   apiErrorFirst?: boolean
   /** plaid-link-token answers mode:'update' for reconnects (the server change is deployed). */
@@ -302,6 +304,17 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     orphans: new Set(opts.orphans ?? []),
   }
   const now = new Date().toISOString()
+  if (opts.bulkTransactions) {
+    const names = ['Whole Foods Market', 'Shell', 'Amazon', 'Netflix', 'Trader Joe’s', 'Uber', 'Target', 'Costco', 'Home Depot', 'Starbucks']
+    const cats = ['Groceries', 'Gas & Transport', 'Shopping', 'Subscriptions', 'Groceries', 'Gas & Transport', 'Shopping', 'Groceries', 'Home', 'Dining']
+    const accts = ['acc-1', 'acc-3', 'acc-7', 'acc-6']
+    for (let i = 0; i < opts.bulkTransactions; i++) {
+      const k = i % names.length
+      state.transactions.push({ id: `bulk-${i}`, account_id: accts[i % accts.length], date: iso(Math.floor((i * 730) / opts.bulkTransactions)),
+        name: names[k].toUpperCase(), merchant_name: names[k], amount: Math.round(((i * 37) % 20_000) + 100) / 100, category: cats[k],
+        notes: null, is_business: i % accts.length === 3, pending: false })
+    }
+  }
   if (opts.strayCopies) {
     const stray = (id: string, payload: Row) => state.pushed.push({ household_id: HOUSEHOLD, entity: 'account', id, updated_at: '2026-10-25T22:00:00Z',
       payload: { source: 'plaid', type: 'investment', bankConnectionID: 'bank-fidelity', nickname: null, isArchived: false, createdAt: '2026-10-25T22:00:00.000Z', ...payload } })
