@@ -11,13 +11,18 @@ async function capture(page: Page, asMember: boolean) {
   const value = page.locator('.stat').filter({ hasText: 'Portfolio value' }).locator('.stat-value')
   await expect(value).toBeVisible()
   await expect(page.getByText('GOLD', { exact: true }).first()).toBeVisible()
+  // Server holdings and shared records arrive separately; under a busy test machine the screen can be read between
+  // them. Wait for the settled total (failed once in a full parallel run, 2026-10-26).
+  await expect(value).toHaveText('$518,640.55')
   const portfolio = await value.innerText()
   const holdings = await page.locator('section[aria-labelledby="holdings"]').innerText()
   const chart = await page.getByRole('img', { name: /Portfolio value, 1Y/ }).first().getAttribute('aria-label').catch(() => null)
   await page.goto('/app/')
   const netWorth = page.locator('[aria-labelledby="nw"], .hero').filter({ hasText: 'Net worth' }).first()
   await expect(netWorth).toBeVisible()
-  const overview = await netWorth.innerText()
+  // Same for the net worth: read it once it stops changing.
+  let overview = ''
+  await expect.poll(async () => { const now = await netWorth.innerText(); const same = now === overview; overview = now; return same }, { intervals: [300] }).toBe(true)
   return { portfolio, holdings, chart, overview }
 }
 

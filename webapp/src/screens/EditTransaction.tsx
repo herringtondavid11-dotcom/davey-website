@@ -3,6 +3,7 @@ import { CloseIcon } from '../components/Icons'
 import { updateTransaction } from '../lib/data'
 import { displayName, maskLabel, money, shortDate } from '../lib/format'
 import type { Account, Transaction, Usage } from '../lib/schema'
+import { useBackToClose } from '../lib/useBackToClose'
 
 export function EditTransaction({ t, account, categories, onClose, onSaved }: {
   t: Transaction
@@ -17,6 +18,7 @@ export function EditTransaction({ t, account, categories, onClose, onSaved }: {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const sheet = useRef<HTMLDivElement>(null)
+  useBackToClose(onClose)
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null

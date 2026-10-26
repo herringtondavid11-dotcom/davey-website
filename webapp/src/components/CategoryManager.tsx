@@ -1,4 +1,5 @@
 import '../styles/accounts.css'
+import { useBackToClose } from '../lib/useBackToClose'
 import { useEffect, useRef, useState } from 'react'
 import {
   addCategory, COLORS, moveCategory, recolorCategory, removeCategory, renameCategory, type AccountCategory, type ColorName,
@@ -118,6 +119,7 @@ export function CategoryManager({ inDialog }: { inDialog?: boolean } = {}) {
 /** The manager over the current screen (the app's sheet): opened from Accounts or an account's category picker. */
 export function CategoryManagerDialog({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
+  useBackToClose(onClose)
   useEffect(() => {
     const d = ref.current
     if (d && !d.open) d.showModal()
