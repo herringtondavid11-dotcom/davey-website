@@ -110,6 +110,8 @@ made **7 full household reloads (77 transaction-page requests)** for 3 syncs and
 | 21 | P2 | Web ↔ app parity | Household on the web says "Turn it on in the Davey app"; starting Household Sharing isn't possible on the web. Check against the spec; either add it or link to the exact app steps. | 🔴 |
 | 22 | P2 | Web phone/tablet | Tap targets under 44 px (Apple's minimum) at 320–768: the account name buttons on Accounts are 24 px tall; Set goal, Budget Edit (24×28), Set budget, Settings Remove and Exports downloads are 28 px. Give them a 44 px hit area (padding or a pseudo-element) without changing the look. | ✅ 2137bf0 |
 | 23 | P3 | Web phone | Recurring calendar day cells are 32 px wide at 320 px (fine at 390 and up). Acceptable; note for a compact week view. | 🔴 |
+| 24 | **P1** | iPhone | David: scrolling Overview and Accounts is slow. Code review: Overview was a List whose recycled cells rebuilt and re-animated ~6 charts on every pass; each Accounts row used ViewThatFits (both layouts built and measured, each with its own category menu, two alerts and a sheet) and decoded its bank logo on every render. | 🟡 iOS 76f246c (card stack on Overview, one row layout, logo cache); waiting for CI, then David's check on device |
+| 25 | P2 | iPhone/Mac | Swift 6 warnings: `Thread.isMainThread` read in async code (TaxCompute, BusinessAnalytics). | ✅ iOS 7eb5464 |
 | 8 | P3 | iPhone/Mac | Check the same Refresh all cost on the app (BankSyncService.refreshAll runs banks one after another). Code review in a later round. | 🔴 |
 
 ## Enhancements (proposed)
