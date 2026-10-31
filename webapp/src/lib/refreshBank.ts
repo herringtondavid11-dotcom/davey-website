@@ -6,7 +6,7 @@
 // The household's records are the shared copy, so what's written here reaches the iPhone and Mac too.
 import { supabase } from './supabase'
 import { daveyAccountType, defaultCategoryName, isLiability, plaidDay, type AppAccount, type AppTransaction, type SyncPage } from './importBank'
-import { fetchRecordsById, type DaveyData, type HouseholdRecord } from './serverData'
+import { fetchRecordsById, pushRecords, reloadDaveyData, type DaveyData, type HouseholdRecord } from './serverData'
 import { repairOnce } from './repairAccounts'
 
 type Row = Record<string, unknown>
@@ -38,6 +38,38 @@ export function bankRecords(data: DaveyData, match: { itemId?: string; bankId?: 
  * at least one account mask in common. That's the same login, so the new Item replaces the old one instead of
  * adding a second copy of every account and transaction.
  */
+const BROKEN_CONNECTION = new Set(['needsReauth', 'error', 'login_required', 'pending_expiration', 'pending_disconnect', 'revoked'])
+
+/**
+ * Banks a new link should replace: the same institution with a shared mask, a broken connection at that
+ * institution, an Item the server already retired, or a shared persistent account id.
+ */
+export function banksToReplace(data: DaveyData, opts: {
+  institutionId?: string
+  newItemId: string
+  masks: string[]
+  persistentIds?: string[]
+  retiredItemIds?: string[]
+}): HouseholdRecord[] {
+  const all = [...data.records.values()]
+  const chosen = new Map<string, HouseholdRecord>()
+  const add = (bank: HouseholdRecord | null | undefined) => { if (bank) chosen.set(bank.id, bank) }
+  add(findSameBank(data, opts.institutionId, opts.newItemId, opts.masks))
+  const retired = new Set(opts.retiredItemIds ?? [])
+  const persistent = new Set((opts.persistentIds ?? []).filter(Boolean))
+  for (const bank of all) {
+    if (bank.entity !== 'bankConnection' || bank.payload.itemID === opts.newItemId) continue
+    const itemID = text(bank.payload.itemID)
+    if (itemID && retired.has(itemID)) add(bank)
+    const broken = BROKEN_CONNECTION.has(String(bank.payload.status ?? ''))
+    if (broken && opts.institutionId && bank.payload.institutionID === opts.institutionId) add(bank)
+    if (persistent.size && all.some((r) => r.entity === 'account' && r.payload.bankConnectionID === bank.id && persistent.has(String(r.payload.persistentAccountID ?? '')))) {
+      add(bank)
+    }
+  }
+  return [...chosen.values()]
+}
+
 export function findSameBank(data: DaveyData, institutionId: string | undefined, newItemId: string, masks: string[]): HouseholdRecord | null {
   if (!institutionId) return null
   const wanted = new Set(masks.filter(Boolean))
@@ -114,13 +146,22 @@ export function refreshRecords(opts: {
     if (byId) { accountFor.set(a.account_id, byId); unmatched.delete(byId); continue }
     if (!opts.newItemId) continue
     const type = daveyAccountType(a.type, a.subtype)
-    const same = [...unmatched].find((r) => r.payload.type === type && (a.mask ? r.payload.mask === a.mask : r.payload.name === a.name))
+    const byPersistent = a.persistent_account_id
+      ? [...unmatched].find((r) => r.payload.persistentAccountID === a.persistent_account_id)
+      : undefined
+    const same = byPersistent ?? [...unmatched].find((r) => r.payload.type === type && (a.mask ? r.payload.mask === a.mask : r.payload.name === a.name))
     if (same) { accountFor.set(a.account_id, same); unmatched.delete(same) }
   }
   const accountPayload = new Map<string, Row>()
   // Plaid says which Item an account belongs to: an account whose record lost its connection (no bank name or logo
   // on any device) is attached to this one again.
-  for (const [plaidId, r] of accountFor) accountPayload.set(r.id, { ...r.payload, externalID: plaidId, bankConnectionID: opts.bank.id })
+  for (const [plaidId, r] of accountFor) {
+    const incoming = plaidAccounts.get(plaidId)
+    accountPayload.set(r.id, {
+      ...r.payload, externalID: plaidId, bankConnectionID: opts.bank.id,
+      ...(incoming?.persistent_account_id ? { persistentAccountID: incoming.persistent_account_id } : {}),
+    })
+  }
   for (const a of [...plaidAccounts.values()]) {
     if (accountFor.has(a.account_id)) continue
     // An account the household doesn't have: a plain sync leaves it out (and its transactions and balance with it).
@@ -199,7 +240,7 @@ export function refreshRecords(opts: {
     payload.availableBalance = a.available_balance_cents
     if (type === 'creditCard' && a.limit_cents != null) payload.creditLimit = a.limit_cents
     const before = 'household_id' in record ? record.payload : null
-    const changed = !before || ['startingBalance', 'availableBalance', 'creditLimit', 'externalID', 'bankConnectionID'].some((k) => payload[k] !== before[k])
+    const changed = !before || ['startingBalance', 'availableBalance', 'creditLimit', 'externalID', 'bankConnectionID', 'persistentAccountID'].some((k) => payload[k] !== before[k])
     if (changed) changes.push({ entity: 'account', id: record.id, payload })
   }
 
@@ -255,7 +296,7 @@ async function syncPages(itemId: string, cursor: string | undefined, realtime = 
 
 /** The fields a sync owns. Everything else (nickname, category, note, goal, hidden…) is the household's. */
 const SYNC_FIELDS: Record<string, string[]> = {
-  account: ['startingBalance', 'availableBalance', 'creditLimit', 'externalID', 'bankConnectionID'],
+  account: ['startingBalance', 'availableBalance', 'creditLimit', 'externalID', 'bankConnectionID', 'persistentAccountID'],
   transaction: ['amount', 'date', 'payee', 'isPending', 'externalID'],
 }
 
@@ -297,6 +338,18 @@ function categories(data: DaveyData) {
   const byName = new Map<string, string>()
   for (const r of data.records.values()) if (r.entity === 'category' && typeof r.payload.name === 'string') byName.set(r.payload.name, r.id)
   return byName
+}
+
+/** The server says this Item needs a sign-in. Remember that on the household connection so every device shows Reconnect. */
+export async function rememberReauth(itemIds: string[]): Promise<void> {
+  if (!itemIds.length) return
+  const data = await reloadDaveyData()
+  const list = itemIds.flatMap((itemId) => {
+    const found = bankRecords(data, { itemId })
+    if (!found || found.bank.payload.status === 'needsReauth') return []
+    return [{ id: found.bank.id, payload: { ...found.bank.payload, status: 'needsReauth' } }]
+  })
+  if (list.length) await pushRecords('bankConnection', list)
 }
 
 /** After a reconnect (update mode): sync the Item from its cursor and share the changes. Returns false without a record. */

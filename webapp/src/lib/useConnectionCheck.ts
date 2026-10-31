@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from './DataProvider'
 import { itemStatuses } from './plaid'
-import { checkConnections, dueForCheck } from './refreshBank'
+import { checkConnections, dueForCheck, rememberReauth } from './refreshBank'
 import { reloadDaveyData } from './serverData'
-import type { BankConnection } from './tables'
+import { withServerStatus, type BankConnection } from './tables'
 
 /**
  * Checks flagged connections by syncing them (David, 2026-10-25: SoFi and PenFed stayed flagged on the web after the
@@ -14,6 +14,22 @@ export function useConnectionCheck(connections: BankConnection[], reloadItems: (
   const [checking, setChecking] = useState<Set<string>>(new Set())
   const [problems, setProblems] = useState<Map<string, string>>(new Map())
   const running = useRef(false)
+  const [server, setServer] = useState<{ item_id: string; status: string }[]>([])
+  const itemKey = connections.map((c) => c.itemId ?? '').join(',')
+  useEffect(() => {
+    let cancelled = false
+    void itemStatuses().then((rows) => { if (!cancelled) setServer(rows) })
+    return () => { cancelled = true }
+  }, [itemKey])
+  const shown = useMemo(() => withServerStatus(connections, server), [connections, server])
+  const reauthKey = shown.filter((c) => c.health !== 'ok' && connections.find((o) => o.id === c.id)?.health === 'ok').map((c) => c.itemId).join(',')
+  const markedReauth = useRef(new Set<string>())
+  useEffect(() => {
+    const ids = (reauthKey ? reauthKey.split(',').filter(Boolean) : []).filter((id) => !markedReauth.current.has(id))
+    if (!ids.length) return
+    ids.forEach((id) => markedReauth.current.add(id))
+    void rememberReauth(ids).then(() => reload()).catch(() => undefined)
+  }, [reauthKey, reload])
 
   const run = useCallback(async (itemIds: string[]) => {
     if (!itemIds.length || running.current) return
@@ -53,5 +69,5 @@ export function useConnectionCheck(connections: BankConnection[], reloadItems: (
     })()
   }, [flagged, run])
 
-  return { checking, problems, retry: (itemId: string) => run([itemId]) }
+  return { checking, problems, connections: shown, retry: (itemId: string) => run([itemId]) }
 }

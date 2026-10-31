@@ -9,6 +9,8 @@ type Row = Record<string, unknown>
 
 export interface AppAccount {
   account_id: string
+  /** Stable across a relink, when the bank provides one. */
+  persistent_account_id?: string | null
   name: string
   official_name?: string | null
   mask?: string | null

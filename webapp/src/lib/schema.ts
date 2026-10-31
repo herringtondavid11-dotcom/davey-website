@@ -108,6 +108,8 @@ export interface Account {
   bankColor?: string
   /** Plaid's logo for the bank (base64 PNG), shared by the app with the bank record. */
   bankLogo?: string
+  /** Household bank connection status (needsReauth, ok, …). */
+  connectionStatus?: string
   raw: Row
 }
 
@@ -174,6 +176,7 @@ export function normalizeAccount(row: Row): Account {
     loanKind: str(row.loan_kind),
     bankColor: str(row.bank_color),
     bankLogo: str(row.bank_logo),
+    connectionStatus: str(row.connection_status),
     raw: row,
   }
 }

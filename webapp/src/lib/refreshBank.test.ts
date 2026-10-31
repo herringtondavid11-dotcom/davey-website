@@ -1,7 +1,7 @@
 // A reconnect on the web must bring the bank up to date everywhere (PenFed, 2026-10-25), and connecting the same bank
 // again must update the existing accounts instead of adding a second copy.
 import { describe, expect, it } from 'vitest'
-import { findSameBank, mergeOntoLatest, refreshRecords } from './refreshBank'
+import { banksToReplace, findSameBank, mergeOntoLatest, refreshRecords } from './refreshBank'
 import { plaidDay, type SyncPage } from './importBank'
 import type { DaveyData, HouseholdRecord } from './serverData'
 
@@ -63,6 +63,26 @@ describe('the same bank connected again as a new Item', () => {
     expect(findSameBank(data, 'ins_penfed', 'item-new', ['9999'])).toBeNull()
     expect(findSameBank(data, 'ins_other', 'item-new', ['1234'])).toBeNull()
     expect(findSameBank(data, 'ins_penfed', 'item-old', ['1234'])).toBeNull()
+  })
+
+  it('replaces a broken connection even without a shared mask, and a retired item id', () => {
+    const chase = rec('bankConnection', 'bank-chase', { itemID: 'item-chase-old', institutionName: 'Chase', institutionID: 'ins_56', status: 'needsReauth' })
+    const healthy = rec('bankConnection', 'bank-sofi', { itemID: 'item-sofi', institutionName: 'SoFi', institutionID: 'ins_126339', status: 'ok' })
+    const chaseData: DaveyData = { accounts: [], transactions: [], budgets: [], connections: [], accountCategories: [], records: new Map([chase, healthy].map((r) => [`${r.entity}:${r.id}`, r])) }
+    expect(banksToReplace(chaseData, { institutionId: 'ins_56', newItemId: 'item-chase-new', masks: [] }).map((b) => b.id)).toEqual(['bank-chase'])
+    expect(banksToReplace(chaseData, { institutionId: 'ins_126339', newItemId: 'item-sofi-2', masks: [], retiredItemIds: ['item-chase-old'] }).map((b) => b.id)).toEqual(['bank-chase'])
+    expect(banksToReplace(chaseData, { institutionId: 'ins_126339', newItemId: 'item-sofi-2', masks: [] })).toEqual([])
+  })
+
+  it('matches a relinked account by persistent account id when the mask changed', () => {
+    const persistent = rec('account', 'acc-checking', { ...checking.payload, persistentAccountID: 'persist-1', mask: '0000' })
+    const page: SyncPage = {
+      added: [], modified: [], removed: [],
+      accounts: [{ ...acct('plaid-chk-new', '9999', 'depository', 'checking', 200_000), persistent_account_id: 'persist-1' }],
+      next_cursor: 'cursor-new', has_more: false,
+    }
+    const changes = refreshRecords({ bank, accounts: [persistent], transactions: [], pages: [page], categoryIdByName: new Map(), newItemId: 'item-new', newId: ids() })
+    expect(changes.find((c) => c.id === 'acc-checking')?.payload).toMatchObject({ externalID: 'plaid-chk-new', persistentAccountID: 'persist-1' })
   })
 
   it('moves the existing connection and accounts onto the new Item without duplicating transactions', () => {

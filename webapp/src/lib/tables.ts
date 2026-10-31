@@ -112,6 +112,20 @@ export interface BankConnection {
   lastSynced?: string
 }
 
+/** Server status (plaid-item-status) wins when the household copy still says the bank is fine. */
+export function withServerStatus(connections: BankConnection[], statuses: { item_id: string; status: string }[]): BankConnection[] {
+  const byId = new Map(statuses.map((s) => [s.item_id, s.status.toLowerCase()]))
+  return connections.map((c) => {
+    if (!c.itemId || c.health !== 'ok') return c
+    const status = byId.get(c.itemId)
+    if (!status || status === 'ok') return c
+    if (/login|reauth/.test(status)) return { ...c, health: 'needs_reauth' }
+    if (/expir/.test(status)) return { ...c, health: 'pending_expiration' }
+    if (/disconnect|revoked|error|fail/.test(status)) return { ...c, health: 'error' }
+    return c
+  })
+}
+
 export function normalizeItem(row: Row): BankConnection {
   const code = str(pick(row, ['error_code', 'last_error_code', 'status_code']))
   const status = (str(pick(row, ['status', 'health', 'state'])) ?? '').toLowerCase()
