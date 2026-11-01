@@ -352,34 +352,171 @@ export async function rememberReauth(itemIds: string[]): Promise<void> {
   if (list.length) await pushRecords('bankConnection', list)
 }
 
-/** After a reconnect (update mode): sync the Item from its cursor and share the changes. Returns false without a record. */
-export async function refreshBank(itemId: string, data: DaveyData, opts: { realtime?: boolean } = {}): Promise<{ changes: number; balanceSource?: string } | null> {
+async function callRefresh(itemId?: string): Promise<ServerRefresh> {
+  const { data, error } = await supabase.functions.invoke('plaid-refresh', { body: itemId ? { item_id: itemId } : {} })
+  if (error) throw await syncError(error)
+  const report = data as ServerRefresh
+  if (!report || !Array.isArray(report.results)) throw new SyncError('unknown', "Couldn't refresh accounts. Try again.")
+  return report
+}
+
+/** Apply the server's pages to the household. A stale result does not move Last synced. */
+async function applyReport(report: ServerRefresh, data: DaveyData): Promise<number> {
+  let changes = 0
+  const household = [...data.records.values()]
+  const byItem = new Map<string, ServerAccountResult[]>()
+  for (const result of report.results) byItem.set(result.item_id, [...(byItem.get(result.item_id) ?? []), result])
+  for (const page of report.syncs ?? []) {
+    const itemId = page.item_id
+    if (!itemId) continue
+    const found = bankRecords(data, { itemId })
+    if (!found) continue
+    const bump = (byItem.get(itemId) ?? []).some((r) => r.status === 'updated')
+    const written = keepPreviousSyncTime(
+      refreshRecords({ ...found, household, pages: [page], categoryIdByName: categories(data) }),
+      found.bank.payload.lastSyncedAt,
+      bump,
+    )
+    await push(found.bank.household_id, written)
+    changes += written.length
+  }
+  for (const [itemId, rows] of byItem) {
+    if (!rows.some((r) => r.status === 'needs_reconnect')) continue
+    if ((report.syncs ?? []).some((p) => p.item_id === itemId)) continue
+    const found = bankRecords(data, { itemId })
+    if (!found || found.bank.payload.status === 'needsReauth') continue
+    await push(found.bank.household_id, [{ entity: 'bankConnection', id: found.bank.id, payload: { ...found.bank.payload, status: 'needsReauth' } }]).catch(() => undefined)
+  }
+  rememberRetries(report.results)
+  return changes
+}
+
+/** After a reconnect (update mode): refresh that item and share the changes. Returns null without a record. */
+export async function refreshBank(itemId: string, data: DaveyData, _opts: { realtime?: boolean } = {}): Promise<{ changes: number; balanceSource?: string } | null> {
   const found = bankRecords(data, { itemId })
   if (!found) return null
-  let pages: SyncPage[]
+  let report: ServerRefresh
   try {
-    pages = await syncPages(itemId, text(found.bank.payload.cursor), opts.realtime === true)
+    report = await callRefresh(itemId)
   } catch (e) {
-    // Say exactly what's wrong on every device: a login problem is "needs you to sign in again" (Reconnect), not a
-    // generic connection problem.
     if (e instanceof SyncError && e.code === 'item_login_required' && found.bank.payload.status !== 'needsReauth') {
       await push(found.bank.household_id, [{ entity: 'bankConnection', id: found.bank.id, payload: { ...found.bank.payload, status: 'needsReauth' } }]).catch(() => undefined)
     }
     throw e
   }
-  const changes = refreshRecords({ ...found, household: [...data.records.values()], pages, categoryIdByName: categories(data) })
-  await push(found.bank.household_id, changes)
-  return { changes: changes.length, balanceSource: (pages[0] as SyncPage & { balance_source?: string } | undefined)?.balance_source }
+  const changes = await applyReport(report, data)
+  const live = report.syncs?.some((p) => (p as { balance_source?: string }).balance_source === 'live')
+  return { changes, balanceSource: live ? 'live' : report.results[0]?.status }
 }
 
-/** What Refresh all found for one bank (the app's BankSyncService.RefreshResult). */
+/** What Refresh all found for one account (the app's AccountRefreshResult). */
 export interface RefreshResult {
   itemId: string
   institution: string
-  outcome: 'updated' | 'needsReconnect' | 'failed'
+  accountId?: string
+  name?: string
+  mask?: string
+  outcome: 'updated' | 'stale' | 'needsReconnect' | 'failed' | 'institutionDown'
+  message?: string
+  lastUpdated?: string
   live?: boolean
   reason?: string
-  message?: string
+}
+
+/** The server's per-account row (`plaid-refresh`). */
+export interface ServerAccountResult {
+  item_id: string
+  institution_name?: string | null
+  institution_id?: string | null
+  account_id?: string | null
+  name?: string | null
+  mask?: string | null
+  status: string
+  message: string
+  last_updated?: string | null
+  reconnect?: boolean
+  retry_after?: string | null
+}
+
+export interface ServerRefresh {
+  refreshed_at?: string
+  results: ServerAccountResult[]
+  syncs: (SyncPage & { item_id?: string })[]
+}
+
+/** Every account the server returned. Savings-only, OAuth, and household items are not filtered out here. */
+export function presentRefresh(results: ServerAccountResult[]): RefreshResult[] {
+  return results.map((r) => ({
+    itemId: r.item_id,
+    institution: r.institution_name || 'Bank',
+    accountId: r.account_id || undefined,
+    name: r.name || undefined,
+    mask: r.mask || undefined,
+    outcome: outcomeOf(r.status),
+    message: r.message,
+    lastUpdated: r.last_updated || undefined,
+  }))
+}
+
+function outcomeOf(status: string): RefreshResult['outcome'] {
+  switch (status) {
+    case 'updated': return 'updated'
+    case 'stale': return 'stale'
+    case 'needs_reconnect': return 'needsReconnect'
+    case 'institution_down': return 'institutionDown'
+    default: return 'failed'
+  }
+}
+
+/** The short label on the Accounts table. The sheet uses the full sentence. */
+export function shortRefreshLabel(outcome: RefreshResult['outcome']): string {
+  switch (outcome) {
+    case 'updated': return 'Updated just now'
+    case 'stale': return 'Stale'
+    case 'needsReconnect': return 'Reconnect'
+    case 'institutionDown': return 'Bank down'
+    default: return 'Failed'
+  }
+}
+
+/**
+ * Last synced moves only when the bank sent new data. A stale cache keeps the previous time, so a savings account
+ * Plaid hasn't re-extracted doesn't look freshly updated.
+ */
+export function keepPreviousSyncTime(changes: RecordChange[], previous: unknown, bump: boolean): RecordChange[] {
+  if (bump) return changes
+  return changes.map((c) => c.entity === 'bankConnection'
+    ? { ...c, payload: { ...c.payload, lastSyncedAt: previous ?? null } }
+    : c)
+}
+
+const RETRY_KEY = 'davey.refresh.retry'
+
+export function dueRetries(stored: { itemId: string; after: string }[], now = Date.now()): string[] {
+  return stored.filter((r) => Date.parse(r.after) <= now).map((r) => r.itemId)
+}
+
+function readRetries(): { itemId: string; after: string }[] {
+  try { return JSON.parse(localStorage.getItem(RETRY_KEY) ?? '[]') as { itemId: string; after: string }[] } catch { return [] }
+}
+
+function writeRetries(rows: { itemId: string; after: string }[]) {
+  try { localStorage.setItem(RETRY_KEY, JSON.stringify(rows)) } catch { /* private window */ }
+}
+
+/** Remember INSTITUTION_DOWN retries and drop them once the bank answers. */
+export function rememberRetries(results: ServerAccountResult[], now = Date.now()): { itemId: string; after: string }[] {
+  const byItem = new Map(readRetries().map((r) => [r.itemId, r]))
+  const grouped = new Map<string, ServerAccountResult[]>()
+  for (const r of results) grouped.set(r.item_id, [...(grouped.get(r.item_id) ?? []), r])
+  for (const [itemId, rows] of grouped) {
+    const after = rows.map((r) => r.retry_after).filter((v): v is string => !!v).sort().at(-1)
+    if (after && Date.parse(after) > now) byItem.set(itemId, { itemId, after })
+    else if (rows.some((r) => r.status === 'updated' || r.status === 'stale' || r.status === 'needs_reconnect')) byItem.delete(itemId)
+  }
+  const next = [...byItem.values()]
+  writeRetries(next)
+  return next
 }
 
 /** The same words as the app for which balances came back (plaid-sync's balance_source). */
@@ -396,33 +533,28 @@ export function balanceNote(live: boolean, reason?: string): string {
  * Accounts › Refresh all: syncs every bank in the household now (transactions and balances, a live balance where
  * that's switched on) and shares the results, one bank after another. Banks that need a sign-in are tried too.
  */
-export async function refreshAllBanks(load: () => Promise<DaveyData>, opts: { realtime?: boolean; skipNeedsReauth?: boolean } = {}): Promise<RefreshResult[]> {
+export async function refreshAllBanks(load: () => Promise<DaveyData>, _opts: { realtime?: boolean } = {}): Promise<RefreshResult[]> {
   // After the one-time duplicate repair (one shared promise): a sync that read the records first would write them back.
   await repairOnce(load)
-  // One load for every bank (each bank's records are its own), then each save lays its changes onto the newest copy
-  // of just the records it touches. Reloading the household per bank made 12 banks ~25 full reloads (QA #4).
+  // One load, then one server call for every Item in the household. The server does not drop savings-only, OAuth,
+  // cursor-less, login-required, or a partner's items.
   const data = await load()
-  const banks = [...data.records.values()].filter((r) => r.entity === 'bankConnection' && text(r.payload.itemID) &&
-    !(opts.skipNeedsReauth && r.payload.status === 'needsReauth'))
-  const results: RefreshResult[] = new Array(banks.length)
-  let next = 0
-  const worker = async () => {
-    for (let i = next++; i < banks.length; i = next++) {
-      const bank = banks[i]
-      const itemId = text(bank.payload.itemID)!
-      const institution = text(bank.payload.institutionName) ?? 'Bank'
-      try {
-        const done = await refreshBank(itemId, data, { realtime: opts.realtime ?? true })
-        results[i] = { itemId, institution, outcome: 'updated', live: done?.balanceSource === 'live', reason: done?.balanceSource }
-      } catch (e) {
-        if (e instanceof SyncError && e.code === 'item_login_required') results[i] = { itemId, institution, outcome: 'needsReconnect' }
-        else results[i] = { itemId, institution, outcome: 'failed', message: (e as Error).message }
-      }
-    }
+  try {
+    const report = await callRefresh()
+    await applyReport(report, data)
+    return presentRefresh(report.results)
+  } catch (e) {
+    return [{ itemId: '', institution: 'Accounts', outcome: 'failed', message: (e as Error).message }]
   }
-  // Three banks at a time: quicker than one by one, gentle on Plaid and the database.
-  await Promise.all(Array.from({ length: Math.min(3, banks.length) }, worker))
-  return results
+}
+
+/** Asks again for banks that were down, once their retry time has passed. */
+export async function retryDueInstitutions(load: () => Promise<DaveyData>): Promise<boolean> {
+  const due = dueRetries(readRetries())
+  if (!due.length) return false
+  const data = await load()
+  for (const itemId of due) await refreshBank(itemId, data).catch(() => undefined)
+  return true
 }
 
 /** A second Item for a bank the household already has: move the old connection onto it, then remove the old Item. */
@@ -484,7 +616,7 @@ export function relinkOrphansOnce(orphans: number, load: () => Promise<DaveyData
   // Only the first caller hears "changed" (and reloads); later ones get false, so a reload can't start another.
   if (!orphans || relinked || !relinkDue()) return Promise.resolve(false)
   try { localStorage.setItem(RELINK_KEY, String(Date.now())) } catch { /* private window: once per page load */ }
-  relinked = refreshAllBanks(load, { realtime: false, skipNeedsReauth: true }).then((r) => r.some((x) => x.outcome === 'updated'), () => false)
+  relinked = refreshAllBanks(load, { realtime: false }).then((r) => r.some((x) => x.outcome === 'updated'), () => false)
   return relinked
 }
 

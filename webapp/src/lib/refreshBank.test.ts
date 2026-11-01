@@ -1,7 +1,7 @@
 // A reconnect on the web must bring the bank up to date everywhere (PenFed, 2026-10-25), and connecting the same bank
 // again must update the existing accounts instead of adding a second copy.
 import { describe, expect, it } from 'vitest'
-import { banksToReplace, findSameBank, mergeOntoLatest, refreshRecords } from './refreshBank'
+import { banksToReplace, dueRetries, findSameBank, keepPreviousSyncTime, mergeOntoLatest, refreshRecords, rememberRetries } from './refreshBank'
 import { plaidDay, type SyncPage } from './importBank'
 import type { DaveyData, HouseholdRecord } from './serverData'
 
@@ -115,6 +115,49 @@ describe('checking flagged connections (SoFi / PenFed badges, 2026-10-25)', () =
     expect(problems.get('item-x')).toMatch(/isn't shared/)
     expect(dueForCheck('item-x')).toBe(false)
     expect(dueForCheck('item-x', Date.now() + 10 * 60_000)).toBe(true)
+  })
+})
+
+describe('Refresh all includes every account and tells the truth about stale balances', () => {
+  it('shows a savings account, an OAuth bank, and a login-required item with no filter', async () => {
+    const { presentRefresh } = await import('./refreshBank')
+    const shown = presentRefresh([
+      { item_id: 'item-marcus', institution_name: 'Marcus by Goldman Sachs', account_id: 'acct-1', name: 'Lawyer Fund', mask: '5552', status: 'stale', message: "Stale – bank hasn't sent new data. Last updated Oct 26, 2026, 5:02 AM UTC." },
+      { item_id: 'item-chase', institution_name: 'Chase', account_id: 'acct-2', name: 'Checking', status: 'updated', message: 'Updated just now' },
+      { item_id: 'item-wf', institution_name: 'Wells Fargo', account_id: 'acct-3', name: 'Checking', status: 'needs_reconnect', message: 'This bank needs you to sign in again.', reconnect: true },
+      { item_id: 'item-partner', institution_name: 'Allie Credit Union', account_id: 'acct-4', name: 'Savings', status: 'institution_down', message: 'The bank is temporarily down. Davey will try again later.', retry_after: '2026-11-01T21:15:00.000Z' },
+    ])
+    expect(shown.map((r) => r.institution)).toEqual(['Marcus by Goldman Sachs', 'Chase', 'Wells Fargo', 'Allie Credit Union'])
+    expect(shown.map((r) => r.outcome)).toEqual(['stale', 'updated', 'needsReconnect', 'institutionDown'])
+    expect(shown[0].message).toContain('Oct 26, 2026')
+  })
+
+  it('does not move Last synced when the bank sent nothing new, and still keeps the new cursor', () => {
+    const bank = rec('bankConnection', 'bank-marcus', { itemID: 'item-marcus', institutionName: 'Marcus by Goldman Sachs', cursor: 'old', status: 'ok', lastSyncedAt: '2026-10-26T05:02:06.847Z' })
+    const account = rec('account', 'acc-1', { name: 'Lawyer Fund', type: 'savings', mask: '5552', externalID: 'acct-1', bankConnectionID: 'bank-marcus', startingBalance: 50_457 })
+    const page: SyncPage = {
+      added: [], modified: [], removed: [], next_cursor: 'cursor-2', has_more: false,
+      accounts: [acct('acct-1', '5552', 'depository', 'savings', 50_457)],
+    }
+    const changes = refreshRecords({ bank, accounts: [account], transactions: [], pages: [page], categoryIdByName: new Map(), now: new Date('2026-11-01T21:00:00Z') })
+    const kept = keepPreviousSyncTime(changes, bank.payload.lastSyncedAt, false)
+    expect(kept[0].payload.lastSyncedAt).toBe('2026-10-26T05:02:06.847Z')
+    expect(kept[0].payload.cursor).toBe('cursor-2')
+    const bumped = keepPreviousSyncTime(changes, bank.payload.lastSyncedAt, true)
+    expect(bumped[0].payload.lastSyncedAt).toBe('2026-11-01T21:00:00.000Z')
+  })
+
+  it('retries an institution that is down, and stops once it answers', () => {
+    localStorage.clear()
+    const waiting = rememberRetries([
+      { item_id: 'item-marcus', status: 'institution_down', message: 'down', retry_after: '2099-01-01T00:00:00.000Z' },
+    ], Date.parse('2026-11-01T21:00:00Z'))
+    expect(dueRetries(waiting, Date.parse('2026-11-01T21:00:00Z'))).toEqual([])
+    expect(dueRetries(waiting, Date.parse('2099-01-01T00:00:00.000Z'))).toEqual(['item-marcus'])
+    const cleared = rememberRetries([
+      { item_id: 'item-marcus', status: 'updated', message: 'Updated just now' },
+    ], Date.parse('2099-01-01T00:00:00.000Z'))
+    expect(cleared).toEqual([])
   })
 })
 
