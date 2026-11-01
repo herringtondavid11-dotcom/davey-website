@@ -349,7 +349,7 @@ export async function reportIssue(report: IssueReport): Promise<{ sent: true } |
   return { sent: false, mailto }
 }
 
-export async function exchangePublicToken(publicToken: string, metadata: PlaidLinkMetadata): Promise<{ itemId?: string }> {
+export async function exchangePublicToken(publicToken: string, metadata: PlaidLinkMetadata): Promise<{ itemId?: string; retiredItemIds: string[] }> {
   const { data, error } = await supabase.functions.invoke('plaid-exchange', {
     body: {
       public_token: publicToken,
@@ -360,7 +360,8 @@ export async function exchangePublicToken(publicToken: string, metadata: PlaidLi
     },
   })
   if (error) throw new Error(errorMessage(error, "Couldn't finish connecting your bank."))
-  return { itemId: data?.item_id ?? data?.itemId ?? data?.item?.id }
+  const retired = Array.isArray(data?.retired_item_ids) ? data.retired_item_ids.filter((id: unknown) => typeof id === 'string') : []
+  return { itemId: data?.item_id ?? data?.itemId ?? data?.item?.id, retiredItemIds: retired }
 }
 
 /** Best effort: a slow first sync must not block naming the accounts. */

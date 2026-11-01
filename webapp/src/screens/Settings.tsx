@@ -10,6 +10,7 @@ import { householdStatus, updateProfile } from '../lib/household'
 import { supabase } from '../lib/supabase'
 import { normalizeItem } from '../lib/tables'
 import { applyTheme, readTheme, type ThemePref } from '../lib/theme'
+import { useConnectionCheck } from '../lib/useConnectionCheck'
 import { useTable } from '../lib/useTable'
 
 export function Profile() {
@@ -126,7 +127,9 @@ export function Settings() {
   const { signOut } = useAuth()
   const [theme, setTheme] = useState<ThemePref>(readTheme)
   const items = useTable('items')
-  const issues = useMemo(() => (items.result?.rows ?? []).map(normalizeItem).filter((c) => c.health !== 'ok'), [items.result])
+  const loaded = useMemo(() => (items.result?.rows ?? []).map(normalizeItem), [items.result])
+  const check = useConnectionCheck(loaded, items.reload)
+  const issues = check.connections.filter((c) => c.health !== 'ok')
 
   async function signOutEverywhere() {
     if (!window.confirm('Sign out on every device, including the Davey app on your iPhone and Mac?')) return

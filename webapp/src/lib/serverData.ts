@@ -156,6 +156,7 @@ export function toRows(input: {
       available_balance: optMinor(p.availableBalance),
       iso_currency_code: 'USD',
       institution_name: text(bank?.institutionName),
+      connection_status: text(bank?.status),
       is_hidden: p.isArchived === true,
       created_at: text(p.createdAt),
       is_business: p.isBusiness === true,

@@ -3,7 +3,7 @@ import { useData } from '../lib/DataProvider'
 import { fetchAccounts } from '../lib/data'
 import { loadDaveyData, reloadDaveyData } from '../lib/serverData'
 import { householdID, importNewBank } from '../lib/importBank'
-import { adoptNewItem, findSameBank, refreshBank } from '../lib/refreshBank'
+import { adoptNewItem, banksToReplace, refreshBank } from '../lib/refreshBank'
 import { clearTableCache } from '../lib/useTable'
 import { newAccountsFromLink } from '../lib/linkFlow'
 import {
@@ -108,14 +108,21 @@ export function usePlaidFlow() {
       clearPendingLink()
       setState({ step: 'saving', institution: metadata.institution?.name })
       try {
-        const { itemId } = await exchangePublicToken(publicToken, metadata)
+        const exchanged = await exchangePublicToken(publicToken, metadata)
+        const itemId = exchanged.itemId
         const data = await reloadDaveyData()
         const household = await householdID(data)
         if (!itemId || !household) throw new Error(NO_HOUSEHOLD)
-        // The same bank connected again (Connect an account instead of Reconnect): update the existing connection
+        // The same bank connected again, or a broken Item the server just retired: update the existing connection
         // instead of adding a second copy of every account and transaction.
-        const same = findSameBank(data, metadata.institution?.institution_id ?? undefined, itemId,
-          (metadata.accounts ?? []).map((a) => a.mask ?? '').filter(Boolean))
+        const masks = (metadata.accounts ?? []).map((a) => a.mask ?? '').filter(Boolean)
+        const replacements = banksToReplace(data, {
+          institutionId: metadata.institution?.institution_id ?? undefined,
+          newItemId: itemId,
+          masks,
+          retiredItemIds: exchanged.retiredItemIds,
+        })
+        const same = replacements[0]
         if (same) {
           setState({ step: 'updating', institution: metadata.institution?.name })
           await adoptNewItem(same, itemId, data)

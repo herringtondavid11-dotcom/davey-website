@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeAccount } from './schema'
-import { isMissingTable, normalizeBudget, normalizeHoldings, normalizeItem, normalizeMember, normalizeRecurring } from './tables'
+import { isMissingTable, normalizeBudget, normalizeHoldings, normalizeItem, normalizeMember, normalizeRecurring, withServerStatus } from './tables'
 
 describe('optional tables', () => {
   it('recognizes a missing table', () => {
@@ -16,6 +16,9 @@ describe('optional tables', () => {
     expect(normalizeItem({ id: 1, status: 'pending_expiration' }).health).toBe('pending_expiration')
     expect(normalizeItem({ id: 1, error_code: 'INSTITUTION_DOWN' }).health).toBe('error')
     expect(normalizeItem({ id: 1, plaid_item_id: 'it', last_sync_at: '2026-10-01' })).toMatchObject({ itemId: 'it', lastSynced: '2026-10-01', institution: 'Bank' })
+    const ok = normalizeItem({ id: 1, plaid_item_id: 'item-chase', institution_name: 'Chase', status: 'ok' })
+    expect(withServerStatus([ok], [{ item_id: 'item-chase', status: 'login_required' }])[0].health).toBe('needs_reauth')
+    expect(withServerStatus([ok], [{ item_id: 'item-chase', status: 'ok' }])[0].health).toBe('ok')
   })
   it('reads budgets, members, recurring', () => {
     expect(normalizeBudget({ id: 1, category_name: 'Dining', monthly_amount: '-300' })).toMatchObject({ category: 'Dining', amount: 300 })

@@ -173,7 +173,7 @@ function GoalEditor({ a, onDone }: { a: Account; onDone: () => void }) {
 }
 
 /** One account: Bank | Account | Category, then the balance; its goal below. The name opens nickname and use. */
-function AccountRow({ r, categories, onPick, onManage }: { r: Row; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void>; onManage: () => void }) {
+function AccountRow({ r, categories, onPick, onManage, needsReconnect }: { r: Row; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void>; onManage: () => void; needsReconnect?: boolean }) {
   const a = r.account
   const [editing, setEditing] = useState(false)
   const [open, setOpen] = useState(false)
@@ -186,6 +186,7 @@ function AccountRow({ r, categories, onPick, onManage }: { r: Row; categories: A
         <span className="acct-bank"><BankBadge name={r.bank} color={a.bankColor} logo={a.bankLogo} /><span className="acct-bank-name">{r.bank}</span></span>
         <button type="button" className="acct-name" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           <span className="row-title">{displayName(a)}</span>{a.mask && <span className="muted small"> ••{a.mask}</span>}
+          {needsReconnect && a.itemId && <Link className="btn btn-primary btn-sm" to={`/connect?reconnect=${encodeURIComponent(a.itemId)}`}>Reconnect</Link>}
           <ChevronIcon className={open ? 'chev open' : 'chev'} />
         </button>
         <span className="acct-cat"><CategoryPicker label={displayName(a)} value={r.picked ? r.category?.id : undefined} categories={categories} suggested={suggestedName(a, categories)} onPick={(id) => onPick(a, id)} onManage={onManage} /></span>
@@ -309,8 +310,9 @@ export function Accounts() {
   const { session } = useAuth()
   const { categories } = useAccountCategories()
   const items = useTable('items')
-  const connections = useMemo(() => (items.result?.rows ?? []).map(normalizeItem), [items.result])
-  const check = useConnectionCheck(connections, items.reload)
+  const loadedConnections = useMemo(() => (items.result?.rows ?? []).map(normalizeItem), [items.result])
+  const check = useConnectionCheck(loadedConnections, items.reload)
+  const connections = check.connections
   const [showHidden, setShowHidden] = useState(false)
   const [query, setQuery] = useState('')
   const [prefs, setPrefs] = usePrefs(session?.user.id)
@@ -347,6 +349,7 @@ export function Accounts() {
   const visible = accounts.filter((a) => !a.hidden)
   const totals = summary(visible.map(goalRow), visible.reduce((s, a) => s + signedCents(a), 0))
   const issues = connections.filter((c) => c.health !== 'ok')
+  const reauthItems = new Set(issues.map((c) => c.itemId).filter((id): id is string => !!id))
   const hiddenCount = accounts.filter((a) => a.hidden).length
   const allRows = rowsFor(shown, categories)
   const chartTotals = categoryTotals(rowsFor(visible, categories), categories)
@@ -486,7 +489,7 @@ export function Accounts() {
               <span className="group-total num">{money(g.total / 100)}{g.goals.fraction !== undefined ? ` · ${percentText(g.goals.fraction * 100)} funded` : ''}</span>
               <ChevronIcon className={collapsed ? 'chev' : 'chev open'} />
             </button>
-            {!collapsed && <ul className="list">{g.rows.map((r) => <AccountRow key={r.account.id} r={r} categories={categories} onPick={pick} onManage={() => setManaging(true)} />)}</ul>}
+            {!collapsed && <ul className="list">{g.rows.map((r) => <AccountRow key={r.account.id} r={r} categories={categories} onPick={pick} onManage={() => setManaging(true)} needsReconnect={!!r.account.itemId && (reauthItems.has(r.account.itemId) || (!!r.account.connectionStatus && r.account.connectionStatus !== 'ok'))} />)}</ul>}
           </section>
         )
       })}
