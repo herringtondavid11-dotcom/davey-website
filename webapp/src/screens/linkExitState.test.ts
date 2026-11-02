@@ -3,8 +3,9 @@ import { linkExitState, unfinishedSignInMessage } from './usePlaidFlow'
 
 describe('Link onExit when sign-in does not finish', () => {
   it('names the bank and asks to allow pop-ups', () => {
-    expect(unfinishedSignInMessage('Chase')).toBe(
-      "Chase sign-in didn't finish. Make sure pop-ups are allowed for this site, then try again.",
+    expect(unfinishedSignInMessage('Chase')).toMatch(/Chase refused the connection/)
+    expect(unfinishedSignInMessage('Ally')).toBe(
+      "Ally sign-in didn't finish. Make sure pop-ups are allowed for this site, then try again.",
     )
     expect(unfinishedSignInMessage('  ')).toBe(
       "Bank sign-in didn't finish. Make sure pop-ups are allowed for this site, then try again.",
@@ -13,10 +14,10 @@ describe('Link onExit when sign-in does not finish', () => {
   })
 
   it('shows that message for requires_oauth and any other status when Plaid reports no error', () => {
-    const chase = { status: 'requires_oauth', institution: { name: 'Chase' } }
+    const chase = { status: 'requires_oauth', institution: { institution_id: 'ins_56', name: 'Chase' } }
     expect(linkExitState(null, chase)).toEqual({
       step: 'unfinished',
-      message: "Chase sign-in didn't finish. Make sure pop-ups are allowed for this site, then try again.",
+      message: expect.stringMatching(/Chase refused the connection/),
     })
     expect(linkExitState(null, { status: 'requires_credentials' }).step).toBe('unfinished')
     const ally = linkExitState(undefined, { status: 'institution_not_found', institution: { name: 'Ally' } })
@@ -38,5 +39,10 @@ describe('Link onExit when sign-in does not finish', () => {
       step: 'error',
       message: 'The bank connection was interrupted. Try again.',
     })
+    const refused = linkExitState(
+      { error_code: 'INSUFFICIENT_CREDENTIALS', display_message: 'Something went wrong' },
+      { status: 'requires_oauth', institution: { institution_id: 'ins_56', name: 'Chase' } },
+    )
+    expect(refused).toMatchObject({ step: 'error', message: expect.stringMatching(/Chase refused the connection/) })
   })
 })

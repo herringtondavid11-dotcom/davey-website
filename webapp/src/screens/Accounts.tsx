@@ -197,11 +197,13 @@ function AccountRow({ r, categories, onPick, onManage, needsReconnect, refresh }
     <li className="goal-row" data-testid={`account-${a.id}`}>
       <div className="acct-row">
         <span className="acct-bank"><BankBadge name={r.bank} color={a.bankColor} logo={a.bankLogo} /><span className="acct-bank-name">{r.bank}</span></span>
-        <button type="button" className="acct-name" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-          <span className="row-title">{displayName(a)}</span>{a.mask && <span className="muted small"> ••{a.mask}</span>}
+        <span className="acct-name-wrap">
+          <button type="button" className="acct-name" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            <span className="row-title">{displayName(a)}</span>{a.mask && <span className="muted small"> ••{a.mask}</span>}
+            <ChevronIcon className={open ? 'chev open' : 'chev'} />
+          </button>
           {needsReconnect && a.itemId && <Link className="btn btn-primary btn-sm" to={`/connect?reconnect=${encodeURIComponent(a.itemId)}`}>Reconnect</Link>}
-          <ChevronIcon className={open ? 'chev open' : 'chev'} />
-        </button>
+        </span>
         <span className="acct-cat"><CategoryPicker label={displayName(a)} value={r.picked ? r.category?.id : undefined} categories={categories} suggested={suggestedName(a, categories)} onPick={(id) => onPick(a, id)} onManage={onManage} /></span>
         <span className={'row-amount acct-amount ' + (debt ? 'negative' : '')}>{money(debt ? -Math.abs(a.balance) : a.balance, a.currency)}</span>
       </div>

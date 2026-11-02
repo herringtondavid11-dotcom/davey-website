@@ -100,7 +100,7 @@ test('an unfinished bank sign-in explains itself and can be tried again', async 
 
   await page.evaluate(() => (window as unknown as { __plaidClose: (status?: string | null, institution?: string) => void }).__plaidClose('requires_oauth', 'Chase'))
   const notice = page.locator('.connect-hero .notice')
-  await expect(notice).toHaveText("Chase sign-in didn't finish. Make sure pop-ups are allowed for this site, then try again.")
+  await expect(notice).toHaveText("Chase refused the connection. Try again. If it keeps happening, Chase has not approved this app's sign-in yet.")
   await expect(notice).toHaveAttribute('role', 'status')
   await expect(page.getByRole('button', { name: 'Try again' })).toBeEnabled()
   expect(state.calls.some((c) => c.path === '/functions/v1/plaid-exchange')).toBe(false)

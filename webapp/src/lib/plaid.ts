@@ -126,10 +126,64 @@ export function openedByDavey(win: Window = window): boolean {
  */
 export function handOffOAuthPopup(win: Window = window): boolean {
   const url = new URL(win.location.href)
+  if (/\/oauth\/+$/.test(url.pathname)) url.pathname = url.pathname.replace(/\/+$/, '')
   if (!/\/oauth\/?$/.test(url.pathname) || !url.searchParams.has('oauth_state_id') || !openedByDavey(win)) return false
+  // Absolute URL: the opener passes it to Plaid as receivedRedirectUri. A path alone is not a URL.
   win.opener!.postMessage({ type: OAUTH_HANDOFF, href: url.href }, win.location.origin)
   win.history.replaceState(null, '', url.pathname)
   return true
+}
+
+/**
+ * `/app/oauth/` is the same page as the redirect URI registered with Plaid (`/app/oauth`). A trailing slash
+ * must not change the path the bank returns to, and the query (oauth_state_id) stays.
+ */
+export function canonicalAppHref(href: string): string {
+  const url = new URL(href, 'https://daveypersonalfinance.com')
+  // Only the Plaid redirect. Other routes keep their slash so GitHub Pages is not bounced between /app and /app/.
+  if (/\/oauth\/+$/.test(url.pathname)) url.pathname = url.pathname.replace(/\/+$/, '')
+  return url.pathname + url.search + url.hash
+}
+
+/** Chase (ins_56). Their OAuth page is the one that says "unauthorized client". */
+export const CHASE_INSTITUTION_ID = 'ins_56'
+
+/**
+ * How long to wait after OPEN_OAUTH before telling the user the bank window did not come back.
+ * A finished PenFed sign-in has taken about 110 seconds, so this stays longer than that.
+ */
+export const OAUTH_RETURN_TIMEOUT_MS = 3 * 60 * 1000
+
+export function isChaseInstitution(id?: string | null, name?: string | null): boolean {
+  return id === CHASE_INSTITUTION_ID || /^chase\b/i.test((name ?? '').trim())
+}
+
+/** Shown while the bank window is open, including when that window is a blank refusal. */
+export function oauthWaitingMessage(id?: string | null, name?: string | null): string {
+  if (isChaseInstitution(id, name)) return "Chase's sign-in is open. If that window is blank or says the connection was refused, close it and try again."
+  const bank = (name ?? '').trim() || 'Your bank'
+  return `${bank}'s sign-in is open. If that window is blank or says the connection was refused, close it and try again.`
+}
+
+/** Shown once the attempt has failed or the window never came back. */
+export function bankRefusedMessage(id?: string | null, name?: string | null): string {
+  if (isChaseInstitution(id, name)) return "Chase refused the connection. Try again. If it keeps happening, Chase has not approved this app's sign-in yet."
+  const bank = (name ?? '').trim() || 'Your bank'
+  return `${bank} didn't finish signing in. If the window was blank or said the connection was refused, close it and try again.`
+}
+
+/** FAIL_OAUTH, or the INSUFFICIENT_CREDENTIALS error Chase's unauthorized-client page produces. */
+export function oauthAttemptFailed(eventName: string, metadata: unknown): boolean {
+  if (eventName === 'FAIL_OAUTH') return true
+  if (eventName !== 'ERROR') return false
+  const meta = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {}
+  const nested = meta.error && typeof meta.error === 'object' ? (meta.error as Record<string, unknown>) : {}
+  const code = meta.error_code ?? nested.error_code
+  return code === 'INSUFFICIENT_CREDENTIALS'
+}
+
+export function oauthTimedOut(openedAt: number, now: number, limit = OAUTH_RETURN_TIMEOUT_MS): boolean {
+  return now - openedAt >= limit
 }
 
 /** The { message } a function answered with (non-2xx), if any. */
