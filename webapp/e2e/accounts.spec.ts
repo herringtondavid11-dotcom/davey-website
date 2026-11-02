@@ -47,10 +47,11 @@ test('reconnect in update mode syncs from the cursor, shares the update and clea
   await page.getByRole('button', { name: 'Reconnect' }).click()
   await expect(page.getByText('Updated just now')).toBeVisible()
   expect(state.calls.some((c) => c.path === '/functions/v1/plaid-exchange')).toBe(false)
-  // From the bank's own cursor (the old call sent no cursor and threw the answer away).
-  expect(state.syncBodies[0]).toEqual({ item_id: 'item-wf', cursor: 'cursor-wf-1' })
+  // Reconnect asks plaid-refresh for this Item only. The server keeps the cursor and answers with cursor-<item id>-2.
+  expect(state.refreshBodies).toEqual([{ item_id: 'item-wf' }])
+  expect(state.syncBodies).toEqual([])
   const bank = pushedPayloads(state, 'bankConnection', (id) => id === 'bank-wells-fargo').at(-1)
-  expect(bank).toMatchObject({ status: 'ok', cursor: 'cursor-wf-2', itemID: 'item-wf' })
+  expect(bank).toMatchObject({ status: 'ok', cursor: 'cursor-item-wf-2', itemID: 'item-wf' })
   const account = pushedPayloads(state, 'account', (id) => id === 'acc-6').at(-1)!
   expect(account.availableBalance).toBe(1_345_600)
   expect(pushedPayloads(state, 'transaction', (_, p) => p.externalID === 'wtx-1')).toHaveLength(1)
@@ -68,7 +69,8 @@ test('flagged connections are checked on open: one that syncs turns OK everywher
   await expect(issues.getByText('Needs you to sign in again')).toBeVisible()
   await expect(issues.getByRole('link', { name: 'Reconnect' })).toBeVisible()
   await expect(page.getByText('SoFi').first()).toBeVisible()
-  expect(pushedPayloads(state, 'bankConnection', (id) => id === 'bank-sofi').at(-1)).toMatchObject({ status: 'ok', cursor: 'cursor-sofi-2' })
+  expect(state.refreshBodies).toEqual([{ item_id: 'item-sofi' }])
+  expect(pushedPayloads(state, 'bankConnection', (id) => id === 'bank-sofi').at(-1)).toMatchObject({ status: 'ok', cursor: 'cursor-item-sofi-2' })
   // Plaid still reports Wells Fargo's login as broken, so it isn't synced or rewritten.
   expect(pushedPayloads(state, 'bankConnection', (id) => id === 'bank-wells-fargo')).toHaveLength(0)
 })

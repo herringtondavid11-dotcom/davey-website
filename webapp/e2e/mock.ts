@@ -623,6 +623,24 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
           })
           continue
         }
+        // After update-mode Link, Wells Fargo's refresh is the same page plaid-sync would return: new balance,
+        // the new transaction, and the per-item cursor (cursor-<plaid item id>-2).
+        if (item.plaid_item_id === 'item-wf') {
+          results.push({
+            item_id: item.plaid_item_id, institution_name: institution, institution_id: item.institution_id ?? null,
+            account_id: 'p-6', name: 'Studio', mask: '6666', status: 'updated', message: 'Updated just now',
+            last_updated: new Date().toISOString(), reconnect: false, retry_after: null,
+          })
+          syncs.push({
+            item_id: item.plaid_item_id,
+            added: [{ transaction_id: 'wtx-1', account_id: 'p-6', amount_cents: -4200, date: iso(0), name: 'Studio Supplies', pending: false, category_primary: 'GENERAL_MERCHANDISE', category_detailed: null }],
+            modified: [], removed: [],
+            accounts: [{ account_id: 'p-6', name: 'Everyday Business Checking', official_name: null, mask: '6666', type: 'depository', subtype: 'checking', current_balance_cents: 1_345_600, available_balance_cents: 1_345_600, limit_cents: null }],
+            next_cursor: `cursor-${item.plaid_item_id}-2`, has_more: false,
+            balance_source: opts.realtimeBalance ? 'live' : 'off',
+          })
+          continue
+        }
         const kind = (a: Row) => (a.type === 'credit' ? 'credit' : a.type === 'investment' ? 'investment' : 'depository')
         const syncAccounts = accounts.map((a) => ({
           account_id: a.plaid_account_id, name: a.name, official_name: null, mask: a.mask, type: kind(a), subtype: a.subtype,
@@ -672,7 +690,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
           ...(body.realtime ? { balance_source: opts.realtimeBalance ? 'live' : 'off' } : {}),
         })
       }
-      if (body.item_id === 'item-sofi') return json(route, { added: [], modified: [], removed: [], accounts: [], next_cursor: 'cursor-sofi-2', has_more: false })
+      if (body.item_id === 'item-sofi') return json(route, { added: [], modified: [], removed: [], accounts: [], next_cursor: 'cursor-item-sofi-2', has_more: false })
       if (body.item_id === 'item-wf' || body.item_id === 'item-relinked') {
         const relinked = body.item_id === 'item-relinked'
         const account = relinked ? 'p-6-new' : 'p-6'
@@ -680,7 +698,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
           added: [{ transaction_id: relinked ? 'wtx-new-1' : 'wtx-1', account_id: account, amount_cents: -4200, date: iso(0), name: 'Studio Supplies', pending: false, category_primary: 'GENERAL_MERCHANDISE', category_detailed: null }],
           modified: [], removed: [],
           accounts: [{ account_id: account, name: 'Everyday Business Checking', official_name: null, mask: '6666', type: 'depository', subtype: 'checking', current_balance_cents: 1_345_600, available_balance_cents: 1_345_600, limit_cents: null }],
-          next_cursor: relinked ? 'cursor-relinked-1' : 'cursor-wf-2', has_more: false,
+          next_cursor: relinked ? 'cursor-relinked-1' : 'cursor-item-wf-2', has_more: false,
         })
       }
       // The function's wire format (toAppAccount / toAppTransaction): cents, app sign.
