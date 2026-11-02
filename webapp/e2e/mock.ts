@@ -749,6 +749,15 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
             institution: institutionName ? { institution_id: 'ins_56', name: institutionName } : null,
           });
         };
+        window.__plaidOpenOAuth = function () {
+          if (opts.onEvent) opts.onEvent('OPEN_OAUTH', { institution_id: 'ins_56', institution_name: 'Chase', link_session_id: 'ls-chase', request_id: 'req-chase' });
+        };
+        window.__plaidFailOAuth = function () {
+          window.__plaidOpenOAuth();
+          if (!opts.onEvent) return;
+          opts.onEvent('FAIL_OAUTH', { institution_id: 'ins_56', institution_name: 'Chase', link_session_id: 'ls-chase', request_id: 'req-chase-fail' });
+          opts.onEvent('ERROR', { institution_id: 'ins_56', institution_name: 'Chase', link_session_id: 'ls-chase', request_id: 'req-chase-err', error_type: 'ITEM_ERROR', error_code: 'INSUFFICIENT_CREDENTIALS', error_message: 'insufficient authorization was provided to complete the request' });
+        };
         return {
           open: function () {
             window.__plaidOpenGestures.push(window.__daveyUserGesture === true);

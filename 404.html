@@ -5,6 +5,11 @@
   <script>
     // Davey web app (/app) is a single-page app: send unknown /app/* paths to it (GitHub Pages has no rewrites).
     (function (l) {
+      // The registered Plaid redirect is /app/oauth with no slash. A slash must not stay on the 404 page.
+      if (l.pathname === "/app/oauth" || l.pathname === "/app/oauth/") {
+        l.replace("/app/oauth" + l.search + l.hash);
+        return;
+      }
       if (l.pathname.indexOf("/app/") === 0) l.replace("/app/?p=" + encodeURIComponent(l.pathname.slice(4) + l.search) + l.hash);
     })(window.location);
   </script>

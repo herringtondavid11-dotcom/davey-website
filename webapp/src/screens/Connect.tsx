@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CheckIcon } from '../components/Icons'
 import { Spinner } from '../components/Spinner'
@@ -18,6 +19,18 @@ function buttonLabel(state: FlowState, action: string) {
   if (state.step === 'linking') return 'Plaid is open…'
   if (state.step === 'retry' || state.step === 'error' || state.step === 'unfinished') return 'Try again'
   return action
+}
+
+/** Sits above Plaid's iframe, which otherwise covers the page while a bank window is open. */
+function OAuthBanner({ note, onTryAgain }: { note: string | null; onTryAgain: () => void }) {
+  if (!note) return null
+  return createPortal(
+    <div className="oauth-banner" role="status">
+      <p>{note}</p>
+      <button type="button" className="btn btn-primary" onClick={onTryAgain}>Try again</button>
+    </div>,
+    document.body,
+  )
 }
 
 function FlowView({
@@ -109,6 +122,7 @@ export function Connect() {
   const showManual = !reconnectId && (flow.state.step === 'idle' || flow.state.step === 'error' || flow.state.step === 'starting' || flow.state.step === 'retry' || flow.state.step === 'unfinished')
   return (
     <div className="page">
+      <OAuthBanner note={flow.oauthNote} onTryAgain={flow.cancelOAuth} />
       <div className="page-head"><div><h1>Connect an account</h1><p>Checking, savings, credit cards, loans, mortgages, and investments.</p></div></div>
       <FlowView
         state={flow.state}
@@ -154,6 +168,7 @@ export function OAuthReturn() {
 
   return (
     <div className="page">
+      <OAuthBanner note={flow.oauthNote} onTryAgain={flow.cancelOAuth} />
       <div className="page-head"><div><h1>Connect an account</h1><p>Finishing up with your institution…</p></div></div>
       {flow.state.step === 'starting' || flow.state.step === 'idle' || flow.state.step === 'linking' ? (
         <section className="card connect-hero"><Spinner label="Returning from your bank" /></section>

@@ -8,14 +8,19 @@ import { clearTableCache } from '../lib/useTable'
 import { newAccountsFromLink } from '../lib/linkFlow'
 import {
   OAUTH_HANDOFF,
+  OAUTH_RETURN_TIMEOUT_MS,
+  bankRefusedMessage,
   claimOAuthResume,
   clearPendingLink,
   createLinkToken,
   exchangePublicToken,
   loadPlaid,
+  isChaseInstitution,
   isFallbackExit,
   logClientLinkEvent,
   logLinkEvent,
+  oauthAttemptFailed,
+  oauthWaitingMessage,
   pendingLinkFor,
   readPendingLink,
   type LinkMode,
@@ -49,7 +54,8 @@ export type FlowState =
   | { step: 'unfinished'; message: string }
 
 /** Link closed on an OAuth handoff or any other unfinished step, with no error from Plaid. */
-export function unfinishedSignInMessage(institution?: string | null): string {
+export function unfinishedSignInMessage(institution?: string | null, institutionId?: string | null): string {
+  if (isChaseInstitution(institutionId, institution)) return bankRefusedMessage(institutionId, institution)
   const bank = institution?.trim() || 'Bank'
   return `${bank} sign-in didn't finish. Make sure pop-ups are allowed for this site, then try again.`
 }
@@ -59,12 +65,36 @@ export function unfinishedSignInMessage(institution?: string | null): string {
  * (requires_oauth, or any other non-null status) explains the unfinished sign-in. A plain close stays idle.
  */
 export function linkExitState(
-  err: { display_message?: string | null } | null | undefined,
-  metadata: { status?: string | null; institution?: { name?: string | null } | null } | null | undefined,
+  err: { display_message?: string | null; error_code?: string | null; error_message?: string | null } | null | undefined,
+  metadata: { status?: string | null; institution?: { institution_id?: string | null; name?: string | null } | null } | null | undefined,
 ): FlowState {
+  const id = metadata?.institution?.institution_id
+  const name = metadata?.institution?.name
+  if (err?.error_code === 'INSUFFICIENT_CREDENTIALS') return { step: 'error', message: bankRefusedMessage(id, name) }
   if (err) return { step: 'error', message: err.display_message || 'The bank connection was interrupted. Try again.' }
-  if (metadata?.status != null) return { step: 'unfinished', message: unfinishedSignInMessage(metadata.institution?.name) }
+  if (metadata?.status != null) return { step: 'unfinished', message: unfinishedSignInMessage(name, id) }
   return { step: 'idle' }
+}
+
+interface OAuthWatch {
+  institutionId?: string
+  institutionName?: string
+  linkSessionId?: string
+  requestId?: string
+  openedAt: number
+}
+
+function watchFrom(metadata: unknown, previous?: OAuthWatch): OAuthWatch {
+  const meta = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {}
+  const institution = meta.institution && typeof meta.institution === 'object' ? (meta.institution as Record<string, unknown>) : {}
+  const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined)
+  return {
+    institutionId: text(institution.institution_id) ?? text(meta.institution_id) ?? previous?.institutionId,
+    institutionName: text(institution.name) ?? text(meta.institution_name) ?? previous?.institutionName,
+    linkSessionId: text(meta.link_session_id) ?? previous?.linkSessionId,
+    requestId: text(meta.request_id) ?? previous?.requestId,
+    openedAt: previous?.openedAt ?? Date.now(),
+  }
 }
 
 /** Davey keeps money data on the iPhone/Mac and in iCloud; the web sees what the household shares. */
@@ -92,6 +122,7 @@ export function usePlaidFlow() {
   const { reload } = useData()
   const [state, setState] = useState<FlowState>({ step: 'idle' })
   const [ready, setReady] = useState(false)
+  const [oauthNote, setOauthNote] = useState<string | null>(null)
   const handler = useRef<PlaidHandler | null>(null)
   const prepared = useRef<PreparedLink | null>(null)
   const mode = useRef<LinkMode>('account')
@@ -101,6 +132,10 @@ export function usePlaidFlow() {
   const resumed = useRef(false)
   const seq = useRef(0)
   const sessionOpts = useRef<SessionOpts>({})
+  const oauthWatch = useRef<OAuthWatch | null>(null)
+  const oauthTimer = useRef<number | undefined>(undefined)
+  const gaveUp = useRef(false)
+  const giveUpRef = useRef<(reason: string) => void>(() => {})
 
   const finish = useCallback(
     async (publicToken: string, metadata: PlaidLinkMetadata) => {
@@ -187,6 +222,32 @@ export function usePlaidFlow() {
   const handoff = useRef<string | null>(null)
   const handoffTimer = useRef<number | undefined>(undefined)
   const resumeRef = useRef<(href: string) => Promise<void>>(async () => {})
+  const clearOAuthTimer = () => {
+    window.clearTimeout(oauthTimer.current)
+    oauthTimer.current = undefined
+  }
+  // The bank window never came back, or Plaid already reported the OAuth failure. Close Link so the message
+  // is not hidden under its iframe, and fetch the next token so Try again can open inside the next click.
+  giveUpRef.current = (reason: string) => {
+    if (gaveUp.current) return
+    gaveUp.current = true
+    clearOAuthTimer()
+    const watch = oauthWatch.current
+    setOauthNote(null)
+    void logClientLinkEvent('DAVEY_OAUTH_GAVE_UP', {
+      view_name: reason,
+      link_session_id: watch?.linkSessionId,
+      request_id: watch?.requestId,
+      institution_id: watch?.institutionId,
+      institution_name: watch?.institutionName,
+    })
+    handler.current?.destroy()
+    handler.current = null
+    prepared.current = null
+    setReady(false)
+    setState({ step: 'unfinished', message: bankRefusedMessage(watch?.institutionId, watch?.institutionName) })
+    void prepareRef.current(sessionOpts.current, true)
+  }
   /** Continues a handed-over return exactly once (shared one-shot guard with /oauth: claimOAuthResume). */
   const continueHandoff = (): boolean => {
     const href = handoff.current
@@ -200,6 +261,10 @@ export function usePlaidFlow() {
   mountRef.current = (opts) => {
     handoff.current = null
     window.clearTimeout(handoffTimer.current)
+    clearOAuthTimer()
+    gaveUp.current = false
+    oauthWatch.current = null
+    setOauthNote(null)
     handler.current?.destroy()
     handler.current = window.Plaid!.create({
       token: opts.token,
@@ -208,13 +273,31 @@ export function usePlaidFlow() {
         // Link finished the OAuth return itself: the handed-over copy must never be used (a second redemption).
         handoff.current = null
         window.clearTimeout(handoffTimer.current)
+        clearOAuthTimer()
+        setOauthNote(null)
         void (opts.updateItemId ? finishUpdate(opts.updateItemId, metadata) : finish(publicToken, metadata))
       },
       onEvent: (eventName, metadata) => {
         void logClientLinkEvent(eventName, metadata)
+        if (gaveUp.current) return
+        if (eventName === 'OPEN_OAUTH') {
+          const watch = watchFrom(metadata)
+          oauthWatch.current = watch
+          setOauthNote(oauthWaitingMessage(watch.institutionId, watch.institutionName))
+          clearOAuthTimer()
+          oauthTimer.current = window.setTimeout(() => giveUpRef.current('timeout'), OAUTH_RETURN_TIMEOUT_MS)
+          return
+        }
+        if (oauthAttemptFailed(eventName, metadata)) {
+          oauthWatch.current = watchFrom(metadata, oauthWatch.current ?? undefined)
+          giveUpRef.current(eventName === 'FAIL_OAUTH' ? 'fail_oauth' : 'insufficient_credentials')
+        }
       },
       onExit: (err, metadata) => {
         void logClientLinkEvent('EXIT', metadata, err)
+        if (gaveUp.current) return
+        clearOAuthTimer()
+        setOauthNote(null)
         // Link closed while a pop-up return was waiting: nothing else will use it, so continue with it now.
         if (handoff.current && continueHandoff()) return
         clearPendingLink()
@@ -370,6 +453,7 @@ export function usePlaidFlow() {
     return () => {
       window.removeEventListener('message', onMessage)
       window.clearTimeout(handoffTimer.current)
+      window.clearTimeout(oauthTimer.current)
     }
   }, [])
 
@@ -383,5 +467,7 @@ export function usePlaidFlow() {
     return () => document.body.classList.remove('plaid-open')
   }, [linkOpen])
 
-  return { state, setState, ready, prepare, openFromClick, resume }
+  const cancelOAuth = useCallback(() => giveUpRef.current('try_again'), [])
+
+  return { state, setState, ready, prepare, openFromClick, resume, oauthNote, cancelOAuth }
 }

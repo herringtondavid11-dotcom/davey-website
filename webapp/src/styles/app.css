@@ -697,6 +697,9 @@ body.plaid-open iframe[id^="plaid-link-iframe"] {
   }
 }
 body.plaid-open { overflow: hidden; }
+.oauth-banner { position: fixed; z-index: 40; left: calc(var(--sidebar-w) + 12px); right: 12px; bottom: 12px; display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.oauth-banner p { margin: 0; }
+@media (max-width: 899px) { .oauth-banner { left: 8px; right: 8px; bottom: calc(var(--tabbar-h) + 8px); } }
 body.plaid-open .ai-fab { display: none !important; }
 /* Touch: every control gets a 44 px hit area (Apple's minimum) without changing how it looks (QA #22). */
 @media (pointer: coarse), (max-width: 768px) {

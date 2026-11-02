@@ -16,6 +16,10 @@ for (const route of ROUTES) {
   mkdirSync(dirname(join(out, route + '.html')), { recursive: true })
   copyFileSync(index, join(out, route + '.html'))
 }
+// GitHub Pages serves /app/oauth from oauth.html, and /app/oauth/ only if this index exists. Without it the
+// trailing-slash URL is the site 404 and the bank's oauth_state_id never reaches Link.
+mkdirSync(join(out, 'oauth'), { recursive: true })
+copyFileSync(index, join(out, 'oauth', 'index.html'))
 
 const html = readFileSync(index, 'utf8')
 if (!html.includes('Content-Security-Policy')) throw new Error('CSP meta missing from build')

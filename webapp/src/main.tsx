@@ -8,9 +8,15 @@ import './styles/app.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
-import { handOffOAuthPopup } from './lib/plaid'
+import { canonicalAppHref, handOffOAuthPopup } from './lib/plaid'
 import { registerPwa } from './lib/pwa'
 import { applyTheme, readTheme } from './lib/theme'
+
+// /app/oauth/ must behave as the registered redirect URI /app/oauth. Same document, so a pop-up keeps its opener.
+const canonicalHref = canonicalAppHref(window.location.href)
+if (canonicalHref !== window.location.pathname + window.location.search + window.location.hash) {
+  window.history.replaceState(null, '', canonicalHref)
+}
 
 // frame-ancestors can't be set from a <meta> CSP: refuse to render inside another site's frame.
 if (window.top !== window.self) {
