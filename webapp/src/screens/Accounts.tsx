@@ -22,7 +22,7 @@ import { isLiability } from '../lib/finance'
 import { moneyProblem, parseMoney } from '../lib/parseMoney'
 import { displayName, maskLabel, money, percentText, shortDateTime, typeLabel } from '../lib/format'
 import type { Account, Usage } from '../lib/schema'
-import { balanceNote, refreshAllBanks, relinkOrphansOnce, type RefreshResult } from '../lib/refreshBank'
+import { refreshAllBanks, relinkOrphansOnce, retryDueInstitutions, shortRefreshLabel, type RefreshResult } from '../lib/refreshBank'
 import { createManualAccount, reloadDaveyData } from '../lib/serverData'
 import { normalizeItem } from '../lib/tables'
 import { useAccountCategories } from '../lib/useAccountCategories'
@@ -173,7 +173,20 @@ function GoalEditor({ a, onDone }: { a: Account; onDone: () => void }) {
 }
 
 /** One account: Bank | Account | Category, then the balance; its goal below. The name opens nickname and use. */
-function AccountRow({ r, categories, onPick, onManage, needsReconnect }: { r: Row; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void>; onManage: () => void; needsReconnect?: boolean }) {
+function refreshTitle(r: RefreshResult): string {
+  const account = [r.name, r.mask ? `••${r.mask}` : ''].filter(Boolean).join(' ')
+  return account ? `${r.institution} · ${account}` : r.institution
+}
+
+function statusFor(account: { id: string; plaidAccountId?: string }, results: RefreshResult[] | undefined): RefreshResult | undefined {
+  if (!results) return undefined
+  return results.find((r) => (account.plaidAccountId && r.accountId === account.plaidAccountId) || r.accountId === account.id)
+}
+
+function AccountRow({ r, categories, onPick, onManage, needsReconnect, refresh }: {
+  r: Row; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void>; onManage: () => void
+  needsReconnect?: boolean; refresh?: RefreshResult
+}) {
   const a = r.account
   const [editing, setEditing] = useState(false)
   const [open, setOpen] = useState(false)
@@ -192,6 +205,7 @@ function AccountRow({ r, categories, onPick, onManage, needsReconnect }: { r: Ro
         <span className="acct-cat"><CategoryPicker label={displayName(a)} value={r.picked ? r.category?.id : undefined} categories={categories} suggested={suggestedName(a, categories)} onPick={(id) => onPick(a, id)} onManage={onManage} /></span>
         <span className={'row-amount acct-amount ' + (debt ? 'negative' : '')}>{money(debt ? -Math.abs(a.balance) : a.balance, a.currency)}</span>
       </div>
+      {refresh && <p className={`acct-refresh refresh-${refresh.outcome}`} data-testid="account-refresh-status">{refresh.message ?? shortRefreshLabel(refresh.outcome)}</p>}
       {f !== undefined && row.goal !== undefined ? (
         <>
           <GoalBar fraction={f} label={`${displayName(a)} goal progress`} />
@@ -319,6 +333,8 @@ export function Accounts() {
   const [managing, setManaging] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshed, setRefreshed] = useState<{ at: string; results: RefreshResult[] } | null>(null)
+  // Stays on each account after the summary is dismissed.
+  const [refreshStatuses, setRefreshStatuses] = useState<RefreshResult[] | null>(null)
 
   // Linked accounts with no bank name: attach them to their bank again in the background (refreshBank.ts).
   const orphans = (accounts ?? []).filter((a) => a.plaidAccountId && !a.institution).length
@@ -330,10 +346,20 @@ export function Accounts() {
     })
   }, [orphans, reload])
 
+  // INSTITUTION_DOWN: ask that bank again once the server's retry time has passed.
+  useEffect(() => {
+    void retryDueInstitutions(reloadDaveyData).then(async (did) => {
+      if (!did) return
+      await reloadDaveyData()
+      await reload()
+    }).catch(() => undefined)
+  }, [reload])
+
   async function refreshAll() {
     setRefreshing(true)
     try {
       const results = await refreshAllBanks(reloadDaveyData)
+      setRefreshStatuses(results)
       setRefreshed({ at: new Date().toISOString(), results })
       await reloadDaveyData()
       clearTableCache()
@@ -382,17 +408,13 @@ export function Accounts() {
           </div>
           <ul className="list">
             {refreshed.results.map((r) => (
-              <li key={r.itemId} className={`refresh-row refresh-${r.outcome}`}>
+              <li key={`${r.itemId}:${r.accountId ?? r.name ?? r.institution}`} className={`refresh-row refresh-${r.outcome}`}>
                 {r.outcome === 'updated' ? <CheckIcon size={18} /> : <AlertIcon size={18} />}
                 <div>
-                  <strong>{r.institution}</strong>
-                  <p className="muted small">
-                    {r.outcome === 'updated' ? `Updated · ${balanceNote(r.live === true, r.reason)}`
-                      : r.outcome === 'needsReconnect' ? "Needs you to sign in again. Until then its balance can't update."
-                        : `Couldn't refresh: ${r.message ?? 'try again in a minute.'}`}
-                  </p>
+                  <strong>{refreshTitle(r)}</strong>
+                  <p className="small">{r.message ?? shortRefreshLabel(r.outcome)}</p>
                 </div>
-                {r.outcome === 'needsReconnect' && <Link className="btn btn-primary btn-sm" to={`/connect?reconnect=${encodeURIComponent(r.itemId)}`}>Reconnect</Link>}
+                {r.outcome === 'needsReconnect' && r.itemId && <Link className="btn btn-primary btn-sm" to={`/connect?reconnect=${encodeURIComponent(r.itemId)}`}>Reconnect</Link>}
               </li>
             ))}
           </ul>
@@ -479,7 +501,8 @@ export function Accounts() {
 
       {prefs.view === 'table' ? (
         <AccountsTable secs={secs} grouped={prefs.group !== 'none'} categories={categories} onPick={pick} onManage={() => setManaging(true)}
-          sort={prefs.sort} dir={prefs.dir} onSort={(sort) => setPrefs(sort === prefs.sort ? { dir: prefs.dir === 1 ? -1 : 1 } : { sort, dir: 1 })} />
+          sort={prefs.sort} dir={prefs.dir} onSort={(sort) => setPrefs(sort === prefs.sort ? { dir: prefs.dir === 1 ? -1 : 1 } : { sort, dir: 1 })}
+          refresh={refreshStatuses ?? undefined} />
       ) : secs.map((g) => {
         const collapsed = prefs.collapsed.includes(g.key)
         return (
@@ -489,7 +512,7 @@ export function Accounts() {
               <span className="group-total num">{money(g.total / 100)}{g.goals.fraction !== undefined ? ` · ${percentText(g.goals.fraction * 100)} funded` : ''}</span>
               <ChevronIcon className={collapsed ? 'chev' : 'chev open'} />
             </button>
-            {!collapsed && <ul className="list">{g.rows.map((r) => <AccountRow key={r.account.id} r={r} categories={categories} onPick={pick} onManage={() => setManaging(true)} needsReconnect={!!r.account.itemId && (reauthItems.has(r.account.itemId) || (!!r.account.connectionStatus && r.account.connectionStatus !== 'ok'))} />)}</ul>}
+            {!collapsed && <ul className="list">{g.rows.map((r) => <AccountRow key={r.account.id} r={r} categories={categories} onPick={pick} onManage={() => setManaging(true)} needsReconnect={!!r.account.itemId && (reauthItems.has(r.account.itemId) || (!!r.account.connectionStatus && r.account.connectionStatus !== 'ok'))} refresh={statusFor(r.account, refreshStatuses ?? undefined)} />)}</ul>}
           </section>
         )
       })}
@@ -522,9 +545,9 @@ const COLUMNS: { key: SortBy | 'category' | 'goal'; label: string; num?: boolean
 ]
 
 /** The spreadsheet view: sortable Bank | Account | Category | Balance | Goal | % Funded | Updated, subtotal per section. */
-function AccountsTable({ secs, grouped, categories, onPick, onManage, sort, dir, onSort }: {
+function AccountsTable({ secs, grouped, categories, onPick, onManage, sort, dir, onSort, refresh }: {
   secs: Section[]; grouped: boolean; categories: AccountCategory[]; onPick: (a: Account, id: string | null) => Promise<void>; onManage: () => void
-  sort: SortBy; dir: 1 | -1; onSort: (s: SortBy) => void
+  sort: SortBy; dir: 1 | -1; onSort: (s: SortBy) => void; refresh?: RefreshResult[]
 }) {
   return (
     <section className="card table-card" aria-label="Accounts table">
@@ -565,7 +588,11 @@ function AccountsTable({ secs, grouped, categories, onPick, onManage, sort, dir,
                     <td className={'num ' + (debt ? 'negative' : '')}>{money(debt ? -Math.abs(a.balance) : a.balance, a.currency)}</td>
                     <td className="num">{row.goal !== undefined ? (debt && row.goal === 0 ? 'Pay off' : money(row.goal / 100)) : '—'}</td>
                     <td className="num">{f !== undefined ? percentText(f * 100) : '—'}</td>
-                    <td className="num muted small" title={a.lastSynced ? shortDateTime(a.lastSynced) : undefined}>{a.lastSynced ? new Date(a.lastSynced).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
+                    <td className="num muted small" title={a.lastSynced ? shortDateTime(a.lastSynced) : undefined}>
+                      {statusFor(a, refresh)
+                        ? <span className={`refresh-${statusFor(a, refresh)!.outcome}`} data-testid="account-refresh-status">{shortRefreshLabel(statusFor(a, refresh)!.outcome)}</span>
+                        : (a.lastSynced ? new Date(a.lastSynced).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—')}
+                    </td>
                   </tr>
                 )
               })}

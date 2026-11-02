@@ -100,5 +100,7 @@ path.slice[class*="cc-"] { stroke: var(--cc); cursor: pointer; }
 .refresh-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 20px; }
 .refresh-row + .refresh-row { border-top: 1px solid var(--border); }
 .refresh-row p { margin: 2px 0 0; }
-.refresh-updated > svg { color: var(--positive-ink); }
-.refresh-needsReconnect > svg, .refresh-failed > svg { color: var(--over-ink); }
+.refresh-updated, .refresh-updated > svg { color: var(--positive-ink); }
+.refresh-stale, .refresh-institutionDown, .refresh-stale > svg, .refresh-institutionDown > svg { color: var(--gold-ink); }
+.refresh-needsReconnect, .refresh-failed, .refresh-needsReconnect > svg, .refresh-failed > svg { color: var(--over-ink); }
+.acct-refresh { margin: 0 20px 8px; font-size: .85rem; font-weight: 600; }

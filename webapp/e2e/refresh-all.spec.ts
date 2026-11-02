@@ -13,16 +13,18 @@ test('Refresh all syncs every bank, shares new balances, and flags the one that 
   await page.getByRole('button', { name: 'Refresh all accounts' }).click()
   const results = page.getByRole('region', { name: /^Refreshed/ })
   await expect(results).toBeVisible()
-  await expect(results.locator('.refresh-row')).toHaveCount(3)
-  await expect(results.locator('.refresh-row', { hasText: 'Chase' })).toContainText("Updated · Plaid's latest balance (live checks are off)")
-  await expect(results.locator('.refresh-row', { hasText: 'Fidelity' })).toContainText('Updated')
+  // One row per account, including the savings account whose balance did not change.
+  await expect(results.locator('.refresh-row', { hasText: 'Joint checking' })).toContainText('Updated just now')
+  await expect(results.locator('.refresh-row', { hasText: 'Plaid Saving' })).toContainText("Stale – bank hasn't sent new data")
+  await expect(results.locator('.refresh-row', { hasText: 'Brokerage' })).toContainText('Updated just now')
   const wf = results.locator('.refresh-row', { hasText: 'Wells Fargo' })
-  await expect(wf).toContainText('Needs you to sign in again')
+  await expect(wf).toContainText('sign in again')
   await expect(wf.getByRole('link', { name: 'Reconnect' })).toHaveAttribute('href', '/app/connect?reconnect=item-wf')
+  await expect(page.locator('[data-testid="account-refresh-status"]').filter({ hasText: 'Updated just now' }).first()).toBeVisible()
 
-  // Every bank was asked, with the live check requested on the first page.
-  const asked = state.syncBodies.map((b) => [b.item_id, b.realtime === true])
-  expect(asked).toEqual(expect.arrayContaining([['item-chase', true], ['item-fid', true], ['item-wf', true]]))
+  // One request, no item filter: the server includes every household item (savings, OAuth, login required).
+  expect(state.refreshBodies).toHaveLength(1)
+  expect(state.refreshBodies[0].item_id).toBeUndefined()
   // The new Chase balance is shared with the household (the app reads the same record) and shown.
   const pushed = pushedPayloads(state, 'account', (id) => id === 'acc-1').at(-1)!
   expect(pushed.startingBalance).toBeDefined()
@@ -36,7 +38,7 @@ test('with live checks switched on, the results say the balance came from the ba
   await mockBackend(page, { signedIn: true, realtimeBalance: true })
   await page.goto('/app/accounts')
   await page.getByRole('button', { name: 'Refresh all accounts' }).click()
-  await expect(page.getByRole('region', { name: /^Refreshed/ }).locator('.refresh-row', { hasText: 'Chase' })).toContainText('Updated · Live balance from the bank')
+  await expect(page.getByRole('region', { name: /^Refreshed/ }).locator('.refresh-row', { hasText: 'Joint checking' })).toContainText('Updated just now')
 })
 
 test('phone: the refresh button is in reach and the results fit', async ({ page }) => {

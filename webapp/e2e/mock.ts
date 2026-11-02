@@ -293,6 +293,7 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     /** Wells Fargo's login is repaired once an update-mode Link token is created for it (the test then finishes Link). */
     wfRepaired: opts.wfLoginFixed === true,
     syncBodies: [] as Row[],
+    refreshBodies: [] as Row[],
     investmentsBodies: [] as Row[],
     pinFailures: 0,
     recovery: false,
@@ -603,6 +604,52 @@ export async function mockBackend(page: Page, opts: MockOptions = {}) {
     if (path === '/functions/v1/plaid-item-remove') {
       state.removedItems.push(String(body.item_id))
       return json(route, { removed: true })
+    }
+    if (path === '/functions/v1/plaid-refresh') {
+      state.refreshBodies.push(body)
+      const items = (body.item_id
+        ? (state.extra.plaid_items ?? []).filter((item) => item.plaid_item_id === body.item_id)
+        : (state.extra.plaid_items ?? []))
+      const results: Row[] = []
+      const syncs: Row[] = []
+      for (const item of items) {
+        const institution = String(item.institution_name)
+        const accounts = state.accounts.filter((a) => a.institution_name === institution)
+        if (item.plaid_item_id === 'item-wf' && !state.wfRepaired) {
+          for (const a of accounts) results.push({
+            item_id: item.plaid_item_id, institution_name: institution, institution_id: item.institution_id ?? null,
+            account_id: a.plaid_account_id, name: a.nickname || a.name, mask: a.mask, status: 'needs_reconnect',
+            message: 'This bank needs you to sign in again.', last_updated: item.last_synced_at, reconnect: true, retry_after: null,
+          })
+          continue
+        }
+        const kind = (a: Row) => (a.type === 'credit' ? 'credit' : a.type === 'investment' ? 'investment' : 'depository')
+        const syncAccounts = accounts.map((a) => ({
+          account_id: a.plaid_account_id, name: a.name, official_name: null, mask: a.mask, type: kind(a), subtype: a.subtype,
+          current_balance_cents: Math.round(Number(a.current_balance) * 100) + (a.id === 'acc-1' ? 10_000 : 0),
+          available_balance_cents: null, limit_cents: null,
+        }))
+        if (institution === 'Fidelity') {
+          syncAccounts.push({ account_id: 'p-401k', name: 'Fidelity 401(k) Plan', official_name: null, mask: '9401', type: 'investment', subtype: '401k', current_balance_cents: 7_000_000, available_balance_cents: null, limit_cents: null })
+        }
+        for (const a of accounts) {
+          const changed = a.id === 'acc-1' || a.type === 'investment'
+          results.push({
+            item_id: item.plaid_item_id, institution_name: institution, institution_id: item.institution_id ?? null,
+            account_id: a.plaid_account_id, name: a.nickname || a.name, mask: a.mask,
+            status: changed ? 'updated' : 'stale',
+            message: changed ? 'Updated just now' : "Stale – bank hasn't sent new data. Last updated Oct 31, 2026, 4:02 PM UTC.",
+            last_updated: changed ? new Date().toISOString() : item.last_synced_at,
+            reconnect: false, retry_after: null,
+          })
+        }
+        syncs.push({
+          item_id: item.plaid_item_id, added: [], modified: [], removed: [], accounts: syncAccounts,
+          next_cursor: `cursor-${item.plaid_item_id}-2`, has_more: false,
+          balance_source: opts.realtimeBalance ? 'live' : 'off',
+        })
+      }
+      return json(route, { refreshed_at: new Date().toISOString(), results, syncs })
     }
     if (path === '/functions/v1/plaid-sync') {
       state.syncBodies.push(body)
