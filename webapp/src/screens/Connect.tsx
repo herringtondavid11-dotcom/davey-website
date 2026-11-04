@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CheckIcon } from '../components/Icons'
@@ -21,11 +21,39 @@ function buttonLabel(state: FlowState, action: string) {
   return action
 }
 
-/** Sits above Plaid's iframe, which otherwise covers the page while a bank window is open. */
+/** Gap between the notice and the Plaid iframe so Link's own buttons stay fully visible. */
+const OAUTH_BANNER_GAP = 8
+
+/**
+ * Shown while a bank's sign-in window is open. Fixed under the Davey header (and the notch),
+ * never along the bottom, where it used to cover the message Plaid and the bank draw there.
+ * Publishes its bottom edge as --oauth-banner-end so the Link iframe starts below it.
+ */
 function OAuthBanner({ note, onTryAgain }: { note: string | null; onTryAgain: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) {
+      document.documentElement.style.removeProperty('--oauth-banner-end')
+      return
+    }
+    const apply = () => {
+      const bottom = el.getBoundingClientRect().bottom
+      document.documentElement.style.setProperty('--oauth-banner-end', `${Math.ceil(bottom + OAUTH_BANNER_GAP)}px`)
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(el)
+    window.addEventListener('resize', apply)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', apply)
+      document.documentElement.style.removeProperty('--oauth-banner-end')
+    }
+  }, [note])
   if (!note) return null
   return createPortal(
-    <div className="oauth-banner" role="status">
+    <div ref={ref} className="oauth-banner" role="status">
       <p>{note}</p>
       <button type="button" className="btn btn-primary" onClick={onTryAgain}>Try again</button>
     </div>,

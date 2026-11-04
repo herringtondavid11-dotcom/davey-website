@@ -697,9 +697,38 @@ body.plaid-open iframe[id^="plaid-link-iframe"] {
   }
 }
 body.plaid-open { overflow: hidden; }
-.oauth-banner { position: fixed; z-index: 40; left: calc(var(--sidebar-w) + 12px); right: 12px; bottom: 12px; display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-.oauth-banner p { margin: 0; }
-@media (max-width: 899px) { .oauth-banner { left: 8px; right: 8px; bottom: calc(var(--tabbar-h) + 8px); } }
+/* Bank-window notice. It used to sit on the bottom edge, which covered the message Plaid and the bank
+   draw at the bottom of Link (Chase's "Almost done" sheet, and the same spot for every other OAuth bank).
+   It now sits under the Davey header — below the phone bar and the notch — on mobile and desktop.
+   z-index stays above Link's iframe so Try again remains tappable if the two ever meet.
+   --oauth-banner-end (set from the banner's measured bottom) lets the iframe start underneath it. */
+.oauth-banner {
+  position: fixed; z-index: 40;
+  left: calc(var(--sidebar-w) + 12px); right: 12px;
+  top: calc(12px + env(safe-area-inset-top)); bottom: auto;
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  padding: 12px; border-radius: 12px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.oauth-banner p { margin: 0; flex: 1 1 180px; min-width: 0; }
+@media (max-width: 899px) {
+  .oauth-banner {
+    left: 8px; right: 8px;
+    /* 61px is the mobile bar (8 + 44 + 8 + 1px border) plus the notch, then an 8px gap. */
+    top: calc(61px + env(safe-area-inset-top) + 8px);
+  }
+}
+body.plaid-open:has(.oauth-banner) iframe[id^="plaid-link-iframe"] {
+  top: var(--oauth-banner-end, 96px) !important;
+  height: calc(100dvh - var(--oauth-banner-end, 96px)) !important;
+}
+@media (max-width: 899px) {
+  body.plaid-open:has(.oauth-banner) iframe[id^="plaid-link-iframe"] {
+    top: var(--oauth-banner-end, 160px) !important;
+    height: calc(100dvh - var(--oauth-banner-end, 160px) - var(--tabbar-h) - env(safe-area-inset-bottom)) !important;
+  }
+}
 body.plaid-open .ai-fab { display: none !important; }
 /* Touch: every control gets a 44 px hit area (Apple's minimum) without changing how it looks (QA #22). */
 @media (pointer: coarse), (max-width: 768px) {
