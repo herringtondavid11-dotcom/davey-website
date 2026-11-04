@@ -1,4 +1,5 @@
 import { PLAID_REDIRECT_URI, PLAID_SCRIPT_URL } from '../config'
+import { installIosLinkOAuthFix } from './oauthWindow'
 import { supabase } from './supabase'
 
 export interface PlaidLinkMetadata {
@@ -32,6 +33,8 @@ declare global {
 
 let scriptPromise: Promise<void> | null = null
 export function loadPlaid(): Promise<void> {
+  // Before Link creates its iframe: on iOS the bank window must open in the tap, or it stays about:blank.
+  installIosLinkOAuthFix()
   if (window.Plaid) return Promise.resolve()
   scriptPromise ??= new Promise<void>((resolve, reject) => {
     const s = document.createElement('script')
