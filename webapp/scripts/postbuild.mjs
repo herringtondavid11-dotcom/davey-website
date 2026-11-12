@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 const out = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'app')
 export const ROUTES = [
   'oauth', 'transactions', 'connect', 'settings', 'profile', 'login', 'signup', 'access', 'auth/callback', 'forgot', 'reset', 'security', 'accounts', 'help', 'more',
-  'budget', 'cash-flow', 'income', 'recurring', 'credit-cards', 'loans', 'investments', 'household', 'exports', 'tax',
+  'budget', 'cash-flow', 'income', 'future', 'recurring', 'credit-cards', 'loans', 'investments', 'household', 'exports', 'tax',
 ]
 
 const index = join(out, 'index.html')

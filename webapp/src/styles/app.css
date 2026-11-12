@@ -794,6 +794,55 @@ body.plaid-open .ai-fab { display: none !important; }
 .src-3 .line { stroke: var(--cat-4); } .src-3 .area { fill: var(--cat-4); } .swatch.src-3 { background: var(--cat-4); }
 .src-4 .line { stroke: var(--cat-5); } .src-4 .area { fill: var(--cat-5); } .swatch.src-4 { background: var(--cat-5); }
 .src-5 .line { stroke: var(--cat-6); } .src-5 .area { fill: var(--cat-6); } .swatch.src-5 { background: var(--cat-6); }
+
+/* ---------- Future ---------- */
+.future-years { max-width: 100%; }
+.future-years button { min-width: 44px; min-height: 44px; padding-inline: 10px; }
+.future-cal { display: grid; gap: 16px; }
+.future-cal .check-row { min-height: 44px; }
+.future-cal .forecast-input { min-width: 0; }
+.future-cal .forecast-input .input { width: auto; flex: 1; min-width: 0; max-width: 160px; }
+.future-chart { margin-top: 12px; }
+.future-invest .line { stroke: var(--cat-2); } .future-invest .area { fill: var(--cat-2); } .swatch.future-invest { background: var(--cat-2); }
+.future-cash .line { stroke: var(--cat-3); } .future-cash .area { fill: var(--cat-3); } .swatch.future-cash { background: var(--cat-3); }
+.future-other .line { stroke: var(--cat-1); } .future-other .area { fill: var(--cat-1); } .swatch.future-other { background: var(--cat-1); }
+.future-debt .line { stroke: var(--chart-over); } .future-debt .area { fill: var(--chart-over); opacity: .4; } .swatch.future-debt { background: var(--chart-over); }
+.future-net .line { stroke: var(--navy); stroke-width: 2.75; } .swatch.future-net { background: var(--navy); }
+.future-marker { fill: var(--navy); stroke: var(--surface); stroke-width: 1.5; }
+.future-marker.selected { fill: var(--gold); stroke: var(--navy); }
+:root[data-theme="dark"] .future-net .line { stroke: var(--gold); }
+:root[data-theme="dark"] .swatch.future-net,
+:root[data-theme="dark"] .future-marker { background: var(--gold); fill: var(--gold); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .future-net .line { stroke: var(--gold); }
+  :root:not([data-theme="light"]) .swatch.future-net { background: var(--gold); }
+  :root:not([data-theme="light"]) .future-marker { fill: var(--gold); }
+}
+.future-readout { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; }
+.future-readout div { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+.future-readout dt { color: var(--muted); font-size: .8125rem; font-weight: 600; }
+.future-readout dd { margin: 0; font-weight: 700; }
+.future-table { width: 100%; table-layout: fixed; }
+.future-table th, .future-table td { white-space: normal; }
+.future-table thead th { font-size: .6875rem; letter-spacing: .02em; white-space: nowrap; }
+.future-table tr[data-selected="true"] { box-shadow: inset 3px 0 var(--gold); }
+.future-cards { list-style: none; margin: 0; padding: 0 16px 12px; display: grid; gap: 4px; }
+.future-cards > li { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
+.future-cards > li[data-selected="true"] { box-shadow: inset 3px 0 var(--gold); }
+.future-cards h3 { font-size: 1rem; }
+.future-cards dl { display: grid; gap: 4px; margin: 0; }
+.future-cards dl div { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.future-cards dt { color: var(--muted); font-weight: 600; }
+.future-cards dd { margin: 0; font-weight: 700; }
+.future-events { display: grid; gap: 10px; }
+.future-events-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.future-events h3 { margin: 0; font-size: 1rem; }
+.future-event { display: grid; grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1.2fr) auto; gap: 8px; align-items: end; }
+@media (max-width: 599px) {
+  .future-event { grid-template-columns: 1fr 1fr; }
+  .future-event .event-amount,
+  .future-event .event-remove { grid-column: 1 / -1; }
+}
 .mark-actual .line { stroke: var(--text); stroke-dasharray: 5 4; }
 .swatch.mark-actual { background: var(--text); }
 
