@@ -4,7 +4,7 @@
 // California brackets, standard deduction, and exemption credit: 2026 FTB indexed amounts.
 // This is not a tax return. It skips credits, QBI, itemizing, AMT, NIIT, and the senior deduction.
 
-import type { IncomeCategory } from './income'
+import { INCOME_CATEGORIES, SE_CATEGORIES, UNTAXED_CATEGORIES, type IncomeCategory } from './income'
 
 export const TAX_YEAR = 2026
 export const TAX_DISCLAIMER = 'Planning estimate only. This is not tax advice and it is not a tax return.'
@@ -174,13 +174,13 @@ export interface TaxInput {
 }
 
 export function emptyCategories(): Record<IncomeCategory, number> {
-  return { w2: 0, self_employment: 0, real_estate: 0, other: 0 }
+  return Object.fromEntries(INCOME_CATEGORIES.map((item) => [item.id, 0])) as Record<IncomeCategory, number>
 }
 
 export function estimateIncomeTax(input: TaxInput): TaxEstimate {
-  const gross = Math.max(0, Object.values(input.byCategory).reduce((sum, n) => sum + Math.max(0, Math.round(n)), 0))
-  const seIncome = Math.max(0, Math.round(input.byCategory.self_employment))
-  const wages = Math.max(0, Math.round(input.byCategory.w2))
+  const gross = INCOME_CATEGORIES.reduce((sum, item) => sum + (UNTAXED_CATEGORIES.has(item.id) ? 0 : Math.max(0, Math.round(input.byCategory[item.id] ?? 0))), 0)
+  const seIncome = INCOME_CATEGORIES.reduce((sum, item) => sum + (SE_CATEGORIES.has(item.id) ? Math.max(0, Math.round(input.byCategory[item.id] ?? 0)) : 0), 0)
+  const wages = Math.max(0, Math.round(input.byCategory.w2 ?? 0))
   const net = Math.round(seIncome * 0.9235)
   const socialSecurityBase = Math.min(net, Math.max(0, SS_WAGE_BASE_CENTS - wages))
   const socialSecurity = Math.round(socialSecurityBase * 0.124)
@@ -224,8 +224,8 @@ export function taxAssumptions(status: FilingStatus): string[] {
   return [
     `Filing status is ${filing}. Federal brackets and the $${federal} standard deduction are the 2026 amounts from IRS Revenue Procedure 2025-32.`,
     'Federal tax uses the standard deduction only. It does not itemize, and it leaves out tax credits, the qualified business income deduction, alternative minimum tax, the net investment income tax, and the extra deduction for people 65 or older.',
-    'Self-employment tax applies only to income categorized as self-employment: 15.3% of 92.35% of that income. The Social Security portion stops at the $184,500 wage base for 2026, and W-2 income counts toward that cap. An extra 0.9% Medicare tax applies above the statutory threshold ($250,000 married filing jointly, $200,000 single or head of household, $125,000 married filing separately). Half of the 15.3% portion is deducted before income tax.',
-    'W-2, real estate, and other income are not treated as self-employment. W-2 Social Security, Medicare, and California SDI already withheld by an employer are not included.',
+    'Self-employment tax applies to self-employment, 1099 contract, business / K-1, and side gig: 15.3% of 92.35% of that income. The Social Security portion stops at the $184,500 wage base for 2026, and W-2 income counts toward that cap. An extra 0.9% Medicare tax applies above the statutory threshold ($250,000 married filing jointly, $200,000 single or head of household, $125,000 married filing separately). Half of the 15.3% portion is deducted before income tax.',
+    'W-2, real estate / rental, investments, retirement, and other income are not treated as self-employment. Alimony and child support are left out of the tax estimate. W-2 Social Security, Medicare, and California SDI already withheld by an employer are not included.',
     `California tax uses the 2026 Franchise Tax Board brackets, a $${state} standard deduction, the personal exemption credit, and the 1% Mental Health Services Tax on taxable income over $1,000,000. Other California credits are not included.`,
     'Calculated for a California resident. Another state would not match these figures.',
     TAX_DISCLAIMER,

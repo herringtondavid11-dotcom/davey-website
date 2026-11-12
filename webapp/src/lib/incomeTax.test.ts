@@ -69,6 +69,14 @@ describe('income tax estimate', () => {
     expect(estimate.grossCents).toBe(2_500_000)
   })
 
+  it('taxes 1099 and side gig as self-employment and leaves support untaxed', () => {
+    const estimate = estimateIncomeTax(input({
+      byCategory: { ...emptyCategories(), contract_1099: 1_000_000, side_gig: 200_000, support: 500_000 },
+    }))
+    expect(estimate.selfEmploymentIncomeCents).toBe(1_200_000)
+    expect(estimate.grossCents).toBe(1_200_000)
+  })
+
   it('uses an effective-rate override for the total and still reports the bracket estimate', () => {
     const estimate = estimateIncomeTax(input({
       byCategory: { ...emptyCategories(), w2: 9_600_000 },
