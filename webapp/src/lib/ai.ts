@@ -12,7 +12,7 @@ export const AI_UNAVAILABLE = "Ask AI isn't available on the web yet. It works i
 
 const VIEW_NAMES: Record<string, string> = {
   '/': 'overview', '/transactions': 'transactions', '/budget': 'budget', '/cash-flow': 'cash_flow', '/recurring': 'recurring',
-  '/accounts': 'accounts', '/credit-cards': 'credit_cards', '/loans': 'loans', '/investments': 'investments', '/tax': 'tax',
+  '/accounts': 'accounts', '/credit-cards': 'credit_cards', '/loans': 'loans', '/investments': 'investments', '/income': 'income', '/tax': 'tax',
   '/household': 'household', '/exports': 'exports', '/settings': 'settings', '/help': 'connection_help',
 }
 
@@ -43,6 +43,7 @@ export const SUGGESTIONS: Record<string, string[]> = {
   credit_cards: ['Which card should I pay off first?', 'How do I lower my utilization?'],
   loans: ['Should I refinance?', 'Is paying extra on my mortgage worth it?'],
   investments: ['How is my portfolio allocated?'],
+  income: ['How much should I expect this year?', 'What if this income starts mid-year?'],
   tax: ['How much should I set aside this quarter?', 'What else might be deductible?'],
 }
 

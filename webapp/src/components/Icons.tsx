@@ -92,3 +92,6 @@ export const ChevronIcon = ({ size, ...p }: P) => (
 export const RefreshIcon = ({ size, ...p }: P) => (
   <svg {...base(size)} {...p}><circle cx="12" cy="12" r="9.5" /><path d="M15.5 9.2A4.2 4.2 0 1 0 16.2 13M15.8 6.6v2.8H13" /></svg>
 )
+export const IncomeIcon = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><path d="M12 3v18" /><path d="M16.5 7.2c0-1.6-2-2.7-4.5-2.7S7.5 5.6 7.5 7.2 9.5 9.8 12 9.8s4.5 1.1 4.5 2.6-2 2.6-4.5 2.6-4.5 1-4.5 2.6 2 2.7 4.5 2.7 4.5-1.1 4.5-2.7" /></svg>
+)

@@ -10,6 +10,7 @@ import {
   OverviewIcon,
   ReceiptIcon,
   RecurringIcon,
+  IncomeIcon,
   ProfileIcon,
   SettingsIcon,
   TransactionsIcon,
@@ -39,6 +40,7 @@ export const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   {
     label: 'Money',
     items: [
+      { to: '/income', label: 'Income', icon: IncomeIcon },
       { to: '/transactions', label: 'Transactions', icon: TransactionsIcon },
       { to: '/cash-flow', label: 'Cash flow', icon: CashFlowIcon },
       { to: '/recurring', label: 'Recurring', icon: RecurringIcon },

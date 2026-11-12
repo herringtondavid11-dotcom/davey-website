@@ -17,7 +17,7 @@ export interface LinePoint {
 /**
  * Line chart (or stacked areas with `stacked`): recessive grid, one y-axis, a hover/focus readout. Same look as BarChart.
  */
-export function LineChart({ points, series, format, height = 220, label, stacked = false, fitRange = false }: {
+export function LineChart({ points, series, format, height = 220, label, stacked = false, fitRange = false, overlay }: {
   points: LinePoint[]
   series: LineSeries[]
   format: (v: number) => string
@@ -26,6 +26,8 @@ export function LineChart({ points, series, format, height = 220, label, stacked
   stacked?: boolean
   /** Scale to the data's range instead of from $0 (one-series trend lines). */
   fitRange?: boolean
+  /** A line drawn on top of the areas. Null values leave a gap (a month that hasn't happened). */
+  overlay?: { name: string; className: string; values: (number | null)[] }
 }) {
   const box = useRef<HTMLDivElement>(null)
   const [W, setW] = useState(720)
@@ -42,8 +44,9 @@ export function LineChart({ points, series, format, height = 220, label, stacked
 
   const totals = points.map((p) => (stacked ? series.reduce((s, x) => s + Math.max(0, p.values[x.key] ?? 0), 0) : Math.max(...series.map((x) => p.values[x.key] ?? 0))))
   const values = points.flatMap((p) => series.map((x) => p.values[x.key] ?? 0))
+  const overlayMax = overlay?.values.reduce<number>((max, value) => (value == null ? max : Math.max(max, value)), 0) ?? 0
   const fit = fitRange && !stacked && values.length > 0
-  const ticks = fit ? rangeTicks(Math.min(...values), Math.max(...values)) : niceTicks(Math.max(1, ...totals))
+  const ticks = fit ? rangeTicks(Math.min(...values), Math.max(...values, overlayMax)) : niceTicks(Math.max(1, ...totals, overlayMax))
   const top = ticks[ticks.length - 1]
   const bottom = fit ? ticks[0] : 0
   const pad = { l: 56, r: 8, t: 8, b: 24 }
@@ -59,6 +62,20 @@ export function LineChart({ points, series, format, height = 220, label, stacked
     return { lo: below, hi: below + (fit ? p.values[s.key] ?? 0 : Math.max(0, p.values[s.key] ?? 0)) }
   }))
 
+  let overlayPath = ''
+  let overlayPen = false
+  overlay?.values.forEach((value, i) => {
+    if (value == null) { overlayPen = false; return }
+    overlayPath += `${overlayPen ? 'L' : 'M'}${x(i)},${y(value)}`
+    overlayPen = true
+  })
+  const readout = (index: number) => {
+    const parts = series.map((s) => `${s.name} ${format(points[index].values[s.key] ?? 0)}`)
+    const actual = overlay?.values[index]
+    if (overlay && actual != null) parts.push(`${overlay.name} ${format(actual)}`)
+    return `${points[index].title}: ${parts.join(', ')}`
+  }
+
   const onMove = (e: React.PointerEvent<SVGRectElement>) => {
     const r = (e.currentTarget as SVGRectElement).getBoundingClientRect()
     const rel = (e.clientX - r.left) / r.width
@@ -67,9 +84,10 @@ export function LineChart({ points, series, format, height = 220, label, stacked
 
   return (
     <figure className="chart" aria-label={label}>
-      {series.length > 1 && (
+      {(series.length > 1 || overlay) && (
         <div className="legend" aria-hidden>
           {series.map((s) => <span key={s.key}><i className={'swatch ' + s.className} />{s.name}</span>)}
+          {overlay && <span><i className={'swatch ' + overlay.className} />{overlay.name}</span>}
         </div>
       )}
       <div className="chart-box" ref={box}>
@@ -92,14 +110,15 @@ export function LineChart({ points, series, format, height = 220, label, stacked
               </g>
             )
           })}
+          {overlay && overlayPath && (
+            <g className={overlay.className}><path className="line" d={overlayPath} /></g>
+          )}
           {points.map((p, i) => (i % every === 0 || i === points.length - 1 ? (
             <text key={i} className="axis" x={x(i)} y={height - 6} textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}>{p.label}</text>
           ) : null))}
           {hover !== null && points[hover] && <line className="baseline" x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + plotH} />}
           <rect className="hit" x={pad.l} y={pad.t} width={plotW} height={plotH} tabIndex={0} role="img"
-            aria-label={hover !== null && points[hover]
-              ? `${points[hover].title}${series.length > 1 ? ': ' + series.map((s) => `${s.name} ${format(points[hover].values[s.key] ?? 0)}`).join(', ') : ''}`
-              : `${label}. Use the arrow keys to read values.`}
+            aria-label={hover !== null && points[hover] ? readout(hover) : `${label}. Use the arrow keys to read values.`}
             onPointerMove={onMove} onPointerLeave={() => setHover(null)}
             onKeyDown={(e) => {
               if (e.key === 'ArrowRight') setHover((h) => Math.min(points.length - 1, (h ?? -1) + 1))
@@ -110,6 +129,7 @@ export function LineChart({ points, series, format, height = 220, label, stacked
           <div className="tooltip" role="status" style={{ left: `min(max(0px, calc(${(x(hover) / W) * 100}% - 80px)), calc(100% - 170px))` }}>
             <strong>{points[hover].title}</strong>
             {series.map((s) => <div key={s.key}><i className={'swatch ' + s.className} />{s.name}: {format(points[hover].values[s.key] ?? 0)}</div>)}
+            {overlay && <div><i className={'swatch ' + overlay.className} />{overlay.name}: {overlay.values[hover] == null ? '—' : format(overlay.values[hover])}</div>}
           </div>
         )}
       </div>
