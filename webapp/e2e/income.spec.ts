@@ -1,0 +1,73 @@
+import { expect, test } from '@playwright/test'
+import { mockBackend, watchConsole } from './mock'
+
+test('income: add, edit, and remove a source from the sidebar, and keep it after leaving', async ({ page }) => {
+  const problems = watchConsole(page)
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await mockBackend(page, { signedIn: true })
+  await page.goto('/app/')
+  await expect(page.locator('.tabbar').getByRole('link', { name: 'Income' })).toHaveCount(0)
+  await page.locator('.sidebar').getByRole('link', { name: 'Income', exact: true }).click()
+  await expect(page).toHaveURL(/\/app\/income$/)
+  await expect(page).toHaveTitle('Income – Davey')
+  await expect(page.getByRole('heading', { level: 1, name: 'Income' })).toBeVisible()
+  await expect(page.getByText('No income sources yet.')).toBeVisible()
+
+  const created = page.waitForResponse((r) => r.url().includes('/rest/v1/income_sources') && r.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Add income' }).click()
+  await created
+  const source = page.locator('.income-card')
+  await source.getByLabel('Name').fill('Acme salary')
+  await source.getByLabel('Category').selectOption({ label: 'W-2 job' })
+  const perMonth = source.getByLabel('Per month')
+  await perMonth.fill('8000')
+  const summary = page.getByRole('region', { name: 'Income summary' })
+  await expect(summary).toContainText('$8,000.00')
+  await expect(summary).toContainText('$96,000.00')
+  await expect(summary).toContainText('$8,896.60')
+  const forecast = page.getByRole('table', { name: 'Income forecast' })
+  await expect(forecast.getByRole('row', { name: /January 2026/ })).toContainText('$8,000')
+  await expect(forecast.getByRole('row', { name: /November 2026/ })).toContainText('$8,000')
+
+  const perYear = source.getByLabel('Per year')
+  await perYear.fill('120000')
+  await perYear.blur()
+  await expect(perMonth).toHaveValue('10000')
+  await expect(summary).toContainText('$120,000.00')
+  await expect(summary).toContainText('$13,186.16')
+  await expect(forecast.getByRole('row', { name: /January 2026/ })).toContainText('$10,000')
+
+  await source.getByLabel('Starts').fill('2026-03')
+  await expect(perMonth).toHaveValue('12000')
+  await expect(summary).toContainText('$120,000.00')
+  await expect(summary).toContainText('$12,000.00')
+  await expect(forecast.getByRole('row', { name: /January 2026/ })).toContainText('$0')
+  await expect(forecast.getByRole('row', { name: /March 2026/ })).toContainText('$12,000')
+  await expect(forecast.getByRole('row', { name: /November 2026/ })).toContainText('$12,000')
+
+  const saved = page.waitForResponse((r) => r.url().includes('/rest/v1/income_sources') && r.request().method() === 'PATCH')
+  await source.getByLabel('Name').fill('Acme payroll')
+  await source.getByLabel('Name').blur()
+  await saved
+  await page.locator('.sidebar').getByRole('link', { name: 'Overview', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible()
+  await page.locator('.sidebar').getByRole('link', { name: 'Income', exact: true }).click()
+  const back = page.getByRole('region', { name: 'Income source Acme payroll' })
+  await expect(back.getByLabel('Name')).toHaveValue('Acme payroll')
+  await expect(back.getByLabel('Per month')).toHaveValue('12000')
+  await expect(back.getByLabel('Starts')).toHaveValue('2026-03')
+  await expect(page.getByRole('region', { name: 'Income summary' })).toContainText('$120,000.00')
+  await expect(page.getByRole('table', { name: 'Income forecast' }).getByRole('row', { name: /January 2026/ })).toContainText('$0')
+
+  const removed = page.waitForResponse((r) => r.url().includes('/rest/v1/income_sources') && r.request().method() === 'DELETE')
+  await back.getByRole('button', { name: 'Remove Acme payroll' }).click()
+  await removed
+  await expect(page.getByText('No income sources yet.')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Income summary' })).toContainText('$0.00')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.locator('.tabbar').getByRole('link', { name: 'Income' })).toHaveCount(0)
+  await page.getByRole('link', { name: 'More' }).click()
+  await expect(page.getByRole('link', { name: 'Income', exact: true })).toBeVisible()
+  expect(problems).toEqual([])
+})

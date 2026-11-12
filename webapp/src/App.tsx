@@ -21,6 +21,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/recurring': 'Recurring',
   '/credit-cards': 'Credit cards',
   '/loans': 'Mortgages & loans',
+  '/income': 'Income',
   '/tax': 'Tax',
   '/household': 'Household',
   '/profile': 'Profile',
@@ -65,6 +66,7 @@ const Household = lazy(() => import('./screens/Household').then((m) => ({ defaul
 const Tax = lazy(() => import('./screens/Tax').then((m) => ({ default: m.Tax })))
 const Investments = lazy(() => import('./screens/Investments').then((m) => ({ default: m.Investments })))
 const Loans = lazy(() => import('./screens/Loans').then((m) => ({ default: m.Loans })))
+const Income = lazy(() => import('./screens/Income').then((m) => ({ default: m.Income })))
 const RecurringScreen = lazy(() => import('./screens/Recurring').then((m) => ({ default: m.RecurringScreen })))
 const ConnectionHelp = lazy(() => import('./screens/ConnectionHelp').then((m) => ({ default: m.ConnectionHelp })))
 const More = lazy(() => import('./screens/More').then((m) => ({ default: m.More })))
@@ -205,6 +207,7 @@ export function AppRoutes() {
         <Route path="/recurring" element={<RecurringScreen />} />
         <Route path="/credit-cards" element={<CreditCards />} />
         <Route path="/loans" element={<Loans />} />
+        <Route path="/income" element={<Income />} />
         <Route path="/investments" element={<Investments />} />
         <Route path="/household" element={<Household />} />
         <Route path="/exports" element={<Exports />} />

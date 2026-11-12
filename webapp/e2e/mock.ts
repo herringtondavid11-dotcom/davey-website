@@ -122,6 +122,8 @@ export function extraTables(): Record<string, Row[]> {
       { id: 'item-row-1', plaid_item_id: 'item-chase', institution_name: 'Chase', status: 'good', error_code: null, last_synced_at: new Date(Date.now() - 3600_000).toISOString() },
       { id: 'item-row-2', plaid_item_id: 'item-wf', institution_name: 'Wells Fargo', institution_id: 'ins_127991', cursor: 'cursor-wf-1', status: 'login_required', error_code: 'ITEM_LOGIN_REQUIRED', error_message: 'Sign in to Wells Fargo again', last_synced_at: new Date(Date.now() - 4 * 86400_000).toISOString() },
     ],
+    income_sources: [],
+    income_settings: [],
   }
 }
 

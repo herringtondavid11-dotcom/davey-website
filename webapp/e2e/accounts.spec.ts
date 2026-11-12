@@ -141,7 +141,7 @@ test('phone: five tabs in the app order, Ask opens Davey AI, More lists every ot
   await expect(page.locator('#ask-ai')).toBeVisible()
   await page.keyboard.press('Escape')
   await page.getByRole('link', { name: 'More' }).click()
-  for (const name of ['Transactions', 'Cash flow', 'Recurring', 'Credit cards', 'Mortgages & loans', 'Tax', 'Household', 'Exports', 'Connection help', 'Settings']) {
+  for (const name of ['Income', 'Transactions', 'Cash flow', 'Recurring', 'Credit cards', 'Mortgages & loans', 'Tax', 'Household', 'Exports', 'Connection help', 'Settings']) {
     await expect(page.getByRole('link', { name, exact: true })).toBeVisible()
   }
 })

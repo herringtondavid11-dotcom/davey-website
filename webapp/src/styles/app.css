@@ -193,6 +193,14 @@ textarea.input { min-height: 88px; resize: vertical; }
   .sidebar .who { padding: 4px 12px; }
 }
 @media (max-height: 700px) { .sidebar .who { display: none; } }
+@media (max-height: 740px) {
+  .side-nav { gap: 4px; }
+  .sidebar { padding-block: 8px; }
+  .sidebar .brand { padding-bottom: 4px; }
+  .sidebar .nav-link { padding-block: 1px; }
+  .nav-group-label { padding-top: 2px; }
+  .connect-cta { margin-bottom: 4px; min-height: 34px; }
+}
 .sidebar .who { padding: 10px 12px; font-size: .8125rem; color: var(--sidebar-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar .nav-link.signout { background: none; border: 0; width: 100%; cursor: pointer; font: inherit; font-weight: 600; }
 
@@ -730,6 +738,42 @@ body.plaid-open:has(.oauth-banner) iframe[id^="plaid-link-iframe"] {
   }
 }
 body.plaid-open .ai-fab { display: none !important; }
+
+/* ---------- Income ---------- */
+.income-main { display: grid; gap: 24px; }
+.income-main > *,
+.income-forecast-col,
+.income-forecast-col > * { min-width: 0; }
+.income-forecast-col { display: grid; gap: 24px; }
+.income-section-title { margin: 0 0 4px; font-size: 1.25rem; }
+.income-sources { display: grid; gap: 16px; }
+.income-card { display: grid; gap: 14px; padding: 18px 20px 20px; }
+.income-card h3 { margin: 0; font-size: 1.05rem; }
+.income-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.income-note { margin: 0; }
+.income-tax { display: grid; gap: 12px; }
+.income-tax h3 { margin: 4px 0 0; font-size: 1rem; }
+.income-tax .data-table th,
+.income-tax .data-table td { white-space: normal; }
+.assumption-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; color: var(--muted); }
+.month-adjust summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.month-adjust summary:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
+.month-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.month-field .input { min-height: 40px; padding: 8px 10px; }
+@media (min-width: 1100px) {
+  .income-main.with-forecast { grid-template-columns: minmax(0, 1.5fr) minmax(280px, .85fr); align-items: start; }
+  .income-sources { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 599px) { .income-forecast .src-col { display: none; } }
+.src-0 .line { stroke: var(--cat-1); } .src-0 .area { fill: var(--cat-1); } .swatch.src-0 { background: var(--cat-1); }
+.src-1 .line { stroke: var(--cat-2); } .src-1 .area { fill: var(--cat-2); } .swatch.src-1 { background: var(--cat-2); }
+.src-2 .line { stroke: var(--cat-3); } .src-2 .area { fill: var(--cat-3); } .swatch.src-2 { background: var(--cat-3); }
+.src-3 .line { stroke: var(--cat-4); } .src-3 .area { fill: var(--cat-4); } .swatch.src-3 { background: var(--cat-4); }
+.src-4 .line { stroke: var(--cat-5); } .src-4 .area { fill: var(--cat-5); } .swatch.src-4 { background: var(--cat-5); }
+.src-5 .line { stroke: var(--cat-6); } .src-5 .area { fill: var(--cat-6); } .swatch.src-5 { background: var(--cat-6); }
+.mark-actual .line { stroke: var(--text); stroke-dasharray: 5 4; }
+.swatch.mark-actual { background: var(--text); }
+
 /* Touch: every control gets a 44 px hit area (Apple's minimum) without changing how it looks (QA #22). */
 @media (pointer: coarse), (max-width: 768px) {
   main button, main .btn, main .link-btn, main a.btn { min-height: 44px !important; min-width: 44px; }
