@@ -18,7 +18,7 @@ test('income: add, edit, and remove a source from the sidebar, and keep it after
   await created
   const source = page.locator('.income-card')
   await source.getByLabel('Name').fill('Acme salary')
-  await source.getByLabel('Category').selectOption({ label: 'W-2 job' })
+  await source.getByLabel('Category').selectOption({ label: 'W-2' })
   const perMonth = source.getByLabel('Per month')
   await perMonth.fill('8000')
   const summary = page.getByRole('region', { name: 'Income summary' })
