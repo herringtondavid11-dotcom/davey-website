@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   actualIncomeCents,
   amountToCents,
+  applyRaise,
   blankSource,
   forecastYear,
   monthCents,
   withAnnual,
+  withDuration,
   withMonthly,
+  withOccurrence,
   withOverride,
   withRange,
   yearTotalCents,
@@ -14,7 +17,7 @@ import {
 } from './income'
 
 function source(partial: Partial<IncomeSource> = {}): IncomeSource {
-  return { ...blankSource(new Date('2026-01-01T00:00:00Z')), id: 'job', name: 'Job', ...partial }
+  return { ...blankSource(null, new Date('2026-01-01T00:00:00Z')), id: 'job', name: 'Job', ...partial }
 }
 
 describe('income amounts', () => {
@@ -113,5 +116,53 @@ describe('income amounts', () => {
       { date: '2025-12-01', amount: 1000, pending: false, category: 'Income', name: 'Old' },
     ], 2026)
     expect(cents).toEqual({ '2026-11': 420_000 })
+  })
+
+  it('pays biweekly 26 times a year and weekly 52 times', () => {
+    const biweekly = withOccurrence({ ...source(), cadence: 'biweekly' }, 200_000, 2026)
+    expect(yearTotalCents(biweekly, 2026)).toBe(26 * 200_000)
+    const weekly = withOccurrence({ ...source(), cadence: 'weekly' }, 100_000, 2026)
+    expect(yearTotalCents(weekly, 2026)).toBe(52 * 100_000)
+  })
+
+  it('pays four times a month', () => {
+    const four = withOccurrence({ ...source(), cadence: 'four' }, 50_000, 2026)
+    expect(monthCents(four, '2026-03')).toBe(200_000)
+    expect(yearTotalCents(four, 2026)).toBe(12 * 200_000)
+  })
+
+  it('counts a one-time payment only in its month', () => {
+    const once = withDuration(withRange(withOccurrence(source(), 500_000, 2026), 2026, '2026-06', null), 'once', 2026)
+    expect(monthCents(once, '2026-06')).toBe(500_000)
+    expect(monthCents(once, '2026-07')).toBe(0)
+    expect(yearTotalCents(once, 2026)).toBe(500_000)
+  })
+
+  it('places a couple of payments on the cadence and stops', () => {
+    const few = withDuration({ ...withOccurrence(source(), 100_000, 2026), occurrenceCount: 3, startsOn: '2026-04' }, 'repeat', 2026)
+    expect(monthCents(few, '2026-04')).toBe(100_000)
+    expect(monthCents(few, '2026-05')).toBe(100_000)
+    expect(monthCents(few, '2026-06')).toBe(100_000)
+    expect(monthCents(few, '2026-07')).toBe(0)
+    expect(yearTotalCents(few, 2026)).toBe(300_000)
+  })
+
+  it('stops a short-term source at its end month', () => {
+    const range = withRange(withOccurrence(source(), 80_000, 2026), 2026, '2026-06', '2026-08')
+    const ended = { ...range, duration: 'range' as const }
+    expect(monthCents(ended, '2026-05')).toBe(0)
+    expect(monthCents(ended, '2026-08')).toBe(80_000)
+    expect(monthCents(ended, '2026-09')).toBe(0)
+  })
+
+  it('models a raise from an effective month without editing the source', () => {
+    const job = withMonthly(source(), 800_000)
+    const raised = applyRaise(job, {
+      id: 's', name: '10% raise', kind: 'raise', sourceId: job.id, raisePercent: 10, raiseCents: null,
+      effectiveMonth: '2026-07', enabled: true, hypothetical: null, createdAt: '',
+    }, 2026)
+    expect(monthCents(job, '2026-07')).toBe(800_000)
+    expect(monthCents(raised, '2026-06')).toBe(800_000)
+    expect(monthCents(raised, '2026-07')).toBe(880_000)
   })
 })

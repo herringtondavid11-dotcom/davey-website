@@ -746,6 +746,29 @@ body.plaid-open .ai-fab { display: none !important; }
 .income-forecast-col > * { min-width: 0; }
 .income-forecast-col { display: grid; gap: 24px; }
 .income-section-title { margin: 0 0 4px; font-size: 1.25rem; }
+.income-section-head { padding: 0 0 8px; }
+.income-card-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.income-scenario { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 0; }
+.income-charts { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.income-bars { display: grid; gap: 16px; }
+.donut-card { margin: 0; display: grid; justify-items: center; gap: 8px; min-width: 0; }
+.donut-card figcaption { font-weight: 700; font-size: .9375rem; text-align: center; }
+.donut-card svg { width: min(100%, 168px); height: auto; }
+.donut-empty { stroke: var(--border); }
+.pie-total { fill: var(--text); font-size: 16px; font-weight: 800; font-family: var(--font-head); }
+.donut-slice.src-0 { stroke: var(--cat-1); } .donut-slice.src-1 { stroke: var(--cat-2); } .donut-slice.src-2 { stroke: var(--cat-3); }
+.donut-slice.src-3 { stroke: var(--cat-4); } .donut-slice.src-4 { stroke: var(--cat-5); } .donut-slice.src-5 { stroke: var(--cat-6); }
+.donut-legend { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: 4px; }
+.donut-legend li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: .8125rem; }
+.donut-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.donut-legend i.src-0 { background: var(--cat-1); } .donut-legend i.src-1 { background: var(--cat-2); } .donut-legend i.src-2 { background: var(--cat-3); }
+.donut-legend i.src-3 { background: var(--cat-4); } .donut-legend i.src-4 { background: var(--cat-5); } .donut-legend i.src-5 { background: var(--cat-6); }
+@media (min-width: 1100px) {
+  .income-main.with-forecast { grid-template-columns: minmax(0, 1.5fr) minmax(280px, .85fr); align-items: start; }
+  .income-sources { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .income-charts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .income-bars { grid-template-columns: minmax(0, 1.6fr) minmax(240px, .7fr); }
+}
 .income-sources { display: grid; gap: 16px; }
 .income-card { display: grid; gap: 14px; padding: 18px 20px 20px; }
 .income-card h3 { margin: 0; font-size: 1.05rem; }
