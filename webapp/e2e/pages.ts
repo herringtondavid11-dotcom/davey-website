@@ -5,6 +5,7 @@ export const PAGES: { path: string; name: string; heading: string | RegExp; phon
   { path: '/app/budget', name: '13-budget', heading: 'Budget' },
   { path: '/app/cash-flow', name: '14-cash-flow', heading: 'Cash flow' },
   { path: '/app/income', name: '14b-income', heading: 'Income' },
+  { path: '/app/future', name: '14c-future', heading: 'Future' },
   { path: '/app/recurring', name: '15-recurring', heading: 'Recurring' },
   { path: '/app/credit-cards', name: '16-credit-cards', heading: 'Credit cards' },
   { path: '/app/loans', name: '17-loans', heading: 'Mortgages & loans' },

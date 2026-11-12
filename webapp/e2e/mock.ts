@@ -124,6 +124,7 @@ export function extraTables(): Record<string, Row[]> {
     ],
     income_sources: [],
     income_settings: [],
+    future_settings: [],
   }
 }
 

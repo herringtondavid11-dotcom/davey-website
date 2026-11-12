@@ -95,3 +95,6 @@ export const RefreshIcon = ({ size, ...p }: P) => (
 export const IncomeIcon = ({ size, ...p }: P) => (
   <svg {...base(size)} {...p}><path d="M12 3v18" /><path d="M16.5 7.2c0-1.6-2-2.7-4.5-2.7S7.5 5.6 7.5 7.2 9.5 9.8 12 9.8s4.5 1.1 4.5 2.6-2 2.6-4.5 2.6-4.5 1-4.5 2.6 2 2.7 4.5 2.7 4.5-1.1 4.5-2.7" /></svg>
 )
+export const FutureIcon = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /><path d="M12 3.2v1.6M12 19.2v1.6M3.2 12h1.6M19.2 12h1.6" /></svg>
+)
