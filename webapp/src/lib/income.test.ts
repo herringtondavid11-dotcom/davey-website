@@ -6,6 +6,8 @@ import {
   blankSource,
   forecastYear,
   monthCents,
+  personChoices,
+  sortByMonthly,
   withAnnual,
   withDuration,
   withMonthly,
@@ -164,5 +166,20 @@ describe('income amounts', () => {
     expect(monthCents(job, '2026-07')).toBe(800_000)
     expect(monthCents(raised, '2026-06')).toBe(800_000)
     expect(monthCents(raised, '2026-07')).toBe(880_000)
+  })
+
+  it('lists the signed-in person first and falls back to David and Allie', () => {
+    expect(personChoices([{ userId: 'u1', name: 'Alex' }, { userId: 'u2', name: 'Jordan' }], 'u1').map((choice) => choice.label)).toEqual(['Alex', 'Jordan', 'Other'])
+    expect(personChoices([], 'u1').map((choice) => [choice.label, choice.userId, choice.other])).toEqual([
+      ['David', 'u1', null],
+      ['Allie', null, 'Allie'],
+      ['Other', null, ''],
+    ])
+  })
+
+  it('sorts incomes by monthly amount, highest first', () => {
+    const small = withMonthly({ ...source(), id: 'small', name: 'Small' }, 100_000)
+    const big = withMonthly({ ...source(), id: 'big', name: 'Big' }, 800_000)
+    expect(sortByMonthly([small, big], 2026).map((item) => item.name)).toEqual(['Big', 'Small'])
   })
 })

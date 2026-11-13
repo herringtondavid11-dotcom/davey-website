@@ -17,7 +17,7 @@ export interface LinePoint {
 /**
  * Line chart (or stacked areas with `stacked`): recessive grid, one y-axis, a hover/focus readout. Same look as BarChart.
  */
-export function LineChart({ points, series, format, height = 220, label, stacked = false, fitRange = false, overlay }: {
+export function LineChart({ points, series, format, height = 220, label, stacked = false, fitRange = false, overlay, tickCount = 4 }: {
   points: LinePoint[]
   series: LineSeries[]
   format: (v: number) => string
@@ -28,6 +28,7 @@ export function LineChart({ points, series, format, height = 220, label, stacked
   fitRange?: boolean
   /** A line drawn on top of the areas. Null values leave a gap (a month that hasn't happened). */
   overlay?: { name: string; className: string; values: (number | null)[] }
+  tickCount?: number
 }) {
   const box = useRef<HTMLDivElement>(null)
   const [W, setW] = useState(720)
@@ -46,7 +47,7 @@ export function LineChart({ points, series, format, height = 220, label, stacked
   const values = points.flatMap((p) => series.map((x) => p.values[x.key] ?? 0))
   const overlayMax = overlay?.values.reduce<number>((max, value) => (value == null ? max : Math.max(max, value)), 0) ?? 0
   const fit = fitRange && !stacked && values.length > 0
-  const ticks = fit ? rangeTicks(Math.min(...values), Math.max(...values, overlayMax)) : niceTicks(Math.max(1, ...totals, overlayMax))
+  const ticks = fit ? rangeTicks(Math.min(...values), Math.max(...values, overlayMax), tickCount) : niceTicks(Math.max(1, ...totals, overlayMax), tickCount)
   const top = ticks[ticks.length - 1]
   const bottom = fit ? ticks[0] : 0
   const pad = { l: 56, r: 8, t: 8, b: 24 }

@@ -752,7 +752,7 @@ body.plaid-open .ai-fab { display: none !important; }
 .income-charts { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .income-bars { display: grid; gap: 16px; }
 .donut-card { margin: 0; display: grid; justify-items: center; gap: 8px; min-width: 0; }
-.donut-card figcaption { font-weight: 700; font-size: .9375rem; text-align: center; }
+.donut-card figcaption { font-weight: 700; font-size: .875rem; line-height: 1.25; text-align: center; overflow-wrap: normal; }
 .donut-card svg { width: min(100%, 168px); height: auto; }
 .donut-empty { stroke: var(--border); }
 .pie-total { fill: var(--text); font-size: 16px; font-weight: 800; font-family: var(--font-head); }
@@ -761,6 +761,28 @@ body.plaid-open .ai-fab { display: none !important; }
 .donut-legend { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: 4px; }
 .donut-legend li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: .8125rem; }
 .donut-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.donut-slice-name { fill: var(--muted); font-size: 11px; font-family: var(--font-body); }
+.donut-slice.dim { opacity: .35; }
+.income-sheet { width: min(100%, 560px); }
+.income-lines-table { width: 100%; }
+.income-line-list { display: none; }
+.income-row { cursor: pointer; }
+.income-row:hover { background: var(--surface-2); }
+.income-row:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: -2px; }
+.income-line {
+  display: grid; gap: 2px; width: 100%; text-align: left; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer;
+}
+.income-line strong { font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+.income-line span { color: var(--muted); font-size: .8125rem; }
+.income-flag {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  background: var(--gold); color: var(--navy); font-size: .75rem; font-weight: 700;
+}
+@media (max-width: 699px) {
+  .income-lines-table { display: none; }
+  .income-line-list { display: grid; gap: 8px; }
+}
 .donut-legend i.src-0 { background: var(--cat-1); } .donut-legend i.src-1 { background: var(--cat-2); } .donut-legend i.src-2 { background: var(--cat-3); }
 .donut-legend i.src-3 { background: var(--cat-4); } .donut-legend i.src-4 { background: var(--cat-5); } .donut-legend i.src-5 { background: var(--cat-6); }
 @media (min-width: 1100px) {
