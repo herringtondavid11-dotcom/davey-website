@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
-import { BarChart } from '../components/BarChart'
+import { BarChart, compact } from '../components/BarChart'
 import { Donut, type DonutSlice } from '../components/Donut'
 import { Stat } from '../components/Controls'
 import { LineChart } from '../components/LineChart'
@@ -8,14 +8,18 @@ import { Spinner } from '../components/Spinner'
 import { currentMonth, monthLabel } from '../lib/budget'
 import { fetchTransactionsBetween } from '../lib/data'
 import { money, moneyWhole } from '../lib/format'
+import { useBackToClose } from '../lib/useBackToClose'
 import {
   CADENCES,
   DURATIONS,
   INCOME_CATEGORIES,
   actualIncomeCents,
   amountToCents,
+  applyPerson,
   applyRaise,
   blankSource,
+  cadenceLabel,
+  categorySwatch,
   categoryTotals,
   centsToDollars,
   forecastYear,
@@ -24,8 +28,10 @@ import {
   isShortTerm,
   mixBy,
   monthCents,
+  personChoices,
   personLabel,
   projectIncome,
+  sortByMonthly,
   withAnnual,
   withCadence,
   withDuration,
@@ -42,6 +48,7 @@ import {
   type IncomeScenario,
   type IncomeSource,
   type MixSlice,
+  type PersonChoice,
 } from '../lib/income'
 import {
   IncomeSchemaError,
@@ -65,9 +72,6 @@ const COMPARE = [
   { key: 'forecast', name: 'Forecast', className: 's-spend' },
 ]
 
-type DraftField = 'name' | 'monthly' | 'annual' | 'occurrence' | 'other' | `month:${string}`
-interface Draft { id: string; field: DraftField; text: string }
-
 export function Income() {
   const { session } = useAuth()
   const selfId = session?.user.id ?? ''
@@ -78,23 +82,15 @@ export function Income() {
   const [scenarios, setScenarios] = useState<IncomeScenario[]>([])
   const [people, setPeople] = useState<HouseholdPerson[]>([])
   const [settings, setSettings] = useState<IncomeSettings>(defaultIncomeSettings)
-  const [draft, setDraft] = useState<Draft | null>(null)
+  const [form, setForm] = useState<IncomeSource | null>(null)
+  const [formIsNew, setFormIsNew] = useState(false)
   const [rateText, setRateText] = useState<string | null>(null)
   const [actuals, setActuals] = useState<Record<string, number>>({})
   const [includePlanned, setIncludePlanned] = useState(true)
   const [loading, setLoading] = useState(true)
   const [schemaMissing, setSchemaMissing] = useState(false)
   const [error, setError] = useState('')
-  const [focusId, setFocusId] = useState<string | null>(null)
   const savedIds = useRef(new Set<string>())
-  const writes = useRef(new Map<string, Promise<void>>())
-
-  function enqueue(id: string, job: () => Promise<void>) {
-    const prev = writes.current.get(id) ?? Promise.resolve()
-    const next = prev.then(job, job)
-    writes.current.set(id, next)
-    return next
-  }
 
   useEffect(() => {
     let live = true
@@ -128,7 +124,7 @@ export function Income() {
     return () => { live = false }
   }, [year])
 
-  const shown = useMemo(() => sources.map((source) => previewSource(source, draft, year)), [sources, draft, year])
+  const shown = sources
   const currentSources = useMemo(() => shown.filter((source) => source.status === 'confirmed'), [shown])
   const forecastSources = useMemo(() => projectIncome(shown, scenarios, year, includePlanned), [shown, scenarios, year, includePlanned])
   const currentMonths = useMemo(() => forecastYear(currentSources, year), [currentSources, year])
@@ -143,106 +139,47 @@ export function Income() {
     [settings.filingStatus, forecastSources, year, rate],
   )
   const today = currentMonth()
-  const palette = (rows: MixSlice[]): DonutSlice[] => rows.map((row, index) => ({ ...row, className: `donut-slice ${COLORS[index % COLORS.length]}` }))
+  const palette = (rows: MixSlice[], byType = false): DonutSlice[] => rows.map((row, index) => ({
+    ...row,
+    className: `donut-slice ${byType ? categorySwatch(row.id as IncomeCategory) : COLORS[index % COLORS.length]}`,
+  }))
 
-  async function persist(source: IncomeSource) {
+  function openNew(status: 'confirmed' | 'planned') {
+    const source = { ...blankSource(selfId || null), status, name: '', personUserId: selfId || null }
+    setForm(source)
+    setFormIsNew(true)
+  }
+
+  async function saveForm(source: IncomeSource) {
     if (!householdId) return
-    await enqueue(source.id, async () => {
-      try {
-        if (savedIds.current.has(source.id)) await updateSource(source)
-        else {
-          await insertSource(householdId, source)
-          savedIds.current.add(source.id)
-        }
-        setError('')
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't save your income. Try again in a moment.")
-      }
-    })
-  }
-
-  function replace(next: IncomeSource) {
-    setSources((list) => list.map((source) => (source.id === next.id ? next : source)))
-  }
-
-  function commit(source: IncomeSource, field: DraftField, text: string) {
-    setDraft(null)
-    if (field === 'name') {
-      const name = text.trim().slice(0, 120)
-      if (!name || name === source.name) return
-      const next = { ...source, name }
-      replace(next)
-      void persist(next)
-      return
-    }
-    if (field === 'other') {
-      const next = { ...source, personOther: text.trim().slice(0, 80) || null, personUserId: null }
-      replace(next)
-      void persist(next)
-      return
-    }
-    const cents = amountToCents(text)
-    if (cents === null) return
-    const next = field === 'monthly' ? withMonthly(source, cents)
-      : field === 'annual' ? withAnnual(source, year, cents)
-        : field === 'occurrence' ? withOccurrence(source, cents, year)
-          : withOverride(source, field.slice(6), cents)
-    if (samePlan(source, next)) return
-    replace(next)
-    void persist(next)
-  }
-
-  function focusField(source: IncomeSource, field: DraftField) {
-    if (draft && (draft.id !== source.id || draft.field !== field)) {
-      const previous = sources.find((item) => item.id === draft.id)
-      if (previous) commit(previous, draft.field, draft.text)
-    }
-    const text = field === 'name' ? source.name
-      : field === 'other' ? source.personOther ?? ''
-        : field === 'monthly' ? formatAmount(source.monthlyCents)
-          : field === 'annual' ? formatAmount(yearTotalCents(source, year))
-            : field === 'occurrence' ? formatAmount(source.occurrenceCents || source.monthlyCents)
-              : formatAmount(monthCents(source, field.slice(6)))
-    setDraft({ id: source.id, field, text })
-  }
-
-  async function add(status: 'confirmed' | 'planned') {
-    if (!householdId) return
-    const source = { ...blankSource(selfId || null), status, personUserId: selfId || null }
-    setSources((list) => [...list, source])
-    setFocusId(source.id)
-    await enqueue(source.id, async () => {
-      try {
+    const isNew = formIsNew && !savedIds.current.has(source.id)
+    if (isNew) setSources((list) => [...list, source])
+    else setSources((list) => list.map((item) => (item.id === source.id ? source : item)))
+    setForm(null)
+    try {
+      if (isNew) {
         await insertSource(householdId, source)
         savedIds.current.add(source.id)
-        setError('')
-      } catch (e) {
-        setSources((list) => list.filter((item) => item.id !== source.id))
-        setError(e instanceof Error ? e.message : "Couldn't save your income. Try again in a moment.")
-      }
-    })
-  }
-
-  async function remove(source: IncomeSource) {
-    setSources((list) => list.filter((item) => item.id !== source.id))
-    if (draft?.id === source.id) setDraft(null)
-    if (!savedIds.current.has(source.id) && !writes.current.has(source.id)) return
-    try {
-      await enqueue(source.id, async () => {
-        if (!savedIds.current.has(source.id)) return
-        await deleteSource(source.id)
-        savedIds.current.delete(source.id)
-      })
+      } else await updateSource(source)
       setError('')
     } catch (e) {
-      setSources((list) => [...list, source].sort((a, b) => a.createdAt.localeCompare(b.createdAt)))
+      if (isNew) setSources((list) => list.filter((item) => item.id !== source.id))
       setError(e instanceof Error ? e.message : "Couldn't save your income. Try again in a moment.")
     }
   }
 
-  function change(next: IncomeSource) {
-    replace(next)
-    void persist(next)
+  async function remove(source: IncomeSource) {
+    setSources((list) => list.filter((item) => item.id !== source.id))
+    setForm(null)
+    if (!savedIds.current.has(source.id)) return
+    try {
+      await deleteSource(source.id)
+      savedIds.current.delete(source.id)
+      setError('')
+    } catch (e) {
+      setSources((list) => [...list, source])
+      setError(e instanceof Error ? e.message : "Couldn't save your income. Try again in a moment.")
+    }
   }
 
   async function changeSettings(next: IncomeSettings) {
@@ -320,12 +257,21 @@ export function Income() {
       const source = sources.find((item) => item.id === scenario.sourceId)
       if (!source) return
       const raised = applyRaise(source, scenario, year)
-      change(raised)
+      setSources((list) => list.map((item) => (item.id === raised.id ? raised : item)))
+      try { await updateSource(raised) } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't save your income. Try again in a moment.")
+      }
     }
     if (scenario.kind === 'hypothetical' && scenario.hypothetical) {
       const source = { ...scenario.hypothetical, id: crypto.randomUUID(), status: 'confirmed' as const, name: scenario.hypothetical.name || scenario.name }
       setSources((list) => [...list, source])
-      await persist(source)
+      try {
+        await insertSource(householdId, source)
+        savedIds.current.add(source.id)
+      } catch (e) {
+        setSources((list) => list.filter((item) => item.id !== source.id))
+        setError(e instanceof Error ? e.message : "Couldn't save your income. Try again in a moment.")
+      }
     }
     await removeScenario(scenario)
   }
@@ -333,7 +279,6 @@ export function Income() {
   if (loading) return <Spinner label="Loading income" />
 
   const confirmed = shown.filter((source) => source.status === 'confirmed')
-  const planned = shown.filter((source) => source.status === 'planned')
 
   return (
     <div className="page">
@@ -347,8 +292,8 @@ export function Income() {
           </div>
           {householdId && !schemaMissing && (
             <>
-              <button type="button" className="btn btn-primary" onClick={() => void add('confirmed')}>Add income</button>
-              <button type="button" className="btn btn-secondary" onClick={() => void add('planned')}>Add planned</button>
+              <button type="button" className="btn btn-primary" onClick={() => openNew('confirmed')}>Add income</button>
+              <button type="button" className="btn btn-secondary" onClick={() => openNew('planned')}>Add planned</button>
             </>
           )}
         </div>
@@ -373,10 +318,10 @@ export function Income() {
           <section className="card card-pad" aria-labelledby="mix-title">
             <h2 id="mix-title">Mix</h2>
             <div className="income-charts">
-              <Donut title="Income by type" slices={palette(mixBy(forecastSources, year, (source) => ({ id: source.category, name: labelOf(source.category) })))} />
-              <Donut title="Income by person" slices={palette(mixBy(forecastSources, year, (source) => ({ id: personLabel(source, people), name: personLabel(source, people) })))} />
-              <Donut title="Income by source" slices={palette(mixBy(forecastSources, year, (source) => ({ id: source.id, name: source.name || 'Income' })))} />
-              <Donut title="Recurring and short-term" slices={palette(mixBy(forecastSources, year, (source) => isShortTerm(source) ? { id: 'short', name: 'Short-term' } : { id: 'recurring', name: 'Recurring' }))} />
+              <Donut title="By type" slices={palette(mixBy(forecastSources, year, (source) => ({ id: source.category, name: labelOf(source.category) })), true)} />
+              <Donut title="By person" slices={palette(mixBy(forecastSources, year, (source) => ({ id: personLabel(source, people), name: personLabel(source, people) })))} />
+              <Donut title="By source" slices={palette(mixBy(forecastSources, year, (source) => ({ id: source.id, name: source.name || 'Income' })))} />
+              <Donut title="Ongoing vs short" slices={palette(mixBy(forecastSources, year, (source) => isShortTerm(source) ? { id: 'short', name: 'Short-term' } : { id: 'recurring', name: 'Ongoing' }))} />
             </div>
           </section>
 
@@ -387,10 +332,11 @@ export function Income() {
             </div>
             <div className="income-bars">
               <BarChart
-                label="Current and forecast by month"
-                height={260}
+                label="Each month"
+                height={240}
+                tickCount={3}
                 series={COMPARE}
-                format={moneyWhole}
+                format={compact}
                 groups={months.map((month, index) => ({
                   label: monthLabel(month.key, 'short'),
                   title: monthLabel(month.key),
@@ -398,10 +344,11 @@ export function Income() {
                 }))}
               />
               <BarChart
-                label="Current and forecast for the year"
-                height={260}
+                label="Full year"
+                height={240}
+                tickCount={3}
                 series={COMPARE}
-                format={moneyWhole}
+                format={compact}
                 groups={[{ label: String(year), title: String(year), values: { current: centsToDollars(currentYearTotal), forecast: centsToDollars(yearTotal) } }]}
               />
             </div>
@@ -413,9 +360,10 @@ export function Income() {
                 <h2 id="income-chart-title">Forecast</h2>
                 <LineChart
                   stacked
-                  height={280}
-                  label={`Forecast income by month, ${year}`}
-                  format={moneyWhole}
+                  height={240}
+                  tickCount={3}
+                  label={`Forecast, ${year}`}
+                  format={compact}
                   series={forecastSources.map((source, index) => ({ key: source.id, name: source.name || 'Income', className: COLORS[index % COLORS.length] }))}
                   points={months.map((month) => ({
                     label: monthLabel(month.key, 'short'),
@@ -429,6 +377,16 @@ export function Income() {
                   }}
                 />
               </section>
+            </>
+          )}
+
+          <section className="card" aria-labelledby="sources-title">
+            <div className="card-head"><h2 id="sources-title">All income</h2></div>
+            {shown.length === 0 && <div className="empty"><p>No income sources yet.</p></div>}
+            {shown.length > 0 && <IncomeLines year={year} people={people} sources={sortByMonthly(shown, year)} onOpen={(source) => { setForm(source); setFormIsNew(false) }} />}
+          </section>
+
+          {forecastSources.length > 0 && (
               <section className="card" aria-labelledby="income-table-title">
                 <div className="card-head"><h2 id="income-table-title">By month</h2></div>
                 <div className="table-wrap">
@@ -462,56 +420,21 @@ export function Income() {
                   </table>
                 </div>
               </section>
-            </>
           )}
 
-          <section className="income-block" aria-labelledby="sources-title">
-            <h2 id="sources-title" className="income-section-title">Income sources</h2>
-            {confirmed.length === 0 && <section className="card"><div className="empty"><p>No income sources yet.</p></div></section>}
-            <div className="income-sources">
-              {confirmed.map((view) => (
-                <SourceCard
-                  key={view.id}
-                  source={sources.find((item) => item.id === view.id) ?? view}
-                  view={view}
-                  year={year}
-                  people={people}
-                  selfId={selfId}
-                  draft={draft?.id === view.id ? draft : null}
-                  autoFocus={view.id === focusId}
-                  onFocus={(field) => focusField(sources.find((item) => item.id === view.id) ?? view, field)}
-                  onText={(field, text) => setDraft({ id: view.id, field, text })}
-                  onCommit={(field, text) => commit(sources.find((item) => item.id === view.id) ?? view, field, text)}
-                  onChange={(next) => change(next)}
-                  onRemove={() => void remove(sources.find((item) => item.id === view.id) ?? view)}
-                />
-              ))}
-            </div>
-          </section>
-
-          <section className="income-block" aria-labelledby="planned-title">
-            <h2 id="planned-title" className="income-section-title">Planned</h2>
-            <div className="income-sources">
-              {planned.map((view) => (
-                <SourceCard
-                  key={view.id}
-                  source={sources.find((item) => item.id === view.id) ?? view}
-                  view={view}
-                  year={year}
-                  people={people}
-                  selfId={selfId}
-                  draft={draft?.id === view.id ? draft : null}
-                  autoFocus={view.id === focusId}
-                  onFocus={(field) => focusField(sources.find((item) => item.id === view.id) ?? view, field)}
-                  onText={(field, text) => setDraft({ id: view.id, field, text })}
-                  onCommit={(field, text) => commit(sources.find((item) => item.id === view.id) ?? view, field, text)}
-                  onChange={(next) => change(next)}
-                  onRemove={() => void remove(sources.find((item) => item.id === view.id) ?? view)}
-                  onConfirm={() => change({ ...(sources.find((item) => item.id === view.id) ?? view), status: 'confirmed' })}
-                />
-              ))}
-            </div>
-          </section>
+          {form && (
+            <IncomeForm
+              key={form.id}
+              year={year}
+              initial={form}
+              isNew={formIsNew}
+              people={people}
+              selfId={selfId}
+              onCancel={() => setForm(null)}
+              onSave={(source) => void saveForm(source)}
+              onDelete={() => void remove(form)}
+            />
+          )}
 
           <ScenarioPanel
             year={year}
@@ -537,141 +460,200 @@ export function Income() {
   )
 }
 
-function SourceCard({ source, view, year, people, selfId, draft, autoFocus, onFocus, onText, onCommit, onChange, onRemove, onConfirm }: {
-  source: IncomeSource
-  view: IncomeSource
+function IncomeLines({ year, people, sources, onOpen }: {
   year: number
   people: HouseholdPerson[]
-  selfId: string
-  draft: Draft | null
-  autoFocus: boolean
-  onFocus: (field: DraftField) => void
-  onText: (field: DraftField, text: string) => void
-  onCommit: (field: DraftField, text: string) => void
-  onChange: (next: IncomeSource) => void
-  onRemove: () => void
-  onConfirm?: () => void
+  sources: IncomeSource[]
+  onOpen: (source: IncomeSource) => void
 }) {
-  const name = source.name || 'Income'
-  const personValue = source.personOther != null ? 'other' : source.personUserId || selfId
+  const cells = (source: IncomeSource) => ({
+    name: source.name || 'Income',
+    type: labelOf(source.category),
+    person: personLabel(source, people),
+    frequency: cadenceLabel(source.cadence),
+    each: money(centsToDollars(source.occurrenceCents || source.monthlyCents)),
+    monthly: money(centsToDollars(Math.round(yearTotalCents(source, year) / 12))),
+    yearly: money(centsToDollars(yearTotalCents(source, year))),
+    term: source.status === 'planned' ? 'Planned' : (DURATIONS.find((item) => item.id === source.duration)?.label ?? source.duration),
+    planned: source.status === 'planned',
+  })
   return (
-    <section className="card income-card" aria-label={`Income source ${name}`}>
-      <div className="income-card-head">
-        <h3>{name}{source.status === 'planned' ? ' · Planned' : ''}</h3>
-        <span className="income-card-actions">
-          {onConfirm && <button type="button" className="btn btn-secondary btn-sm" onClick={onConfirm}>Move to confirmed</button>}
-          <button type="button" className="btn btn-danger btn-sm" aria-label={`Remove ${name}`} onClick={onRemove}>Remove</button>
-        </span>
+    <>
+      <div className="table-wrap income-lines-table">
+        <table className="data-table" aria-label="All income">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Type</th>
+              <th scope="col">Person</th>
+              <th scope="col">Frequency</th>
+              <th scope="col">Each payment</th>
+              <th scope="col">Monthly</th>
+              <th scope="col">Yearly</th>
+              <th scope="col">Term</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sources.map((source) => {
+              const row = cells(source)
+              return (
+                <tr key={source.id} className="income-row" tabIndex={0} onClick={() => onOpen(source)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(source) } }}>
+                  <th scope="row">{row.name}</th>
+                  <td>{row.type}</td>
+                  <td>{row.person}</td>
+                  <td>{row.frequency}</td>
+                  <td className="num">{row.each}</td>
+                  <td className="num">{row.monthly}</td>
+                  <td className="num">{row.yearly}</td>
+                  <td>{row.planned ? <span className="income-flag">Planned</span> : row.term}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
-      <div className="form-grid">
-        <label className="field">
-          <span>Name</span>
-          <input className="input" maxLength={120} autoFocus={autoFocus} value={draft?.field === 'name' ? draft.text : source.name} onFocus={() => onFocus('name')} onChange={(e) => onText('name', e.target.value)} onBlur={() => draft?.field === 'name' && onCommit('name', draft.text)} />
-        </label>
+      <div className="income-line-list">
+        {sources.map((source) => {
+          const row = cells(source)
+          return (
+            <button key={source.id} type="button" className="income-line" onClick={() => onOpen(source)}>
+              <strong>{row.name}{row.planned && <span className="income-flag">Planned</span>}</strong>
+              <span>{row.type} · {row.person}{row.planned ? '' : ` · ${row.term}`}</span>
+              <span>{row.frequency} · {row.each} each</span>
+              <b className="num">{row.monthly} / mo · {row.yearly} / yr</b>
+            </button>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
+function IncomeForm({ year, initial, isNew, people, selfId, onCancel, onSave, onDelete }: {
+  year: number
+  initial: IncomeSource
+  isNew: boolean
+  people: HouseholdPerson[]
+  selfId: string
+  onCancel: () => void
+  onSave: (source: IncomeSource) => void
+  onDelete: () => void
+}) {
+  useBackToClose(onCancel)
+  const choices = personChoices(people, selfId)
+  const [source, setSource] = useState(initial)
+  const [name, setName] = useState(initial.name)
+  const [each, setEach] = useState(formatAmount(initial.occurrenceCents || initial.monthlyCents))
+  const [monthly, setMonthly] = useState(formatAmount(initial.monthlyCents))
+  const [yearly, setYearly] = useState(formatAmount(yearTotalCents(initial, year)))
+  const [personValue, setPersonValue] = useState(personValueOf(initial, choices))
+  const [otherName, setOtherName] = useState(initial.personOther ?? '')
+  const [problem, setProblem] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  function sync(next: IncomeSource, editing?: 'each' | 'monthly' | 'yearly') {
+    setSource(next)
+    if (editing !== 'each') setEach(formatAmount(next.occurrenceCents || next.monthlyCents))
+    if (editing !== 'monthly') setMonthly(formatAmount(next.monthlyCents))
+    if (editing !== 'yearly') setYearly(formatAmount(yearTotalCents(next, year)))
+  }
+
+  function save() {
+    const trimmed = name.trim()
+    if (!trimmed) { setProblem('Enter a name'); return }
+    if (personValue === 'other' && !otherName.trim()) { setProblem('Enter a name'); return }
+    const choice = choices.find((item) => item.value === personValue) ?? choices[0]
+    onSave(applyPerson({ ...source, name: trimmed.slice(0, 120) }, choice, otherName))
+  }
+
+  return (
+    <div className="overlay" onMouseDown={onCancel}>
+      <div className="sheet income-sheet" role="dialog" aria-modal="true" aria-labelledby="income-form-title" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="sheet-head">
+          <h2 id="income-form-title">{isNew ? 'Add income' : 'Edit income'}</h2>
+          <button type="button" className="btn btn-ghost icon-btn" aria-label="Close" onClick={onCancel}>×</button>
+        </div>
+        {problem && <p className="error" role="alert">{problem}</p>}
+        <label className="field"><span>Name</span><input className="input" autoFocus value={name} maxLength={120} onChange={(e) => setName(e.target.value)} /></label>
         <label className="field">
           <span>Category</span>
-          <select className="input" value={source.category} onChange={(e) => onChange({ ...source, category: e.target.value as IncomeCategory })}>
+          <select className="input" value={source.category} onChange={(e) => setSource({ ...source, category: e.target.value as IncomeCategory })}>
             {INCOME_CATEGORIES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
         <label className="field">
           <span>Person</span>
-          <select className="input" value={personValue} onChange={(e) => onChange(e.target.value === 'other' ? { ...source, personUserId: null, personOther: source.personOther ?? '' } : { ...source, personUserId: e.target.value, personOther: null })}>
-            {people.map((person) => <option key={person.userId} value={person.userId}>{person.name}</option>)}
-            <option value="other">Other</option>
+          <select className="input" value={personValue} onChange={(e) => setPersonValue(e.target.value)}>
+            {choices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
           </select>
         </label>
         {personValue === 'other' && (
-          <label className="field">
-            <span>Other name</span>
-            <input className="input" maxLength={80} value={draft?.field === 'other' ? draft.text : source.personOther ?? ''} onFocus={() => onFocus('other')} onChange={(e) => onText('other', e.target.value)} onBlur={() => draft?.field === 'other' && onCommit('other', draft.text)} />
-          </label>
+          <label className="field"><span>Other name</span><input className="input" maxLength={80} value={otherName} onChange={(e) => setOtherName(e.target.value)} /></label>
         )}
         <label className="field">
           <span>Pay frequency</span>
-          <select className="input" value={source.cadence} onChange={(e) => onChange(withCadence(source, e.target.value as Cadence, year))}>
+          <select className="input" value={source.cadence} onChange={(e) => sync(withCadence(source, e.target.value as Cadence, year))}>
             {CADENCES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
         {source.cadence === 'custom' && (
-          <label className="field">
-            <span>Times each month</span>
-            <input className="input" type="number" min={1} max={31} value={source.timesPerMonth} onChange={(e) => onChange(withTimes(source, Number(e.target.value), year))} />
-          </label>
+          <label className="field"><span>Times each month</span><input className="input" type="number" min={1} max={31} value={source.timesPerMonth} onChange={(e) => sync(withTimes(source, Number(e.target.value), year))} /></label>
         )}
         <label className="field">
           <span>Term</span>
-          <select className="input" value={source.duration} onChange={(e) => onChange(withDuration(source, e.target.value as Duration, year))}>
+          <select className="input" value={source.duration} onChange={(e) => sync(withDuration(source, e.target.value as Duration, year))}>
             {DURATIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
+        <label className="field">
+          <span>Status</span>
+          <select className="input" value={source.status} onChange={(e) => setSource({ ...source, status: e.target.value as 'confirmed' | 'planned' })}>
+            <option value="confirmed">Confirmed</option>
+            <option value="planned">Planned</option>
+          </select>
+        </label>
         {source.duration === 'repeat' && (
-          <label className="field">
-            <span>Payments</span>
-            <input className="input" type="number" min={1} max={366} value={source.occurrenceCount} onChange={(e) => onChange(withDuration({ ...source, occurrenceCount: Math.max(1, Number(e.target.value) || 1) }, 'repeat', year))} />
-          </label>
+          <label className="field"><span>Payments</span><input className="input" type="number" min={1} max={366} value={source.occurrenceCount} onChange={(e) => sync(withDuration({ ...source, occurrenceCount: Math.max(1, Number(e.target.value) || 1) }, 'repeat', year))} /></label>
         )}
-      </div>
-      <div className="form-grid">
-        <AmountField label="Amount each time" cents={view.occurrenceCents || view.monthlyCents} active={draft?.field === 'occurrence'} text={draft?.text ?? ''} onFocus={() => onFocus('occurrence')} onText={(text) => onText('occurrence', text)} onBlur={() => draft?.field === 'occurrence' && onCommit('occurrence', draft.text)} />
-        <AmountField label="Per month" cents={view.monthlyCents} active={draft?.field === 'monthly'} text={draft?.text ?? ''} onFocus={() => onFocus('monthly')} onText={(text) => onText('monthly', text)} onBlur={() => draft?.field === 'monthly' && onCommit('monthly', draft.text)} />
-        <AmountField label="Per year" cents={yearTotalCents(view, year)} active={draft?.field === 'annual'} text={draft?.text ?? ''} onFocus={() => onFocus('annual')} onText={(text) => onText('annual', text)} onBlur={() => draft?.field === 'annual' && onCommit('annual', draft.text)} />
-      </div>
-      <div className="field-row">
-        <label className="field">
-          <span>Starts</span>
-          <input className="input" type="month" value={source.startsOn ?? ''} onChange={(e) => onChange(withRange(source, year, monthOrNull(e.target.value), source.endsOn))} />
-        </label>
-        <label className="field">
-          <span>Ends</span>
-          <input className="input" type="month" value={source.endsOn ?? ''} onChange={(e) => onChange(withRange(source, year, source.startsOn, monthOrNull(e.target.value)))} />
-        </label>
-      </div>
-      <details className="month-adjust">
-        <summary>Adjust a single month</summary>
-        <div className="month-grid">
-          {MONTHS.map((label, index) => {
-            const key = `${year}-${String(index + 1).padStart(2, '0')}`
-            const field = `month:${key}` as const
-            return (
-              <AmountField
-                key={key}
-                label={label}
-                amountLabel={`${MONTH_NAMES[index]} ${year}`}
-                cents={monthCents(view, key)}
-                active={draft?.field === field}
-                text={draft?.text ?? ''}
-                onFocus={() => onFocus(field)}
-                onText={(text) => onText(field, text)}
-                onBlur={() => draft?.field === field && onCommit(field, draft.text)}
-              />
-            )
-          })}
+        <label className="field num-field"><span>Amount each time</span><span className="affix"><i aria-hidden>$</i><input className="input" inputMode="decimal" value={each} onChange={(e) => { setEach(e.target.value); const cents = amountToCents(e.target.value); if (cents !== null) sync(withOccurrence(source, cents, year), 'each') }} /></span></label>
+        <label className="field num-field"><span>Per month</span><span className="affix"><i aria-hidden>$</i><input className="input" inputMode="decimal" value={monthly} onChange={(e) => { setMonthly(e.target.value); const cents = amountToCents(e.target.value); if (cents !== null) sync(withMonthly(source, cents), 'monthly') }} /></span></label>
+        <label className="field num-field"><span>Per year</span><span className="affix"><i aria-hidden>$</i><input className="input" inputMode="decimal" value={yearly} onChange={(e) => { setYearly(e.target.value); const cents = amountToCents(e.target.value); if (cents !== null) sync(withAnnual(source, year, cents), 'yearly') }} /></span></label>
+        <div className="field-row">
+          <label className="field"><span>Starts</span><input className="input" type="month" value={source.startsOn ?? ''} onChange={(e) => sync(withRange(source, year, monthOrNull(e.target.value), source.endsOn))} /></label>
+          <label className="field"><span>Ends</span><input className="input" type="month" value={source.endsOn ?? ''} onChange={(e) => sync(withRange(source, year, source.startsOn, monthOrNull(e.target.value)))} /></label>
         </div>
-      </details>
-    </section>
+        <details className="month-adjust">
+          <summary>Adjust a single month</summary>
+          <div className="month-grid">
+            {MONTHS.map((label, index) => {
+              const key = `${year}-${String(index + 1).padStart(2, '0')}`
+              return (
+                <label key={key} className="field num-field month-field">
+                  <span>{label}<span className="visually-hidden"> {MONTH_NAMES[index]} {year}</span></span>
+                  <span className="affix"><i aria-hidden>$</i><input className="input" inputMode="decimal" value={formatAmount(monthCents(source, key))} onChange={(e) => { const cents = amountToCents(e.target.value); if (cents !== null) sync(withOverride(source, key, cents)) }} /></span>
+                </label>
+              )
+            })}
+          </div>
+        </details>
+        <div className="sheet-actions">
+          <button type="button" className="btn btn-primary" onClick={save}>Save</button>
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+          {!isNew && !confirmDelete && <button type="button" className="btn btn-danger" onClick={() => setConfirmDelete(true)}>Delete</button>}
+          {confirmDelete && <button type="button" className="btn btn-danger" onClick={onDelete}>Confirm delete</button>}
+          {confirmDelete && <button type="button" className="btn btn-secondary" onClick={() => setConfirmDelete(false)}>Keep</button>}
+        </div>
+      </div>
+    </div>
   )
 }
 
-function AmountField({ label, amountLabel, cents, active, text, onFocus, onText, onBlur }: {
-  label: string
-  amountLabel?: string
-  cents: number
-  active: boolean
-  text: string
-  onFocus: () => void
-  onText: (text: string) => void
-  onBlur: () => void
-}) {
-  return (
-    <label className="field num-field month-field">
-      <span>{label}{amountLabel && <span className="visually-hidden"> {amountLabel}</span>}</span>
-      <span className="affix">
-        <i aria-hidden>$</i>
-        <input className="input" inputMode="decimal" autoComplete="off" value={active ? text : formatAmount(cents)} onFocus={onFocus} onChange={(e) => onText(e.target.value)} onBlur={onBlur} />
-      </span>
-    </label>
-  )
+function personValueOf(source: IncomeSource, choices: PersonChoice[]): string {
+  if (source.personUserId && choices.some((choice) => choice.userId === source.personUserId && choice.value !== 'other')) return source.personUserId
+  const named = choices.find((choice) => choice.other && choice.other === source.personOther && choice.value !== 'other')
+  if (named) return named.value
+  if (source.personOther != null && source.personOther !== '') return 'other'
+  return choices[0]?.value ?? 'other'
 }
 
 function ScenarioPanel({ year, sources, scenarios, onAddRaise, onAddHypothetical, onRemove, onApply }: {
@@ -799,26 +781,6 @@ function TaxCard({ estimate, settings, rateText, onRateText, onFiling, onRate }:
       </div>
     </section>
   )
-}
-
-function previewSource(source: IncomeSource, draft: Draft | null, year: number): IncomeSource {
-  if (!draft || draft.id !== source.id) return source
-  if (draft.field === 'name') return { ...source, name: draft.text.trim() || source.name }
-  if (draft.field === 'other') return { ...source, personOther: draft.text }
-  const cents = amountToCents(draft.text)
-  if (cents === null) return source
-  if (draft.field === 'monthly') return withMonthly(source, cents)
-  if (draft.field === 'annual') return withAnnual(source, year, cents)
-  if (draft.field === 'occurrence') return withOccurrence(source, cents, year)
-  if (draft.field.startsWith('month:')) return withOverride(source, draft.field.slice(6), cents)
-  return source
-}
-
-function samePlan(a: IncomeSource, b: IncomeSource): boolean {
-  return a.monthlyCents === b.monthlyCents && a.occurrenceCents === b.occurrenceCents && a.amountBasis === b.amountBasis
-    && a.startsOn === b.startsOn && a.endsOn === b.endsOn && a.cadence === b.cadence && a.duration === b.duration
-    && a.category === b.category && a.name === b.name && a.personUserId === b.personUserId && a.personOther === b.personOther
-    && JSON.stringify(a.overrides) === JSON.stringify(b.overrides)
 }
 
 function monthOrNull(value: string): string | null {

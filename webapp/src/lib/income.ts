@@ -350,6 +350,52 @@ export function personLabel(source: IncomeSource, people: HouseholdPerson[]): st
   return found?.name || 'Household'
 }
 
+export interface PersonChoice {
+  value: string
+  label: string
+  userId: string | null
+  /** Set when the choice is a typed or fallback name rather than a member id. */
+  other: string | null
+}
+
+/** Signed-in member first, then the other member, then Other. Missing names fall back to David and Allie. */
+export function personChoices(people: HouseholdPerson[], selfId: string): PersonChoice[] {
+  const self = people.find((person) => person.userId === selfId) ?? null
+  const other = people.find((person) => person.userId !== self?.userId) ?? null
+  const first: PersonChoice = {
+    value: self?.userId || 'david',
+    label: self?.name?.trim() || 'David',
+    userId: self?.userId || selfId || null,
+    other: null,
+  }
+  const second: PersonChoice = other
+    ? { value: other.userId, label: other.name?.trim() || 'Allie', userId: other.userId, other: null }
+    : { value: 'allie', label: 'Allie', userId: null, other: 'Allie' }
+  return [first, second, { value: 'other', label: 'Other', userId: null, other: '' }]
+}
+
+export function applyPerson(source: IncomeSource, choice: PersonChoice, customName = ''): IncomeSource {
+  if (choice.value === 'other') return { ...source, personUserId: null, personOther: customName.trim().slice(0, 80) || '' }
+  if (choice.other) return { ...source, personUserId: null, personOther: choice.other }
+  return { ...source, personUserId: choice.userId, personOther: null }
+}
+
+/** Average month for the year, used to sort the list highest first. */
+export function sortByMonthly(sources: IncomeSource[], year: number): IncomeSource[] {
+  const monthly = (source: IncomeSource) => Math.round(yearTotalCents(source, year) / 12)
+  return [...sources].sort((a, b) => monthly(b) - monthly(a) || a.name.localeCompare(b.name))
+}
+
+export function cadenceLabel(cadence: Cadence): string {
+  const label = CADENCES.find((item) => item.id === cadence)?.label ?? cadence
+  return label.replace(/\s+\([^)]*\)$/, '')
+}
+
+export function categorySwatch(category: IncomeCategory): string {
+  const index = Math.max(0, INCOME_CATEGORIES.findIndex((item) => item.id === category))
+  return `src-${index % 6}`
+}
+
 /** Confirmed rows, plus planned rows and enabled what-ifs when asked. Confirmed rows are copied, not edited. */
 export function projectIncome(sources: IncomeSource[], scenarios: IncomeScenario[], year: number, includePlanned: boolean): IncomeSource[] {
   const base = sources.filter((source) => source.status === 'confirmed' || (includePlanned && source.status === 'planned'))

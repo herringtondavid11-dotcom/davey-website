@@ -17,12 +17,14 @@ export interface Group {
  * Grouped bar chart: thin bars with rounded tops on a shared baseline, recessive grid, one y-axis, hover tooltip
  * per group, legend above. Values are non-negative magnitudes.
  */
-export function BarChart({ groups, series, format, height = 240, label }: {
+export function BarChart({ groups, series, format, height = 240, label, tickCount = 4 }: {
   groups: Group[]
   series: Series[]
   format: (v: number) => string
   height?: number
   label: string
+  /** Fewer ticks means fewer gridlines. */
+  tickCount?: number
 }) {
   const id = useId()
   const [hover, setHover] = useState<number | null>(null)
@@ -39,7 +41,7 @@ export function BarChart({ groups, series, format, height = 240, label }: {
     return () => ro.disconnect()
   }, [])
   const max = Math.max(1, ...groups.flatMap((g) => series.map((s) => g.values[s.key] ?? 0)))
-  const ticks = niceTicks(max)
+  const ticks = niceTicks(max, tickCount)
   const top = ticks[ticks.length - 1]
   const H = height
   const pad = { l: 48, r: 4, t: 8, b: 26 }
